@@ -4,9 +4,20 @@ import { useState, FormEvent } from "react";
 import Signature from "../components/Signature";   // ← adjust path if needed
 
 export default function CancellationNotice() {
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const initialFormData = {
+    name: "",
+    address: "",
+    postcode: "",
+    email: "",
+    cancellation_date: "",
+    // You can add contract_reference / agreement_date / vehicle_reg if needed later
+  };
+
+  const [formData, setFormData] = useState<Record<string, string>>(initialFormData);
   const [signature, setSignature] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -19,25 +30,44 @@ export default function CancellationNotice() {
     setSignature(dataUrl);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!signature) {
-      alert("Please provide your signature before submitting.");
+      setError("Please provide your signature before submitting.");
       return;
     }
+
+    setLoading(true);
+    setError(null);
 
     const fullData = {
       ...formData,
       cancellation_signature: signature,
-      form_type: "Cancellation Notice",
-      submitted_at: new Date().toISOString(),
+     
     };
 
-    console.log("Cancellation Notice JSON:", JSON.stringify(fullData, null, 2));
-    setSubmitted(true);
-  };
+    try {
+      const response = await fetch("/api/submit-cancellation-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fullData),
+      });
 
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Submission failed");
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error("Submission error:", err);
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
       {/* Header */}
