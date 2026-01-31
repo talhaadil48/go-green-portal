@@ -516,26 +516,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
             </section>
 
             {/* Storage Location */}
-            <div className="bg-green-50 p-6 rounded-2xl border border-green-200 text-center">
-              <h3 className="text-lg font-semibold text-green-800 mb-3">
-                Storage Location
-              </h3>
-              <p className="text-gray-700">
-                LITTLE BURTON EAST<br />
-                Burton-on-Trent, Staffordshire<br />
-                DE14 1PS
-              </p>
-              <p className="mt-3 text-gray-600">
-                Website:{" "}
-                <a
-                  href="https://www.gogreenhire.co.uk"
-                  className="text-green-700 underline hover:text-green-900"
-                >
-                  www.gogreenhire.co.uk
-                </a>
-              </p>
-            </div>
-
+          
             {/* Submit Button */}
             <div className="text-center pt-8">
               <button

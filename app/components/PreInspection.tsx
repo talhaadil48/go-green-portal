@@ -475,10 +475,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
           </form>
 
           {/* Footer */}
-          <div className="text-center text-gray-600 text-sm mt-12 pt-8 border-t border-gray-200">
-            Email: <strong className="text-green-700">info@gogreenhire.co.uk</strong> •
-            Website: <strong className="text-green-700">www.gogreenhire.co.uk</strong>
-          </div>
+          
         </div>
       </div>
     </div>

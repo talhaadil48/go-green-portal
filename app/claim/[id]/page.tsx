@@ -89,26 +89,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
       {/* Header */}
-      <header className="bg-white/95 backdrop-blur-md shadow-md border-b border-green-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">GG</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-green-800">Go Green Car Hire</h1>
-                <p className="text-sm text-gray-500">Customer Forms Portal</p>
-              </div>
-            </div>
-
-            <div className="text-sm text-gray-600 font-medium">
-              Hire Agreement
-            </div>
-          </div>
-        </div>
-      </header>
-
+     
       {/* Customer Info Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">

@@ -273,10 +273,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
 
                         </div>
 
-                        {/* Contact info reminder */}
-                        <div className="text-center text-gray-600 text-sm">
-                            Email: <strong>info@gogreenhire.co.uk</strong>
-                        </div>
+                     
 
                         {/* Submit button */}
                         <div className="text-center pt-8">
