@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
             folder: "cancellation-notices",
             public_id: `cancellation-signature-${Date.now()}`,
             resource_type: "image",
-          }
+          },
         );
         fullData.cancellation_signature = result.secure_url;
       } catch (uploadErr) {
@@ -30,18 +30,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log("Submitted Cancellation Notice JSON:");
-    console.log(JSON.stringify(fullData, null, 2));
+    const DATE_FIELDS = ["cancellation_date"];
+    DATE_FIELDS.forEach((field) => {
+      if (fullData[field] === "") {
+        fullData[field] = null;
+      }
+    });
 
+    // === NEW: Forward to your external backend ===
+    const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/cancellation-forms`; // adjust path if needed
+
+    const externalResponse = await fetch(EXTERNAL_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Optional: forward authorization if your backend needs it
+        // 'Authorization': req.headers.get('authorization') || '',
+      },
+      body: JSON.stringify(fullData),
+    });
+
+    if (!externalResponse.ok) {
+      const errorText = await externalResponse.text();
+      console.error("External API error:", externalResponse.status, errorText);
+      throw new Error(
+        `External backend failed: ${externalResponse.status} - ${errorText}`,
+      );
+    }
+
+    const externalResult = await externalResponse.json();
+
+    // Optional: log the final processed JSON (you already had this)
+ 
     return NextResponse.json(
       { success: true, message: "Cancellation notice submitted" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error in /api/submit-cancellation-notice:", error);
     return NextResponse.json(
       { success: false, message: "Server error during submission" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

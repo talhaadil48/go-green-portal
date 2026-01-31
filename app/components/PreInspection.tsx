@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, FormEvent, useRef } from "react";
+import { useState, FormEvent, useRef, useEffect } from "react";
+import axios from "axios";
 import Signature from "../components/Signature"; // adjust path if needed
 import ImageDrawEditor, { ImageDrawEditorRef } from "../components/ImageEditor";
 
-export default function PreInspectionChecklist() {
+interface PreInspectionChecklistProps {
+  claimId: string;
+}
+
+export default function PreInspectionChecklist({ claimId }: PreInspectionChecklistProps) {
+  const [currentClaimId, setCurrentClaimId] = useState<string>("");
+
   const checklistItems = [
     "Deep Scratches",
     "Light Scratches",
@@ -38,17 +45,14 @@ export default function PreInspectionChecklist() {
     "Pet Hair",
   ];
 
-  // Create initial checklist state (condition_1: "", condition_2: "", etc.)
   const initialChecklistState = checklistItems.reduce((acc, _, index) => {
     const key = `condition_${index + 1}`;
-    acc[key] = ""; // Will be "Good", "Moderate", or "Poor"
+    acc[key] = "";
     return acc;
   }, {} as Record<string, string>);
 
   const initialFormData = {
-    // All fields initialized (just like your accident claim example)
     ...initialChecklistState,
-
     date: "",
     customer: "",
     detailer: "",
@@ -58,34 +62,101 @@ export default function PreInspectionChecklist() {
     model: "",
     notes: "",
     recommendations: "",
-
-    // We don't store base_vehicle_image in form state (handled by editor)
-    // annotated_vehicle_image comes from canvas
-    // signatures handled separately
   };
 
   const [formData, setFormData] = useState<Record<string, string>>(initialFormData);
   const [signatures, setSignatures] = useState<Record<string, string | null>>({});
   const [annotatedImage, setAnnotatedImage] = useState<string | null>(null);
+
+  // Flags to know if data came from API → lock editing
+  const [isCustomerSigFromApi, setIsCustomerSigFromApi] = useState(false);
+  const [isDetailerSigFromApi, setIsDetailerSigFromApi] = useState(false);
+  const [isImageFromApi, setIsImageFromApi] = useState(false);
+
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(true);
 
   const editorRef = useRef<ImageDrawEditorRef>(null);
+  const customerSigRef = useRef<any>(null);   // if Signature supports ref.clear()
+  const detailerSigRef = useRef<any>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    let newValue: string | boolean = value;
+  useEffect(() => {
+    setCurrentClaimId(claimId);
+  }, [claimId]);
 
-    if (type === "radio") {
-      // For radio buttons we just set the value
-      newValue = value;
+  const fetchChecklist = async () => {
+    setIsFetching(true);
+    setError(null);
+
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pre-inspection-forms/${claimId}`
+      );
+
+      const data = response.data;
+
+      const updatedFormData = { ...initialFormData };
+
+      Object.keys(data).forEach((key) => {
+        const value = data[key];
+        if (value !== null && value !== "" && key in updatedFormData) {
+          updatedFormData[key] = value;
+        }
+      });
+
+      setFormData(updatedFormData);
+
+      // Signatures
+      if (data.customer_signature) {
+        setSignatures((prev) => ({ ...prev, customer: data.customer_signature }));
+        setIsCustomerSigFromApi(true);
+      } else {
+        setSignatures((prev) => ({ ...prev, customer: null }));
+        setIsCustomerSigFromApi(false);
+      }
+
+      if (data.detailer_signature) {
+        setSignatures((prev) => ({ ...prev, detailer: data.detailer_signature }));
+        setIsDetailerSigFromApi(true);
+      } else {
+        setSignatures((prev) => ({ ...prev, detailer: null }));
+        setIsDetailerSigFromApi(false);
+      }
+
+      // Annotated image
+      if (data.annotated_vehicle_image) {
+        setAnnotatedImage(data.annotated_vehicle_image);
+        setIsImageFromApi(true);
+      } else {
+        setAnnotatedImage(null);
+        setIsImageFromApi(false);
+      }
+    } catch (err: any) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        console.log("Pre-inspection not found (404) → showing blank form");
+      } else {
+        console.error("Fetch error:", err);
+        setError(err.message || "Failed to load checklist data");
+      }
+    } finally {
+      setIsFetching(false);
     }
-
-    setFormData((prev) => ({ ...prev, [name]: newValue }));
   };
 
-  const handleSignature = (field: string) => (dataUrl: string | null) => {
+  useEffect(() => {
+    if (claimId) {
+      fetchChecklist();
+    }
+  }, [claimId]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSignature = (field: "customer" | "detailer") => (dataUrl: string | null) => {
     setSignatures((prev) => ({ ...prev, [field]: dataUrl }));
   };
 
@@ -98,32 +169,29 @@ export default function PreInspectionChecklist() {
     setLoading(true);
     setError(null);
 
-    // Get the most up-to-date annotated image
-    const finalImage = editorRef.current?.getAnnotatedImage() || annotatedImage;
+    // Get latest annotated image from editor (if still editing)
+    const finalAnnotatedImage = editorRef.current?.getAnnotatedImage() || annotatedImage;
 
     const fullData = {
       ...formData,
       customer_signature: signatures.customer || null,
       detailer_signature: signatures.detailer || null,
-      base_vehicle_image: null, // can be added later if you implement photo upload
-      annotated_vehicle_image: finalImage || null,
-     
+      base_vehicle_image: null, // can be added later if needed
+      annotated_vehicle_image: finalAnnotatedImage || null,
+      claim_id: currentClaimId,
     };
 
     try {
-      const response = await fetch("/api/submit-pre-inspection", {
-        method: "POST",
+      const response = await axios.post("/api/submit-pre-inspection", fullData, {
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fullData),
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Submission failed");
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Submission failed");
       }
 
       setSubmitted(true);
+      await fetchChecklist(); // refresh → will lock images/signatures
     } catch (err: any) {
       console.error("Submission error:", err);
       setError(err.message || "Something went wrong. Please try again.");
@@ -131,6 +199,14 @@ export default function PreInspectionChecklist() {
       setLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-50">
+        <div className="w-16 h-16 border-4 border-green-300 border-t-green-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12">
@@ -145,32 +221,74 @@ export default function PreInspectionChecklist() {
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date</label>
-                <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Customer</label>
-                <input type="text" name="customer" value={formData.customer} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="customer"
+                  value={formData.customer}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Detailer</label>
-                <input type="text" name="detailer" value={formData.detailer} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="detailer"
+                  value={formData.detailer}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Order #</label>
-                <input type="text" name="order_number" value={formData.order_number} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="order_number"
+                  value={formData.order_number}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Year</label>
-                <input type="text" name="year" value={formData.year} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="year"
+                  value={formData.year}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Make</label>
-                <input type="text" name="make" value={formData.make} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="make"
+                  value={formData.make}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Model</label>
-                <input type="text" name="model" value={formData.model} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500" />
+                <input
+                  type="text"
+                  name="model"
+                  value={formData.model}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                />
               </div>
             </div>
 
@@ -197,10 +315,17 @@ export default function PreInspectionChecklist() {
                             onChange={handleChange}
                             className="w-5 h-5 accent-green-600"
                           />
-                          <span className={`text-sm sm:text-base font-medium ${
-                            cond === "Good" ? "text-green-700" :
-                            cond === "Moderate" ? "text-amber-700" : "text-red-700"
-                          }`}>{cond}</span>
+                          <span
+                            className={`text-sm sm:text-base font-medium ${
+                              cond === "Good"
+                                ? "text-green-700"
+                                : cond === "Moderate"
+                                ? "text-amber-700"
+                                : "text-red-700"
+                            }`}
+                          >
+                            {cond}
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -235,22 +360,105 @@ export default function PreInspectionChecklist() {
               </div>
             </div>
 
-            {/* Image Editor */}
+            {/* Image Editor / View */}
             <div className="mb-12">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Vehicle Condition Photo (draw on it)</h2>
-              <ImageDrawEditor ref={editorRef} onImageChange={handleImageUpdate} />
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Vehicle Condition Photo</h2>
+
+              {isImageFromApi && annotatedImage ? (
+                <div className="text-center">
+                  <img
+                    src={annotatedImage}
+                    alt="Annotated vehicle condition"
+                    className="max-w-full mx-auto border-4 border-gray-300 rounded-2xl shadow-xl object-contain max-h-[600px]"
+                  />
+                  <p className="mt-4 text-sm text-gray-600 italic">
+                    (Previously saved annotated image – view only)
+                  </p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <ImageDrawEditor 
+                    ref={editorRef} 
+                    onImageChange={handleImageUpdate} 
+                  />
+                  {annotatedImage && (
+                    <div className="mt-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          editorRef.current?.clear?.(); // if your editor has clear method
+                          setAnnotatedImage(null);
+                        }}
+                        className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium"
+                      >
+                        Clear & redraw annotations
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Signatures */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
+              {/* Customer Signature */}
               <div className="bg-gradient-to-b from-white to-green-50/20 p-8 rounded-3xl border border-green-200 shadow-lg">
-                <label className="block text-xl font-bold text-green-900 mb-5 text-center">Customer Signature</label>
-                <Signature onSign={handleSignature("customer")} />
+                <label className="block text-xl font-bold text-green-900 mb-5 text-center">
+                  Customer Signature
+                </label>
+
+                {isCustomerSigFromApi && signatures.customer ? (
+                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
+                    <img
+                      src={signatures.customer}
+                      alt="Customer signature"
+                      className="max-h-48 mx-auto object-contain"
+                    />
+                    <p className="mt-4 text-sm text-green-700 font-medium">
+                      Signature saved ✓ (from record)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <Signature 
+                      ref={customerSigRef} 
+                      onSign={handleSignature("customer")} 
+                    />
+                    {signatures.customer && (
+                      <p></p>
+                    )}
+                  </div>
+                )}
               </div>
 
+              {/* Detailer Signature */}
               <div className="bg-gradient-to-b from-white to-green-50/20 p-8 rounded-3xl border border-green-200 shadow-lg">
-                <label className="block text-xl font-bold text-green-900 mb-5 text-center">Detailer Signature</label>
-                <Signature onSign={handleSignature("detailer")} />
+                <label className="block text-xl font-bold text-green-900 mb-5 text-center">
+                  Detailer Signature
+                </label>
+
+                {isDetailerSigFromApi && signatures.detailer ? (
+                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
+                    <img
+                      src={signatures.detailer}
+                      alt="Detailer signature"
+                      className="max-h-48 mx-auto object-contain"
+                    />
+                    <p className="mt-4 text-sm text-green-700 font-medium">
+                      Signature saved ✓ (from record)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <Signature 
+                      ref={detailerSigRef} 
+                      onSign={handleSignature("detailer")} 
+                    />
+                    {signatures.detailer && (
+                      <p></p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -259,14 +467,16 @@ export default function PreInspectionChecklist() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`inline-flex items-center px-14 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                className={`inline-flex items-center px-14 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${
+                  loading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 {loading ? "Submitting..." : "Submit Inspection Checklist"}
               </button>
 
               {submitted && (
                 <p className="mt-8 text-green-700 font-semibold text-lg animate-pulse">
-                  Checklist successfully submitted • Check server logs for full JSON 🌿
+                  Checklist successfully submitted • Data refreshed 🌿
                 </p>
               )}
               {error && <p className="mt-8 text-red-700 font-semibold text-lg">{error}</p>}
