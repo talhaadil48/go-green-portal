@@ -1,143 +1,194 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { use } from "react";
+import axios from "axios";
 import CancellationNotice from "@/app/components/Cancellation";
 import { AccidentClaimForm } from "@/app/components/ClaimForm";
 import PreInspectionChecklist from "@/app/components/PreInspection";
 import { StorageRecoveryAgreement } from "@/app/components/Storage";
 import { RentalAgreement } from "@/app/components/RentalAgreement";
+import DocumentManager from "@/app/components/Document";
+
 type TabKey =
-    | "pre-inspection"
-    | "cancellation"
-    | "storage-recovery"
-    | "rental-agreement"
-    | "claim"
-    | "document";
+  | "pre-inspection"
+  | "cancellation"
+  | "storage-recovery"
+  | "rental-agreement"
+  | "claim"
+  | "document";
 
 const tabs: { key: TabKey; label: string }[] = [
-    { key: "claim", label: "Claim Form" },
-    { key: "pre-inspection", label: "Pre-Inspection" },
-    { key: "cancellation", label: "Cancellation Notice" },
-    { key: "storage-recovery", label: "Storage" },
-    { key: "rental-agreement", label: "Rental Agreement" },
-    { key: "document", label: "Document" },
+  { key: "claim", label: "Claim Form" },
+  { key: "pre-inspection", label: "Pre-Inspection" },
+  { key: "cancellation", label: "Cancellation Notice" },
+  { key: "storage-recovery", label: "Storage" },
+  { key: "rental-agreement", label: "Rental Agreement" },
+  { key: "document", label: "Document" },
 ];
 
+interface ClaimData {
+  claim_id: string;
+  claimant_name: string | null;
+  claim_type: string | null;
+  // Add more fields your backend actually returns, e.g.:
+  // customer_type?: string;
+  // created_at?: string;
+  // status?: string;
+  // etc.
+  [key: string]: any;
+}
+
 export default function HomePage({ params }: { params: Promise<{ id: string }> }) {
-    const unwrappedParams = use(params); // unwrap the Promise
-    const [claimId , setClaimId] = useState<string | null>(null);
+  const unwrappedParams = use(params);
+  const claimId = unwrappedParams.id;
 
-    const [activeTab, setActiveTab] = useState<TabKey>("pre-inspection");
+  const [activeTab, setActiveTab] = useState<TabKey>("claim");
+  const [claimData, setClaimData] = useState<ClaimData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    const customerInfo = {
-        customerId: unwrappedParams.id,
-        customerName: "Muhammad Ahmed Khan",
-        customerType: "corporate",
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"; // fallback for dev
+
+  useEffect(() => {
+    if (!claimId) return;
+
+    const fetchClaim = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await axios.get(`${apiBase}/api/claims/${claimId}`);
+        setClaimData(res.data);
+      } catch (err: any) {
+        console.error("Failed to fetch claim:", err);
+        setError(
+          err.response?.data?.detail ||
+            "Could not load claim details. Please try again later."
+        );
+      } finally {
+        setLoading(false);
+      }
     };
-    const getCustomerTypeLabel = (type: string) => {
-        const types: Record<string, string> = {
-            individual: "Individual",
-            business: "Business",
-            corporate: "Corporate",
-            fleet: "Fleet",
-        };
-        return types[type] || "—";
+
+    fetchClaim();
+  }, [claimId, apiBase]);
+
+  const getCustomerTypeLabel = (type?: string) => {
+    if (!type) return "—";
+
+    const types: Record<string, string> = {
+      individual: "Individual",
+      business: "Business",
+      corporate: "Corporate",
+      fleet: "Fleet",
     };
-    
-    useEffect(() =>{
-        setClaimId(unwrappedParams.id);
-    })
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
-            {/* Header */}
-            <header className="bg-white/95 backdrop-blur-md shadow-md border-b border-green-100 sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">GG</span>
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-green-800">Go Green Car Hire</h1>
-                                <p className="text-sm text-gray-500">Customer Forms Portal</p>
-                            </div>
-                        </div>
+    return types[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1);
+  };
 
-                        <div className="text-sm text-gray-600 font-medium">
-                            Hire Agreement
-                        </div>
-                    </div>
-                </div>
-            </header>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
+      {/* Header */}
+      <header className="bg-white/95 backdrop-blur-md shadow-md border-b border-green-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-lg">GG</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-green-800">Go Green Car Hire</h1>
+                <p className="text-sm text-gray-500">Customer Forms Portal</p>
+              </div>
+            </div>
 
-            {/* Customer Info – now fixed / read-only */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-                <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
-                    <h2 className="text-lg font-bold text-green-800 mb-4">
-                        Customer Details
-                    </h2>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
-                        <div>
-                            <p className="text-gray-500">Customer ID</p>
-                            <p className="font-medium text-gray-900 mt-1">{customerInfo.customerId || "—"}</p>
-                        </div>
-
-                        <div>
-                            <p className="text-gray-500">Customer Name</p>
-                            <p className="font-medium text-gray-900 mt-1">{customerInfo.customerName || "—"}</p>
-                        </div>
-
-                        <div>
-                            <p className="text-gray-500">Customer Type</p>
-                            <p className="font-medium text-gray-900 mt-1">
-                                {getCustomerTypeLabel(customerInfo.customerType)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Main Content – same container width as customer section */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Tabs – full width inside container */}
-                <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl mb-8 overflow-x-auto">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
-                                    ? "bg-green-600 text-white shadow-lg"
-                                    : "text-gray-600 hover:bg-white/50"
-                                }`}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Tab Content */}
-                <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
-                    {activeTab === "pre-inspection" && <PreInspectionChecklist claimId = {claimId} />}
-                    {activeTab === "cancellation" && <CancellationNotice claimId = {claimId} />}
-                    {activeTab === "storage-recovery" && <StorageRecoveryAgreement claimId = {claimId} />}
-
-                    {activeTab === "rental-agreement" && <RentalAgreement claimId = {claimId} />}
-                    {activeTab === "claim" && <AccidentClaimForm claimId = {claimId} />}
-
-
-
-                    {activeTab === "document" && (
-                        <div className="py-12 text-center text-gray-500">
-                            <h3 className="text-xl font-semibold text-gray-700 mb-2">Incident / Accident Report</h3>
-                            <p>Coming soon – official incident reporting form</p>
-                        </div>
-                    )}
-                </div>
-            </main>
+            <div className="text-sm text-gray-600 font-medium">
+              Hire Agreement
+            </div>
+          </div>
         </div>
-    );
+      </header>
+
+      {/* Customer Info Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
+          <h2 className="text-lg font-bold text-green-800 mb-4">
+            Claim / Customer Details
+          </h2>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+              <span className="ml-3 text-gray-600">Loading claim details...</span>
+            </div>
+          ) : error ? (
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+              {error}
+            </div>
+          ) : claimData ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+              <div>
+                <p className="text-gray-500">Claim ID / Customer ID</p>
+                <p className="font-medium text-gray-900 mt-1">{claimData.claim_id || "—"}</p>
+              </div>
+
+              <div>
+                <p className="text-gray-500">Claimant / Customer Name</p>
+                <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name || "—"}</p>
+              </div>
+
+              <div>
+                <p className="text-gray-500">Customer Type</p>
+                <p className="font-medium text-gray-900 mt-1">
+                  {getCustomerTypeLabel(claimData.customer_type || claimData.claim_type)}
+                </p>
+              </div>
+
+              {/* You can easily add more fields here when backend returns them */}
+              {/* <div>
+                <p className="text-gray-500">Claim Type</p>
+                <p className="font-medium text-gray-900 mt-1">{claimData.claim_type || "—"}</p>
+              </div> */}
+            </div>
+          ) : (
+            <p className="text-gray-600">No claim data available.</p>
+          )}
+        </div>
+      </section>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl mb-8 overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${
+                activeTab === tab.key
+                  ? "bg-green-600 text-white shadow-lg"
+                  : "text-gray-600 hover:bg-white/50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
+          {activeTab === "pre-inspection" && <PreInspectionChecklist claimId={claimId} />}
+          {activeTab === "cancellation" && <CancellationNotice claimId={claimId} />}
+          {activeTab === "storage-recovery" && <StorageRecoveryAgreement claimId={claimId} />}
+          {activeTab === "rental-agreement" && <RentalAgreement claimId={claimId} />}
+          {activeTab === "claim" && <AccidentClaimForm claimId={claimId} />}
+
+          {activeTab === "document" && (
+            <DocumentManager claimId={claimId} />
+          )}
+        </div>
+      </main>
+    </div>
+  );
 }

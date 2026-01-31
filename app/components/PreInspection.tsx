@@ -383,16 +383,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   />
                   {annotatedImage && (
                     <div className="mt-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          editorRef.current?.clear?.(); // if your editor has clear method
-                          setAnnotatedImage(null);
-                        }}
-                        className="px-6 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium"
-                      >
-                        Clear & redraw annotations
-                      </button>
+                      <p></p>
                     </div>
                   )}
                 </div>
