@@ -5,34 +5,86 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import Cookies from 'js-cookie'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1200))
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-    // TODO: Add your real login logic here
-    console.log('Login attempt:', { email, password })
+      const res = await fetch(
+        `${apiUrl}/auth/login?username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // If your backend expects POST + JSON body instead, use this:
+          // method: 'POST',
+          // body: JSON.stringify({ username: email, password }),
+        }
+      )
 
-    setIsLoading(false)
+      if (!res.ok) {
+        throw new Error('Login failed – check credentials')
+      }
+
+      const data = await res.json()
+
+      Cookies.set('access_token', data.access_token, {
+        expires: 1,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      })
+
+      Cookies.set('refresh_token', data.refresh_token, {
+        expires: 7,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      })
+
+      Cookies.set('user_role', data.user.role, {
+        expires: 1,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      })
+
+      // Optional: store minimal user info
+      Cookies.set('user', JSON.stringify(data.user), {
+        expires: 1,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+      })
+
+      router.push('/claim') // or '/' or your dashboard route
+    } catch (err: any) {
+      console.error('Login error:', err)
+      // TODO: show error message to user (add state + UI)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-950 to-black flex items-center justify-center p-4 md:p-6 lg:p-8">
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-0 overflow-hidden rounded-2xl shadow-2xl border border-green-800/30 bg-black/40 backdrop-blur-xl">
 
-        {/* LEFT SIDE - LOGIN FORM */}
-        {/* RIGHT SIDE - BRANDING */}
+        {/* LEFT - BRANDING (hidden on mobile) */}
         <div className="relative hidden md:block bg-gradient-to-br from-green-800 via-emerald-900 to-green-950 p-12 lg:p-16">
-          {/* Overlay gradient */}
           <div className="absolute inset-0 bg-black/30" />
 
           <div className="relative z-10 h-full flex flex-col justify-center">
@@ -72,39 +124,45 @@ export default function LoginPage() {
             </motion.div>
           </div>
 
-          {/* Subtle car silhouette / pattern (optional) */}
+          {/* Optional subtle background shape */}
           <div className="absolute bottom-0 right-0 w-3/4 opacity-10 pointer-events-none">
-            {/* You can replace with real car SVG or image */}
             <svg viewBox="0 0 600 300" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M0 250 L600 250 L600 300 L0 300 Z" fill="white" />
-              <path d="M100 180 Q150 120 220 140 L380 140 Q450 120 500 180 L500 220 L100 220 Z" fill="currentColor" className="text-green-600" />
+              <path
+                d="M100 180 Q150 120 220 140 L380 140 Q450 120 500 180 L500 220 L100 220 Z"
+                fill="currentColor"
+                className="text-green-600"
+              />
             </svg>
           </div>
         </div>
+
+        {/* RIGHT - LOGIN FORM */}
         <div className="p-8 md:p-12 lg:p-16 flex flex-col justify-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
-              Welcome back
-            </h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Welcome back</h1>
             <p className="text-green-400/80 text-lg mb-10">
               Sign in to manage your claims & replacements
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Email */}
+              {/* Email / Username */}
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-green-300/90 flex items-center gap-2">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-green-300/90 flex items-center gap-2"
+                >
                   <Mail size={18} />
-                  Email / Username
+                  Username
                 </label>
                 <div className="relative">
                   <input
-                    id="email"
-                    type="email"
+                    id="text"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="yourname@gogreenhire.co.uk"
@@ -116,7 +174,10 @@ export default function LoginPage() {
 
               {/* Password */}
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-green-300/90 flex items-center gap-2">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-green-300/90 flex items-center gap-2"
+                >
                   <Lock size={18} />
                   Password
                 </label>
@@ -139,8 +200,6 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
-
-            
 
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -165,10 +224,7 @@ export default function LoginPage() {
             </p>
           </motion.div>
         </div>
-
-
       </div>
-
     </div>
   )
 }

@@ -126,9 +126,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Very important for file uploads (multipart/form-data)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

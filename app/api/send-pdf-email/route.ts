@@ -90,10 +90,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Required when handling formData / file uploads in Next.js route handlers
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
