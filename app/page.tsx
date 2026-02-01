@@ -10,11 +10,12 @@ interface Claim {
   claim_id: string;
   claimant_name: string | null;
   claim_type: string | null;
+  claim_start_date: string | null; // assumed ISO string e.g. "2025-03-15"
 }
 
 export default function ClaimsPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
-  const [allClaims, setAllClaims] = useState<Claim[]>([]); // ← store unfiltered list
+  const [allClaims, setAllClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,9 +27,11 @@ export default function ClaimsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Filter + Search state
+  // Filter + Search
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState(""); // "" = All
+  const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
+  const [endDate, setEndDate] = useState("");   // YYYY-MM-DD
 
   const router = useRouter();
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
@@ -39,7 +42,7 @@ export default function ClaimsPage() {
     try {
       const res = await axios.get(`${apiBase}/api/claims`);
       setAllClaims(res.data);
-      setClaims(res.data); // initial display = all
+      setClaims(res.data);
     } catch (err: any) {
       console.error(err);
       setError("Failed to load claims. Please try again.");
@@ -52,11 +55,11 @@ export default function ClaimsPage() {
     fetchClaims();
   }, []);
 
-  // Apply filters whenever searchTerm or selectedType changes
+  // Apply all filters
   useEffect(() => {
     let filtered = [...allClaims];
 
-    // Search by claimant name
+    // 1. Search by claimant name
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase().trim();
       filtered = filtered.filter((claim) =>
@@ -64,15 +67,32 @@ export default function ClaimsPage() {
       );
     }
 
-    // Filter by claim type
+    // 2. Filter by claim type
     if (selectedType) {
       filtered = filtered.filter((claim) => claim.claim_type === selectedType);
     }
 
-    setClaims(filtered);
-  }, [searchTerm, selectedType, allClaims]);
+    // 3. Filter by date range
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+      filtered = filtered.filter((claim) => {
+        if (!claim.claim_start_date) return false;
+
+        const claimDate = new Date(claim.claim_start_date);
+
+        if (start && claimDate < start) return false;
+        if (end && claimDate > end) return false;
+
+        return true;
+      });
+    }
+
+    setClaims(filtered);
+  }, [searchTerm, selectedType, startDate, endDate, allClaims]);
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -91,7 +111,7 @@ export default function ClaimsPage() {
       await axios.post(`${apiBase}/api/claims`, payload);
 
       setFormData({ claimant_name: "", claim_type: "" });
-      await fetchClaims(); // refreshes both allClaims + filtered list
+      await fetchClaims();
     } catch (err: any) {
       console.error(err);
       setCreateError(
@@ -108,6 +128,26 @@ export default function ClaimsPage() {
 
   const handleTypeFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
     setSelectedType(e.target.value);
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    try {
+      return new Date(dateStr).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedType("");
+    setStartDate("");
+    setEndDate("");
   };
 
   return (
@@ -210,7 +250,7 @@ export default function ClaimsPage() {
 
         {/* Search + Filter Bar */}
         <div className="mb-8 bg-white/70 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search by Claimant
@@ -239,12 +279,33 @@ export default function ClaimsPage() {
               </select>
             </div>
 
-            <div className="flex items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                />
+              </div>
+
               <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedType("");
-                }}
+                onClick={clearFilters}
                 className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition border border-gray-300 w-full sm:w-auto"
               >
                 Clear Filters
@@ -253,7 +314,7 @@ export default function ClaimsPage() {
           </div>
         </div>
 
-        {/* Claims List */}
+        {/* Claims Table */}
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
@@ -261,42 +322,65 @@ export default function ClaimsPage() {
         ) : claims.length === 0 ? (
           <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
             <p className="text-xl text-green-700/80">
-              {searchTerm || selectedType
+              {searchTerm || selectedType || startDate || endDate
                 ? "No claims match your filters 😔"
                 : "No claims found yet. Create your first one above! 🌿"}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {claims.map((claim) => (
-              <Link
-                key={claim.claim_id}
-                href={`/claim/${claim.claim_id}`}
-                className="group block bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg hover:shadow-2xl hover:border-green-300 transition-all duration-300 overflow-hidden"
-              >
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-green-800 group-hover:text-green-700 transition-colors">
-                      {claim.claim_id}
-                    </h3>
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                      View →
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 text-gray-700">
-                    <p>
-                      <span className="font-medium text-gray-800">Claimant:</span>{" "}
-                      {claim.claimant_name || "—"}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-800">Type:</span>{" "}
-                      {claim.claim_type || "Not specified"}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-green-100">
+                <thead className="bg-green-50/70">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
+                      Claim ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
+                      Claimant
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
+                      Type
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
+                      Start Date
+                    </th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-green-50">
+                  {claims.map((claim) => (
+                    <tr
+                      key={claim.claim_id}
+                      className="hover:bg-green-50/40 transition-colors"
+                    >
+                      <td className="px-6 py-4 font-medium text-green-800">
+                        {claim.claim_id}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {claim.claimant_name || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {claim.claim_type || "Not specified"}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {formatDate(claim.claim_start_date)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={`/claim/${claim.claim_id}`}
+                          className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
+                        >
+                          View Details →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>

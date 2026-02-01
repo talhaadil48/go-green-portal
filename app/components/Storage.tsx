@@ -153,6 +153,25 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     }
   };
 
+  const formatGBP = (value: string) => {
+    if (value === "" || value === null) return "";
+    return `£${value}`;
+  };
+
+  const parseGBP = (value: string) => {
+    return value.replace(/[^0-9.]/g, "");
+  };
+  const handleMoneyChange = (e) => {
+    const { name, value } = e.target;
+    const numericValue = parseGBP(value);
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  };
+
+
   if (isFetching) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-50">
@@ -277,6 +296,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
               <h3 className="text-xl font-semibold text-green-700 pb-2 border-b border-green-200">
                 Recovery & Storage Details
               </h3>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -287,9 +307,10 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     name="date_of_recovery"
                     value={formData.date_of_recovery}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Storage Start Date:
@@ -299,9 +320,10 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     name="storage_start_date"
                     value={formData.storage_start_date}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Storage End Date:
@@ -311,7 +333,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     name="storage_end_date"
                     value={formData.storage_end_date}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -326,9 +348,10 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     name="number_of_days"
                     value={formData.number_of_days}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Charges Per Day:
@@ -336,12 +359,13 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="charges_per_day"
+                    value={formatGBP(formData.charges_per_day)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.charges_per_day}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Total Storage Charge:
@@ -349,10 +373,10 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="total_storage_charge"
+                    value={formatGBP(formData.total_storage_charge)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.total_storage_charge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -365,12 +389,13 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="recovery_charge"
+                    value={formatGBP(formData.recovery_charge)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.recovery_charge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Subtotal:
@@ -378,10 +403,10 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="subtotal"
+                    value={formatGBP(formData.subtotal)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.subtotal}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -394,23 +419,24 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="vat_amount"
+                    value={formatGBP(formData.vat_amount)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.vat_amount}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 font-semibold">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Invoice Total:
                   </label>
                   <input
                     type="text"
                     name="invoice_total"
+                    value={formatGBP(formData.invoice_total)}
+                    onChange={handleMoneyChange}
                     placeholder="£____.__"
-                    value={formData.invoice_total}
-                    onChange={handleChange}
-                    className="w-full px-6 py-4 text-xl font-bold border-2 border-green-400 rounded-xl bg-green-50 focus:ring-4 focus:ring-green-300 transition"
+                    className="w-full px-6 py-4 text-xl font-bold border-2 border-green-400 rounded-xl bg-green-50 focus:ring-4 focus:ring-green-300"
                   />
                 </div>
               </div>
@@ -446,7 +472,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
-                      <Signature 
+                      <Signature
                         ref={clientSigRef}
                         onSign={handleSignature("client_signature")}
                       />
@@ -489,12 +515,12 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
-                      <Signature 
+                      <Signature
                         ref={ownerSigRef}
                         onSign={handleSignature("owner_signature")}
                       />
                       {signatures.owner_signature && (
-                       <p></p>
+                        <p></p>
                       )}
                     </div>
                   )}
@@ -516,7 +542,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
             </section>
 
             {/* Storage Location */}
-          
+
             {/* Submit Button */}
             <div className="text-center pt-8">
               <button

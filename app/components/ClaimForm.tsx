@@ -42,6 +42,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     accident_date: "",
     accident_time: "",
     accident_location: "",
+    accident_description: "",
     owner_full_name: "",
     owner_email: "",
     owner_telephone: "",
@@ -936,6 +937,21 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 />
               </div>
             </section>
+            <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md mt-6">
+              <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
+                Accident Description
+              </h3>
+
+              <textarea
+                name="accident_description"
+                value={formData.accident_description}
+                onChange={handleChange}
+                rows={6}
+                placeholder="Please describe how the accident happened in detail..."
+                className="w-full px-5 py-4 border border-gray-300 rounded-2xl resize-none focus:ring-green-500"
+              />
+            </section>
+
 
             {/* WITNESSES */}
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
@@ -953,7 +969,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       name={`witness${num}_name`}
                       value={
                         formData[
-                          `witness${num}_name` as keyof typeof formData
+                        `witness${num}_name` as keyof typeof formData
                         ] || ""
                       }
                       onChange={handleChange}
@@ -966,7 +982,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       name={`witness${num}_address`}
                       value={
                         formData[
-                          `witness${num}_address` as keyof typeof formData
+                        `witness${num}_address` as keyof typeof formData
                         ] || ""
                       }
                       onChange={handleChange}
@@ -981,7 +997,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       name={`witness${num}_postcode`}
                       value={
                         formData[
-                          `witness${num}_postcode` as keyof typeof formData
+                        `witness${num}_postcode` as keyof typeof formData
                         ] || ""
                       }
                       onChange={handleChange}
@@ -995,7 +1011,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       name={`witness${num}_telephone`}
                       value={
                         formData[
-                          `witness${num}_telephone` as keyof typeof formData
+                        `witness${num}_telephone` as keyof typeof formData
                         ] || ""
                       }
                       onChange={handleChange}
@@ -1108,9 +1124,8 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className={`inline-flex items-center px-16 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`inline-flex items-center px-16 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${loading ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
                 {loading ? "Submitting..." : "Submit Claim Form"}
               </button>
@@ -1127,7 +1142,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
               )}
             </div>
 
-           
+
           </form>
         </div>
       </div>

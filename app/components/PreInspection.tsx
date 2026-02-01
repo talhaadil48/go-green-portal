@@ -1,9 +1,11 @@
 "use client";
 
+import React from "react"
+
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
-import Signature from "../components/Signature"; // adjust path if needed
-import ImageDrawEditor, { ImageDrawEditorRef } from "../components/ImageEditor";
+import Signature from "./Signature";
+import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor"
 
 interface PreInspectionChecklistProps {
   claimId: string;
@@ -65,13 +67,16 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
   };
 
   const [formData, setFormData] = useState<Record<string, string>>(initialFormData);
-  const [signatures, setSignatures] = useState<Record<string, string | null>>({});
-  const [annotatedImage, setAnnotatedImage] = useState<string | null>(null);
+  const [signatures, setSignatures] = useState<Record<string, string | null>>({
+    customer: null,
+    detailer: null,
+  });
 
-  // Flags to know if data came from API → lock editing
+  // Only lock when data comes from API
   const [isCustomerSigFromApi, setIsCustomerSigFromApi] = useState(false);
   const [isDetailerSigFromApi, setIsDetailerSigFromApi] = useState(false);
   const [isImageFromApi, setIsImageFromApi] = useState(false);
+  const [apiAnnotatedImage, setApiAnnotatedImage] = useState<string | null>(null);
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,8 +84,8 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
   const [isFetching, setIsFetching] = useState(true);
 
   const editorRef = useRef<ImageDrawEditorRef>(null);
-  const customerSigRef = useRef<any>(null);   // if Signature supports ref.clear()
-  const detailerSigRef = useRef<any>(null);
+  const customerSigRef = useRef(null);
+  const detailerSigRef = useRef(null);
 
   useEffect(() => {
     setCurrentClaimId(claimId);
@@ -108,7 +113,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
 
       setFormData(updatedFormData);
 
-      // Signatures
+      // Customer Signature - only lock if it exists in API response
       if (data.customer_signature) {
         setSignatures((prev) => ({ ...prev, customer: data.customer_signature }));
         setIsCustomerSigFromApi(true);
@@ -117,6 +122,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         setIsCustomerSigFromApi(false);
       }
 
+      // Detailer Signature - only lock if it exists in API response
       if (data.detailer_signature) {
         setSignatures((prev) => ({ ...prev, detailer: data.detailer_signature }));
         setIsDetailerSigFromApi(true);
@@ -125,20 +131,25 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         setIsDetailerSigFromApi(false);
       }
 
-      // Annotated image
+      // Annotated image - only lock if it exists in API response
       if (data.annotated_vehicle_image) {
-        setAnnotatedImage(data.annotated_vehicle_image);
+        setApiAnnotatedImage(data.annotated_vehicle_image);
         setIsImageFromApi(true);
       } else {
-        setAnnotatedImage(null);
+        setApiAnnotatedImage(null);
         setIsImageFromApi(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
         console.log("Pre-inspection not found (404) → showing blank form");
+        // Reset to fresh state for new form
+        setIsImageFromApi(false);
+        setApiAnnotatedImage(null);
+        setIsCustomerSigFromApi(false);
+        setIsDetailerSigFromApi(false);
       } else {
         console.error("Fetch error:", err);
-        setError(err.message || "Failed to load checklist data");
+        setError(err instanceof Error ? err.message : "Failed to load checklist data");
       }
     } finally {
       setIsFetching(false);
@@ -160,24 +171,34 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
     setSignatures((prev) => ({ ...prev, [field]: dataUrl }));
   };
 
-  const handleImageUpdate = (dataUrl: string | null) => {
-    setAnnotatedImage(dataUrl);
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Get latest annotated image from editor (if still editing)
-    const finalAnnotatedImage = editorRef.current?.getAnnotatedImage() || annotatedImage;
+    // Determine the annotated image to send:
+    // - If image is from API, keep using it
+    // - If editor has changes, get the annotated image
+    // - If no changes (default or cleared), send null
+    let finalAnnotatedImage: string | null = null;
+    
+    if (isImageFromApi) {
+      // Keep the existing API image
+      finalAnnotatedImage = apiAnnotatedImage;
+    } else if (editorRef.current?.hasChanges()) {
+      // Only get the image if user made changes (drawing or uploaded new image)
+      finalAnnotatedImage = editorRef.current.getAnnotatedImage();
+    } else {
+      // No changes made (default image or cleared) - send null
+      finalAnnotatedImage = null;
+    }
 
     const fullData = {
       ...formData,
       customer_signature: signatures.customer || null,
       detailer_signature: signatures.detailer || null,
-      base_vehicle_image: null, // can be added later if needed
-      annotated_vehicle_image: finalAnnotatedImage || null,
+      base_vehicle_image: null,
+      annotated_vehicle_image: finalAnnotatedImage,
       claim_id: currentClaimId,
     };
 
@@ -191,10 +212,10 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
       }
 
       setSubmitted(true);
-      await fetchChecklist(); // refresh → will lock images/signatures
-    } catch (err: any) {
+      await fetchChecklist(); // refresh → will lock images/signatures if they exist
+    } catch (err: unknown) {
       console.error("Submission error:", err);
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -226,7 +247,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -236,7 +257,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="customer"
                   value={formData.customer}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -246,7 +267,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="detailer"
                   value={formData.detailer}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -256,7 +277,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="order_number"
                   value={formData.order_number}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
 
@@ -267,7 +288,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="year"
                   value={formData.year}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -277,7 +298,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="make"
                   value={formData.make}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
@@ -287,7 +308,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="model"
                   value={formData.model}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
                 />
               </div>
             </div>
@@ -343,7 +364,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   value={formData.notes}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 resize-none"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 focus:border-green-500 resize-none"
                   placeholder="Additional observations..."
                 />
               </div>
@@ -354,7 +375,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   value={formData.recommendations}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 resize-none"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 focus:border-green-500 resize-none"
                   placeholder="Suggested repairs or actions..."
                 />
               </div>
@@ -364,29 +385,24 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
             <div className="mb-12">
               <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">Vehicle Condition Photo</h2>
 
-              {isImageFromApi && annotatedImage ? (
+              {isImageFromApi && apiAnnotatedImage ? (
+                // Show read-only image when it comes from API
                 <div className="text-center">
                   <img
-                    src={annotatedImage}
+                    src={apiAnnotatedImage || "/placeholder.svg"}
                     alt="Annotated vehicle condition"
                     className="max-w-full mx-auto border-4 border-gray-300 rounded-2xl shadow-xl object-contain max-h-[600px]"
                   />
                   <p className="mt-4 text-sm text-gray-600 italic">
-                    (Previously saved annotated image – view only)
+                    (Previously saved annotated image - view only)
                   </p>
                 </div>
               ) : (
-                <div className="relative">
-                  <ImageDrawEditor 
-                    ref={editorRef} 
-                    onImageChange={handleImageUpdate} 
-                  />
-                  {annotatedImage && (
-                    <div className="mt-4 text-center">
-                      <p></p>
-                    </div>
-                  )}
-                </div>
+                // Show editable canvas when no API image exists
+                <ImageDrawEditor 
+                  ref={editorRef} 
+                  defaultBackgroundSrc="/image.jpeg"
+                />
               )}
             </div>
 
@@ -401,24 +417,19 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 {isCustomerSigFromApi && signatures.customer ? (
                   <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
                     <img
-                      src={signatures.customer}
+                      src={signatures.customer || "/placeholder.svg"}
                       alt="Customer signature"
                       className="max-h-48 mx-auto object-contain"
                     />
                     <p className="mt-4 text-sm text-green-700 font-medium">
-                      Signature saved ✓ (from record)
+                      Signature saved (from record)
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-4">
-                    <Signature 
-                      ref={customerSigRef} 
-                      onSign={handleSignature("customer")} 
-                    />
-                    {signatures.customer && (
-                      <p></p>
-                    )}
-                  </div>
+                  <Signature 
+                    ref={customerSigRef} 
+                    onSign={handleSignature("customer")} 
+                  />
                 )}
               </div>
 
@@ -431,24 +442,19 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 {isDetailerSigFromApi && signatures.detailer ? (
                   <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
                     <img
-                      src={signatures.detailer}
+                      src={signatures.detailer || "/placeholder.svg"}
                       alt="Detailer signature"
                       className="max-h-48 mx-auto object-contain"
                     />
                     <p className="mt-4 text-sm text-green-700 font-medium">
-                      Signature saved ✓ (from record)
+                      Signature saved (from record)
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-4">
-                    <Signature 
-                      ref={detailerSigRef} 
-                      onSign={handleSignature("detailer")} 
-                    />
-                    {signatures.detailer && (
-                      <p></p>
-                    )}
-                  </div>
+                  <Signature 
+                    ref={detailerSigRef} 
+                    onSign={handleSignature("detailer")} 
+                  />
                 )}
               </div>
             </div>
@@ -467,15 +473,12 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
 
               {submitted && (
                 <p className="mt-8 text-green-700 font-semibold text-lg animate-pulse">
-                  Checklist successfully submitted • Data refreshed 🌿
+                  Checklist successfully submitted
                 </p>
               )}
               {error && <p className="mt-8 text-red-700 font-semibold text-lg">{error}</p>}
             </div>
           </form>
-
-          {/* Footer */}
-          
         </div>
       </div>
     </div>

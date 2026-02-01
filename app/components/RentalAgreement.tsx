@@ -209,6 +209,25 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const handleSignature = (field: string) => (dataUrl: string | null) => {
     setSignatures((prev) => ({ ...prev, [field]: dataUrl }));
   };
+  const formatGBP = (value: string) => {
+    if (value === "" || value === null || value === undefined) return "";
+    return `£${value}`;
+  };
+
+  const parseGBP = (value: string) => {
+    return value.replace(/[^0-9.]/g, "");
+  };
+
+  const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numericValue = parseGBP(value);
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: numericValue,
+    }));
+  };
+
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -267,30 +286,40 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Hirer’s Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hirer’s Name (in full):
-                  </label>
-                  <input
-                    type="text"
-                    name="hirer_name"
-                    value={formData.hirer_name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title
+                    </label>
+                    <select
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition bg-white"
+                    >
+                      <option value="">Title</option>
+                      <option value="Mr">Mr</option>
+                      <option value="Mrs">Mrs</option>
+                      <option value="Miss">Miss</option>
+                      <option value="Ms">Ms</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hirer’s Name (in full)
+                    </label>
+                    <input
+                      type="text"
+                      name="hirer_name"
+                      value={formData.hirer_name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title (Mr / Mrs / Miss / Other):
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
+
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -609,7 +638,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         onSign={handleSignature("hirer_signature_insurance")}
                       />
                       {signatures.hirer_signature_insurance && (
-                       <p></p>
+                        <p></p>
                       )}
                     </div>
                   )}
@@ -1108,12 +1137,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </p>
             </section>
 
-            {/* Charges Summary */}
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
               <h3 className="text-2xl font-semibold text-green-800 pb-4 border-b border-green-300">
                 Charges Summary
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Admin Fee
@@ -1122,11 +1151,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="admin_fee"
                     placeholder="£0.00"
-                    value={formData.admin_fee}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.admin_fee)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Delivery Charge
@@ -1135,11 +1165,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="delivery_charge"
                     placeholder="£0.00"
-                    value={formData.delivery_charge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.delivery_charge)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     CDW Per Day
@@ -1148,61 +1179,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="cdw_per_day"
                     placeholder="£0.00"
-                    value={formData.cdw_per_day}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Days Out
-                  </label>
-                  <input
-                    type="number"
-                    name="days_out"
-                    placeholder="0"
-                    value={formData.days_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Days In
-                  </label>
-                  <input
-                    type="number"
-                    name="days_in"
-                    placeholder="0"
-                    value={formData.days_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Total Days
-                  </label>
-                  <input
-                    type="number"
-                    name="total_days"
-                    placeholder="0"
-                    value={formData.total_days}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Rate per Day
-                  </label>
-                  <input
-                    type="text"
-                    name="rate_per_day"
-                    placeholder="£0.00"
-                    value={formData.rate_per_day}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.cdw_per_day)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
@@ -1213,11 +1192,66 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="refuelling_total"
                     placeholder="£0.00"
-                    value={formData.refuelling_total}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.refuelling_total)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Days Out
+                  </label>
+                  <input
+                    type="number"
+                    name="days_out"
+                    value={formData.days_out}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Days In
+                  </label>
+                  <input
+                    type="number"
+                    name="days_in"
+                    value={formData.days_in}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Total Days
+                  </label>
+                  <input
+                    type="number"
+                    name="total_days"
+                    value={formData.total_days}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rate per Day
+                  </label>
+                  <input
+                    type="text"
+                    name="rate_per_day"
+                    placeholder="£0.00"
+                    value={formatGBP(formData.rate_per_day)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+
+
                 <div className="sm:col-span-2 lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Subtotal
@@ -1226,11 +1260,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="subtotal"
                     placeholder="£0.00"
-                    value={formData.subtotal}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.subtotal)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     VAT at __%
@@ -1239,11 +1274,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="vat"
                     placeholder="£0.00"
-                    value={formData.vat}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500 transition"
+                    value={formatGBP(formData.vat)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div className="sm:col-span-2 lg:col-span-3 mt-4">
                   <label className="block text-xl font-bold text-green-800 mb-2">
                     Total Cost
@@ -1252,9 +1288,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="text"
                     name="total_cost"
                     placeholder="£0.00"
-                    value={formData.total_cost}
-                    onChange={handleChange}
-                    className="w-full px-6 py-5 text-2xl font-bold border-2 border-green-400 rounded-2xl bg-green-50 focus:ring-4 focus:ring-green-300 transition shadow-md"
+                    value={formatGBP(formData.total_cost)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-6 py-5 text-2xl font-bold border-2 border-green-400 rounded-2xl bg-green-50 focus:ring-4 focus:ring-green-300 shadow-md"
                   />
                   <p className="text-sm text-gray-600 mt-2 italic">
                     (Charges will be completed at termination of hire.)
@@ -1262,7 +1298,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
-
             {/* VAT Notice */}
             <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
               <h3 className="text-xl font-bold text-green-800 mb-3">VAT Notice:</h3>
@@ -1351,7 +1386,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   ${loading ? "cursor-wait" : ""}
                 `}
               >
-                {loading ? "Submitting..." : "Submit & Generate JSON"}
+                {loading ? "Submitting..." : "Submit"}
               </button>
 
               {error && (
