@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         `New document submission received!\n\n` +
         `From: ${email}\n` +
         `Claim ID: ${claimId}\n` +
-        `Document: ${att.safeName} (${att.sizeKb} KB)\n` +
+        `Document: ${att.safeName} \n` +
         `Message:\n${message || '(no message provided)'}\n\n` +
         `(This email contains only this one document)`;
 
