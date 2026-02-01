@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, FormEvent, useEffect, useRef } from "react";
+import React from "react"
+
+import { useState, FormEvent, useEffect } from "react";
 import axios from "axios";
-import Signature from "../components/Signature"; // ← adjust path if needed
+import Signature from "./Signature";
+import PDFShareButton from "./PDFShareButton";
 
 interface ClaimProps {
     claimId: string;
@@ -136,9 +139,20 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
             <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
                 <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 md:p-10 border border-green-100">
-                    <h2 className="text-3xl md:text-4xl font-bold text-green-800 mb-10 text-center tracking-tight">
-                        Cancellation Notice
-                    </h2>
+<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+                        <h2 className="text-3xl md:text-4xl font-bold text-green-800 text-center sm:text-left tracking-tight">
+                            Cancellation Notice
+                        </h2>
+                        <PDFShareButton
+                            formData={{
+                                title: "Cancellation Notice",
+                                formType: "cancellation",
+                                claimId: currentClaimId,
+                                data: formData,
+                                signatures: { cancellation_signature: signature },
+                            }}
+                        />
+                    </div>
 
                     <form onSubmit={handleSubmit} className="space-y-10">
                         {/* Intro text */}
@@ -235,7 +249,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
                                         // ── Locked view-only image from API (Cloudinary etc.)
                                         <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto">
                                             <img
-                                                src={signature}
+                                                src={signature || "/placeholder.svg"}
                                                 alt="Saved signature from record"
                                                 className="max-h-48 mx-auto object-contain"
                                             />

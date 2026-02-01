@@ -6,6 +6,7 @@ import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor"
+import PDFShareButton from "./PDFShareButton";
 
 interface PreInspectionChecklistProps {
   claimId: string;
@@ -233,9 +234,23 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12">
       <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-10 border border-green-100/50">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-green-900 mb-10 text-center tracking-tight">
-            Pre-Inspection Checklist
-          </h1>
+<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-green-900 text-center sm:text-left tracking-tight">
+              Pre-Inspection Checklist
+            </h1>
+            <PDFShareButton
+              formData={{
+                title: "Pre-Inspection Checklist",
+                formType: "pre-inspection",
+                claimId: currentClaimId,
+                data: formData,
+                signatures: signatures,
+                images: {
+                  annotated_vehicle_image: apiAnnotatedImage || editorRef.current?.getAnnotatedImage() || null,
+                },
+              }}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-10">
             {/* Basic Info */}

@@ -9,6 +9,7 @@ import PreInspectionChecklist from "@/app/components/PreInspection";
 import { StorageRecoveryAgreement } from "@/app/components/Storage";
 import { RentalAgreement } from "@/app/components/RentalAgreement";
 import DocumentManager from "@/app/components/Document";
+import InvoiceManager from "@/app/components/InnvoiceManager";
 
 type TabKey =
   | "pre-inspection"
@@ -16,7 +17,8 @@ type TabKey =
   | "storage-recovery"
   | "rental-agreement"
   | "claim"
-  | "document";
+  | "document"
+  | "invoice";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "claim", label: "Claim Form" },
@@ -25,6 +27,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "storage-recovery", label: "Storage" },
   { key: "rental-agreement", label: "Rental Agreement" },
   { key: "document", label: "Document" },
+  { key: "invoice", label: "Invoice & Send" },
 ];
 
 interface ClaimData {
@@ -165,8 +168,12 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           {activeTab === "rental-agreement" && <RentalAgreement claimId={claimId} />}
           {activeTab === "claim" && <AccidentClaimForm claimId={claimId} />}
 
-          {activeTab === "document" && (
+{activeTab === "document" && (
             <DocumentManager claimId={claimId} />
+          )}
+
+          {activeTab === "invoice" && (
+            <InvoiceManager claimId={claimId} />
           )}
         </div>
       </main>

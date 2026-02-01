@@ -1,8 +1,11 @@
 "use client";
 
+import React from "react"
+
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
-import Signature from "../components/Signature"; // adjust path if needed
+import Signature from "./Signature";
+import PDFShareButton from "./PDFShareButton";
 
 interface ClaimProps {
   claimId: string;
@@ -33,7 +36,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     owner_date: "",
   };
 
-  const [formData, setFormData] = useState<Record<string, string>>(initialFormData);
+  const [formData, setFormData] = useState<Record<string, string | number>>(initialFormData);
   const [signatures, setSignatures] = useState<Record<string, string | null>>({});
 
   // Flags: true only when signature came from API
@@ -230,7 +233,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   const parseGBP = (value: string) => {
     return value.replace(/[^0-9.]/g, "");
   };
-  const handleMoneyChange = (e) => {
+const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numericValue = parseGBP(value);
 
@@ -253,9 +256,20 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12">
       <div className="max-w-6xl mx-auto px-6">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-10 border border-green-100">
-          <h2 className="text-3xl font-bold text-green-800 mb-10 text-center tracking-tight">
-            Storage and Recovery Invoice and Agreement
-          </h2>
+<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+            <h2 className="text-3xl font-bold text-green-800 text-center sm:text-left tracking-tight">
+              Storage and Recovery Invoice and Agreement
+            </h2>
+            <PDFShareButton
+              formData={{
+                title: "Storage & Recovery Agreement",
+                formType: "storage-recovery",
+                claimId: currentClaimId,
+                data: formData,
+                signatures: signatures,
+              }}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-10">
             {/* Client Details */}
@@ -531,7 +545,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   {isClientSigFromApi && signatures.client_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.client_signature}
+                        src={signatures.client_signature || "/placeholder.svg"}
                         alt="Client signature"
                         className="max-h-40 mx-auto object-contain"
                       />
@@ -574,7 +588,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   {isOwnerSigFromApi && signatures.owner_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.owner_signature}
+                        src={signatures.owner_signature || "/placeholder.svg"}
                         alt="Owner signature"
                         className="max-h-40 mx-auto object-contain"
                       />

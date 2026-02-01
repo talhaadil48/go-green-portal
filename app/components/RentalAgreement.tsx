@@ -1,8 +1,11 @@
 "use client";
 
+import React from "react"
+
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
-import Signature from "../components/Signature"; // adjust path if needed
+import Signature from "./Signature";
+import PDFShareButton from "./PDFShareButton";
 
 interface ClaimProps {
   claimId: string;
@@ -83,7 +86,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     liability_date: "",
   };
 
-  const [formData, setFormData] = useState<Record<string, string>>(initialFormData);
+  const [formData, setFormData] = useState<Record<string, string | number>>(initialFormData);
   const [signatures, setSignatures] = useState<Record<string, string | null>>({});
 
   // Flags to determine if signature came from API (locked) or is editable
@@ -106,7 +109,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const liabilityRef = useRef<any>(null);
   const calculateInclusiveDays = (dateOut: string, dateIn: string): string => {
     if (!dateOut || !dateIn) return "";
-    
+
     try {
       const out = new Date(dateOut);
       const inDate = new Date(dateIn);
@@ -352,9 +355,20 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
       <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-10 border border-green-100">
-          <h2 className="text-4xl font-bold text-green-800 mb-10 text-center tracking-tight">
-            Rental Agreement
-          </h2>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+            <h2 className="text-4xl font-bold text-green-800 text-center sm:text-left tracking-tight">
+              Rental Agreement
+            </h2>
+            <PDFShareButton
+              formData={{
+                title: "Rental Agreement",
+                formType: "rental-agreement",
+                claimId: currentClaimId,
+                data: formData,
+                signatures: signatures,
+              }}
+            />
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-12">
             {/* Hirer’s Details */}
@@ -550,7 +564,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {isHirerTermsFromApi && signatures.hirer_signature_terms ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.hirer_signature_terms}
+                        src={signatures.hirer_signature_terms || "/placeholder.svg"}
                         alt="Hirer signature (terms)"
                         className="max-h-40 mx-auto object-contain"
                       />
@@ -579,7 +593,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {isCompanyFromApi && signatures.company_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.company_signature}
+                        src={signatures.company_signature || "/placeholder.svg"}
                         alt="Company signature"
                         className="max-h-40 mx-auto object-contain"
                       />
@@ -700,7 +714,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {isHirerInsuranceFromApi && signatures.hirer_signature_insurance ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.hirer_signature_insurance}
+                        src={signatures.hirer_signature_insurance || "/placeholder.svg"}
                         alt="Hirer insurance signature"
                         className="max-h-40 mx-auto object-contain"
                       />
@@ -947,11 +961,15 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Declaration
               </h3>
               <p className="text-gray-700 italic text-sm leading-relaxed">
-                I declare that all statements and particulars given by me in this proposal...
+
+                I declare that all statements and particulars given by me in this proposal,
+                which I have read over, are correct, and no material fact has been omitted,
+                mis-represented or mis-stated. I am not aware of any other circumstances
+                likely to affect the risk
+                I understand that I shall not allow the vehicle to be driven by any person not
+                authorised by the underwriter to drive the vehicle during the period of hire.
               </p>
-              <p className="text-gray-700 italic text-sm leading-relaxed">
-                I understand that I shall not allow the vehicle to be driven by any person not authorised...
-              </p>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -961,7 +979,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {isDeclarationFromApi && signatures.declaration_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.declaration_signature}
+                        src={signatures.declaration_signature || "/placeholder.svg"}
                         alt="Declaration signature"
                         className="max-h-40 mx-auto object-contain"
                       />
@@ -1426,7 +1444,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {isLiabilityFromApi && signatures.liability_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
                       <img
-                        src={signatures.liability_signature}
+                        src={signatures.liability_signature || "/placeholder.svg"}
                         alt="Liability signature"
                         className="max-h-40 mx-auto object-contain"
                       />

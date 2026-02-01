@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
     });
 
    
-    console.log("Processed rental agreement data:", fullData);
     // === NEW: Forward to your external backend ===
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/rental-agreements`; // adjust path if needed
 
