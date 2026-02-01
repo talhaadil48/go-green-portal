@@ -47,6 +47,75 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
 
   const clientSigRef = useRef<any>(null);   // for ref.clear() if supported
   const ownerSigRef = useRef<any>(null);
+  const calculateDays = (start: string, end: string): string => {
+    if (!start || !end) return "";
+    try {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "";
+
+      // Time difference in milliseconds → days
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // Inclusive → add 1
+      return String(diffDays + 1);
+    } catch {
+      return "";
+    }
+  };
+  useEffect(() => {
+    // ──────────────── Number of Days ────────────────
+    const days = calculateDays(
+      formData.storage_start_date,
+      formData.storage_end_date
+    );
+
+    setFormData(prev => {
+      // Only update if it actually changed → prevents infinite loop
+      if (prev.number_of_days === days) return prev;
+      return { ...prev, number_of_days: days };
+    });
+
+  }, [formData.storage_start_date, formData.storage_end_date]);
+  useEffect(() => {
+    const daysStr = formData.number_of_days;
+    const perDayStr = formData.charges_per_day;
+    const recoveryStr = formData.recovery_charge;
+
+    const days = Number(daysStr) || 0;
+    const perDay = Number(perDayStr) || 0;
+    const recovery = Number(recoveryStr) || 0;
+
+    const totalStorage = days * perDay;
+    const subtotal = totalStorage + recovery;
+    const vat = subtotal * 0.2;
+    const invoiceTotal = subtotal + vat;
+
+    setFormData(prev => {
+      const next = { ...prev };
+
+      // Only update if value actually changes
+      if (Number(next.total_storage_charge) !== totalStorage) {
+        next.total_storage_charge = totalStorage ? totalStorage.toFixed(2) : "";
+      }
+      if (Number(next.subtotal) !== subtotal) {
+        next.subtotal = subtotal ? subtotal.toFixed(2) : "";
+      }
+      if (Number(next.vat_amount) !== vat) {
+        next.vat_amount = vat ? vat.toFixed(2) : "";
+      }
+      if (Number(next.invoice_total) !== invoiceTotal) {
+        next.invoice_total = invoiceTotal ? invoiceTotal.toFixed(2) : "";
+      }
+
+      return next;
+    });
+  }, [
+    formData.number_of_days,
+    formData.charges_per_day,
+    formData.recovery_charge,
+  ]);
 
   useEffect(() => {
     setCurrentClaimId(claimId);

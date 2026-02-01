@@ -104,6 +104,83 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const hirerInsuranceRef = useRef<any>(null);
   const declarationRef = useRef<any>(null);
   const liabilityRef = useRef<any>(null);
+  const calculateInclusiveDays = (dateOut: string, dateIn: string): string => {
+    if (!dateOut || !dateIn) return "";
+    
+    try {
+      const out = new Date(dateOut);
+      const inDate = new Date(dateIn);
+
+      // Invalid dates or check-in before check-out
+      if (isNaN(out.getTime()) || isNaN(inDate.getTime()) || inDate < out) {
+        return "";
+      }
+
+      const diffMs = inDate.getTime() - out.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      // Inclusive (same day = 1 day)
+      return String(diffDays + 1);
+    } catch {
+      return "";
+    }
+  };
+
+  // ─── 1. Auto-calculate total_days when dates change ───
+  useEffect(() => {
+    const days = calculateInclusiveDays(
+      formData.days_out,
+      formData.days_in
+    );
+
+    setFormData(prev => {
+      if (prev.total_days === days) return prev;
+      return { ...prev, total_days: days };
+    });
+  }, [formData.days_out, formData.days_in]);
+
+  // ─── 2. Auto-calculate money fields when dependencies change ───
+  useEffect(() => {
+    // Parse numbers safely (empty or invalid → 0)
+    const parseNum = (val: string) => Number(val) || 0;
+
+    const totalDays = parseNum(formData.total_days);
+    const ratePerDay = parseNum(formData.rate_per_day);
+    const admin = parseNum(formData.admin_fee);
+    const delivery = parseNum(formData.delivery_charge);
+    const cdwPerDay = parseNum(formData.cdw_per_day);
+    const refuelTotal = parseNum(formData.refuelling_total);
+
+    const hireCharge = totalDays * ratePerDay;
+    const cdwCharge = totalDays * cdwPerDay;
+    const subtotal = hireCharge + admin + delivery + cdwCharge + refuelTotal;
+    const vatAmount = subtotal * 0.2;
+    const totalCost = subtotal + vatAmount;
+
+    setFormData(prev => {
+      const next = { ...prev };
+
+      const updateIfChanged = (key: keyof typeof next, newVal: number) => {
+        const strVal = newVal ? newVal.toFixed(2) : "";
+        if (next[key] !== strVal) {
+          next[key] = strVal;
+        }
+      };
+
+      updateIfChanged("subtotal", subtotal);
+      updateIfChanged("vat", vatAmount);
+      updateIfChanged("total_cost", totalCost);
+
+      return next;
+    });
+  }, [
+    formData.total_days,
+    formData.rate_per_day,
+    formData.admin_fee,
+    formData.delivery_charge,
+    formData.cdw_per_day,
+    formData.refuelling_total,
+  ]);
 
   useEffect(() => {
     setCurrentClaimId(claimId);
@@ -1202,7 +1279,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     Days Out
                   </label>
                   <input
-                    type="number"
+                    type="date"
                     name="days_out"
                     value={formData.days_out}
                     onChange={handleChange}
@@ -1215,13 +1292,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     Days In
                   </label>
                   <input
-                    type="number"
+                    type="date"
                     name="days_in"
                     value={formData.days_in}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
