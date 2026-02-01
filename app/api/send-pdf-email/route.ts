@@ -1,63 +1,66 @@
+// app/api/send-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
-// IMPORTANT: Add these to your .env.local (and .env for production)
-const EMAIL_USER     = process.env.EMAIL_USER;     // your Gmail / SMTP email
-const EMAIL_PASS     = process.env.EMAIL_PASS;     // app password if using Gmail
-const EMAIL_HOST     = 'smtp.gmail.com';
-const EMAIL_PORT     = 465
-const EMAIL_SECURE   = true; // true for 465, false for other ports
+export const runtime = 'nodejs'; // ✅ Use Node.js runtime to allow bigger uploads
+
+const EMAIL_USER   = process.env.EMAIL_USER;
+const EMAIL_PASS   = process.env.EMAIL_PASS;
+const EMAIL_HOST   = 'smtp.gmail.com';
+const EMAIL_PORT   = 465;
+const EMAIL_SECURE = true;
+
+const MAX_FILE_SIZE_MB = 20; // max allowed file size
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
 
     const file     = formData.get('file') as File | null;
-    const email    = formData.get('email')    as string;
-    const subject  = formData.get('subject')  as string || 'New Document Submission';
-    const formType = formData.get('formType') as string || 'document';
-    const claimId  = formData.get('claimId')  as string || 'unknown';
-    console.log(EMAIL_USER,EMAIL_PASS)
+    const email    = formData.get('email') as string;
+    const subject  = (formData.get('subject') as string) || 'New Document Submission';
+    const formType = (formData.get('formType') as string) || 'document';
+    const claimId  = (formData.get('claimId') as string) || 'unknown';
 
     if (!file || !email) {
-      return NextResponse.json(
-        { success: false, message: 'Missing required fields: file and email' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Missing required fields: file and email' }, { status: 400 });
     }
 
-    // Convert uploaded File → Buffer
     const buffer = Buffer.from(await file.arrayBuffer());
+    const sizeInBytes = buffer.length;
+    const sizeInKB = (sizeInBytes / 1024).toFixed(2);
+    const sizeInMB = (sizeInBytes / (1024 * 1024)).toFixed(2);
+
+    console.log(`File name: ${file.name}`);
+    console.log(`File size: ${sizeInBytes} bytes / ${sizeInKB} KB / ${sizeInMB} MB`);
+
+    if (parseFloat(sizeInMB) > MAX_FILE_SIZE_MB) {
+      return NextResponse.json({
+        success: false,
+        message: `File is too large! Max allowed size is ${MAX_FILE_SIZE_MB} MB.`,
+      }, { status: 413 }); // 413 Payload Too Large
+    }
+
     const fileName = `${formType}-${claimId}.pdf`;
 
-    // ────────────────────────────────────────────────
-    //          Nodemailer transporter setup
-    // ────────────────────────────────────────────────
     const transporter = nodemailer.createTransport({
       host: EMAIL_HOST,
       port: EMAIL_PORT,
-      secure: EMAIL_SECURE,           // true for 465, false for other ports
+      secure: EMAIL_SECURE,
       auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS,
       },
     });
 
-    // Verify connection (good for debugging – optional in production)
-    // await transporter.verify();
-
-    // Email content
     const mailOptions = {
       from: `"Claim System" <${EMAIL_USER}>`,
-      to: email,           // or use email variable if you want to send to the user
-      // cc: email,                    // ← uncomment if you want to CC the submitter
-      replyTo: email,                  // so replies go to the person who submitted
+      to: email,
+      replyTo: email,
       subject: `${subject} – ${formType} #${claimId}`,
       text: `A new ${formType} document has been submitted.\n\n` +
-            `From: ${email}\n` +
-            `Claim ID: ${claimId}\n` +
-            `File: ${fileName}\n` +
-            `Size: ${(buffer.length / 1024).toFixed(1)} KB`,
+            `From: ${email}\nClaim ID: ${claimId}\nFile: ${fileName}\n` +
+            `Size: ${sizeInKB} KB (${sizeInMB} MB)`,
       attachments: [
         {
           filename: fileName,
@@ -67,15 +70,14 @@ export async function POST(request: NextRequest) {
       ],
     };
 
-    // Send the email
     const info = await transporter.sendMail(mailOptions);
-
     console.log('Email sent → Message ID:', info.messageId);
 
     return NextResponse.json({
       success: true,
       message: 'Email sent successfully',
       messageId: info.messageId,
+      fileSizeMB: sizeInMB,
     });
 
   } catch (error: any) {

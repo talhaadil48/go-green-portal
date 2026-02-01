@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
-// ┌──────────────────────────────────────────────────────────────┐
-// │               Load from .env (recommended)                   │
-// └──────────────────────────────────────────────────────────────┘
+// Load from .env (same as before)
 const EMAIL_USER   = process.env.EMAIL_USER;
 const EMAIL_PASS   = process.env.EMAIL_PASS;
 const EMAIL_HOST   = process.env.EMAIL_HOST   || 'smtp.gmail.com';
 const EMAIL_PORT   = Number(process.env.EMAIL_PORT) || 465;
-const EMAIL_SECURE = process.env.EMAIL_SECURE !== 'false'; // true for 465
+const EMAIL_SECURE = process.env.EMAIL_SECURE !== 'false';
 
-// Optional: where the email should go (admin / company inbox)
-// You can override this per request if needed
 const RECIPIENT_EMAIL = process.env.RECIPIENT_EMAIL || EMAIL_USER;
 
 if (!EMAIL_USER || !EMAIL_PASS) {
@@ -24,10 +20,10 @@ export async function POST(request: NextRequest) {
 
     const fileCount    = parseInt(formData.get('fileCount') as string) || 0;
     const email        = formData.get('email')        as string;
-    const subject      = formData.get('subject')      as string || 'New Documents Submission';
+    const subject      = formData.get('subject')      as string || 'New Document Submission';
     const message      = formData.get('message')      as string || '';
     const claimId      = formData.get('claimId')      as string || 'unknown';
-    const documentTypes = formData.get('documentTypes') as string || 'multiple documents';
+    // We no longer use documentTypes for the main list — we'll handle per email
 
     if (fileCount === 0 || !email) {
       return NextResponse.json(
@@ -36,25 +32,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Collect all files
-    const attachments: nodemailer.Attachment[] = [];
-    const fileDetails: string[] = [];
+    // Collect all files (same as before)
+    const attachments: { file: File; buffer: Buffer; safeName: string; sizeKb: string }[] = [];
 
     for (let i = 0; i < fileCount; i++) {
       const file = formData.get(`file_${i}`) as File | null;
       if (file && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_'); // sanitize filename
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
         attachments.push({
-          filename: safeName,
-          content: buffer,
-          contentType: file.type || 'application/octet-stream',
+          file,
+          buffer,
+          safeName,
+          sizeKb: (buffer.length / 1024).toFixed(1),
         });
-
-        fileDetails.push(
-          `• ${safeName} (${(buffer.length / 1024).toFixed(1)} KB)`
-        );
       }
     }
 
@@ -65,9 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ────────────────────────────────────────────────
-    //          Nodemailer transporter
-    // ────────────────────────────────────────────────
+    // Create transporter **once** — reuse it
     const transporter = nodemailer.createTransport({
       host: EMAIL_HOST,
       port: EMAIL_PORT,
@@ -78,51 +68,76 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Optional: test connection (uncomment during dev)
+    // Optional: verify in dev
     // await transporter.verify();
-    // console.log('SMTP connection verified');
 
-    // Build nice email body
-    const textBody = 
-      `New document submission received!\n\n` +
-      `From: ${email}\n` +
-      `Claim ID: ${claimId}\n` +
-      `Document types: ${documentTypes}\n` +
-      `Message:\n${message || '(no message provided)'}\n\n` +
-      `Attached files (${attachments.length}):\n` +
-      fileDetails.join('\n');
+    // Send one email per attachment
+    const results = [];
+    const errors: string[] = [];
 
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: `"Claim System" <${EMAIL_USER}>`,
-      to: email,              // admin / company email
-      replyTo: email,                   // so replies go to submitter
-      subject: `${subject} – Claim #${claimId} (${attachments.length} file${attachments.length === 1 ? '' : 's'})`,
-      text: textBody,
-      // html: `<pre>${textBody}</pre>`,   // ← uncomment + improve if you want HTML
-      attachments,
-    };
+    for (const att of attachments) {
+      const textBody = 
+        `New document submission received!\n\n` +
+        `From: ${email}\n` +
+        `Claim ID: ${claimId}\n` +
+        `Document: ${att.safeName} (${att.sizeKb} KB)\n` +
+        `Message:\n${message || '(no message provided)'}\n\n` +
+        `(This email contains only this one document)`;
 
-    // Send!
-    const info = await transporter.sendMail(mailOptions);
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: `"Claim System" <${EMAIL_USER}>`,
+        to: RECIPIENT_EMAIL,           // where documents should arrive (admin/company)
+        replyTo: email,                // replies go back to submitter
+        subject: `${subject} – Claim #${claimId} – ${att.safeName}`,
+        text: textBody,
+        // html: `<pre>${textBody}</pre>`,   // optional – improve later
+        attachments: [{
+          filename: att.safeName,
+          content: att.buffer,
+          contentType: att.file.type || 'application/octet-stream',
+        }],
+      };
 
-    console.log('Multi-document email sent → Message ID:', info.messageId);
+      try {
+        const info = await transporter.sendMail(mailOptions);
+        results.push({
+          filename: att.safeName,
+          messageId: info.messageId,
+        });
+        console.log(`Email sent for ${att.safeName} → Message ID:`, info.messageId);
+      } catch (err: any) {
+        console.error(`Failed to send ${att.safeName}:`, err);
+        errors.push(att.safeName);
+      }
+    }
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Failed to send any documents' },
+        { status: 500 }
+      );
+    }
+
+    const summary = 
+      `Sent ${results.length} of ${attachments.length} document(s) successfully to ${RECIPIENT_EMAIL}.\n` +
+      (errors.length > 0 ? `Failed: ${errors.join(', ')}` : '');
 
     return NextResponse.json({
-      success: true,
-      message: `${attachments.length} document(s) sent successfully`,
-      messageId: info.messageId,
+      success: results.length === attachments.length,
+      message: summary,
+      sent: results,
+      failed: errors,
     });
 
   } catch (error: any) {
-    console.error('Multi-document email error:', error);
+    console.error('Multi-email error:', error);
     return NextResponse.json(
       {
         success: false,
-        message: 'Failed to send documents',
+        message: 'Server error while processing documents',
         error: error.message || 'Unknown error',
       },
       { status: 500 }
     );
   }
 }
-

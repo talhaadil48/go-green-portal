@@ -520,13 +520,15 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </section>
 
             {/* Hire Agreement Terms */}
-            <section className="space-y-6">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+            <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
+              <h3 className="text-2xl font-semibold text-green-800 pb-4 border-b border-green-300">
                 Hire Agreement Terms
               </h3>
+
               <p className="text-gray-700">
                 The Hirer agrees to hire the vehicle referred to above from Go Green Car Hire Ltd. in accordance with the terms set out in this Agreement.
               </p>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -535,10 +537,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="daily_rate"
-                    placeholder="£______ per day"
-                    value={formData.daily_rate}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    placeholder="£0.00"
+                    value={formatGBP(formData.daily_rate)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
@@ -548,13 +550,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="policy_excess"
-                    placeholder="£______ per day"
-                    value={formData.policy_excess}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    placeholder="£0.00"
+                    value={formatGBP(formData.policy_excess)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -578,9 +581,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         ref={hirerTermsRef}
                         onSign={handleSignature("hirer_signature_terms")}
                       />
-                      {signatures.hirer_signature_terms && (
-                        <p></p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -607,9 +607,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         ref={companyRef}
                         onSign={handleSignature("company_signature")}
                       />
-                      {signatures.company_signature && (
-                        <p></p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -623,10 +620,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="deposit"
-                    placeholder="£______"
-                    value={formData.deposit}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    placeholder="£0.00"
+                    value={formatGBP(formData.deposit)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                   <p className="text-sm text-gray-600 mt-1 text-xs">
                     (Required against loss or misuse of any fire extinguisher, first aid kit, or other sundry items relating to the vehicle.)
@@ -639,10 +636,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <input
                     type="text"
                     name="refuelling_charge"
-                    placeholder="£______"
-                    value={formData.refuelling_charge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    placeholder="£0.00"
+                    value={formatGBP(formData.refuelling_charge)}
+                    onChange={handleMoneyChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                   <p className="text-sm text-gray-600 mt-1 text-xs">
                     (Will apply if the vehicle is returned with less fuel than at the start of the hire.)
@@ -650,7 +647,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
-
             {/* Hirer’s Own Insurance */}
             <section className="space-y-6">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
