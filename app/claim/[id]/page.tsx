@@ -23,11 +23,11 @@ type TabKey =
 const tabs: { key: TabKey; label: string }[] = [
   { key: "claim", label: "Claim Form" },
   { key: "pre-inspection", label: "Pre-Inspection" },
-  { key: "cancellation", label: "Cancellation Notice" },
+  { key: "cancellation", label: "Cancellation Form" },
   { key: "storage-recovery", label: "Storage" },
   { key: "rental-agreement", label: "Rental Agreement" },
   { key: "document", label: "Document" },
-  { key: "invoice", label: "Invoice & Send" },
+  { key: "invoice", label: "Invoice" },
 ];
 
 interface ClaimData {

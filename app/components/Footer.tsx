@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { 
-  Facebook, 
+import {
+  Facebook,
   Twitter,        // we'll use this for old Twitter feel or rename
-  Instagram, 
-  Linkedin 
+  Instagram,
+  Linkedin
 } from "lucide-react";
 
 export default function Footer() {
@@ -20,11 +20,15 @@ export default function Footer() {
               Protecting your income.<br />Never missing a lesson.
             </p>
             <div className="text-sm text-green-200/90 space-y-2">
-              <p>LITTLE BURTON EAST, Burton-on-Trent, Staffordshire, DE14 1PS</p>
+              <p>Derby Turn, Building 1, Derby Road </p>
+              <p>BURTON UPON TRENT Staffordshire DE141RX</p>
+
+
+
               <p>
                 Website:{" "}
-                <a 
-                  href="https://www.gogreenhire.co.uk" 
+                <a
+                  href="https://www.gogreenhire.co.uk"
                   className="text-green-400 hover:text-green-300 underline underline-offset-4 transition-colors"
                 >
                   www.gogreenhire.co.uk
@@ -40,8 +44,8 @@ export default function Footer() {
           <div className="space-y-5">
             <h4 className="text-lg font-semibold text-white">Connect</h4>
             <div className="flex items-center gap-6">
-              <a 
-                href="#" 
+              <a
+                href="#"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-300 hover:text-green-100 hover:scale-110 transition-all duration-300"
@@ -49,9 +53,9 @@ export default function Footer() {
               >
                 <Facebook size={28} strokeWidth={1.8} />
               </a>
-              
-              <a 
-                href="#" 
+
+              <a
+                href="#"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-300 hover:text-green-100 hover:scale-110 transition-all duration-300"
@@ -61,9 +65,9 @@ export default function Footer() {
                 <Twitter size={28} strokeWidth={1.8} />
                 {/* If you prefer a more "X"-like look, you can use a custom X icon later */}
               </a>
-              
-              <a 
-                href="#" 
+
+              <a
+                href="#"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-300 hover:text-green-100 hover:scale-110 transition-all duration-300"
@@ -71,9 +75,9 @@ export default function Footer() {
               >
                 <Instagram size={28} strokeWidth={1.8} />
               </a>
-              
-              <a 
-                href="#" 
+
+              <a
+                href="#"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-300 hover:text-green-100 hover:scale-110 transition-all duration-300"
@@ -101,13 +105,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-green-800/40 text-center text-sm text-green-300/80">
-          © {new Date().getFullYear()} GoGreenHire. All rights reserved.
-          <span className="mx-3">•</span>
-          <Link href="/privacy" className="hover:text-green-200 transition">Privacy Policy</Link>
-          <span className="mx-3">•</span>
-          <Link href="/terms" className="hover:text-green-200 transition">Terms of Service</Link>
-        </div>
+
       </div>
     </footer>
   );

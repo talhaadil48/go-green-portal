@@ -86,8 +86,7 @@ export async function POST(request: NextRequest) {
 
       const mailOptions: nodemailer.SendMailOptions = {
         from: `"Claim System" <${EMAIL_USER}>`,
-        to: RECIPIENT_EMAIL,           // where documents should arrive (admin/company)
-        replyTo: email,                // replies go back to submitter
+        to: email,           // where documents should arrive (admin/company)
         subject: `${subject} – Claim #${claimId} – ${att.safeName}`,
         text: textBody,
         // html: `<pre>${textBody}</pre>`,   // optional – improve later

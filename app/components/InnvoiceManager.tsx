@@ -33,7 +33,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [documentsData, setDocumentsData] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch all form data
+  // Fetch all form data – allow missing forms (treat as empty)
   useEffect(() => {
     const fetchAllData = async () => {
       setIsLoading(true);
@@ -54,14 +54,22 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         );
 
         const data: Record<string, any> = {};
+
         results.forEach((result, index) => {
+          const key = endpoints[index].key;
+
           if (result.status === "fulfilled") {
-            const key = endpoints[index].key;
             if (key === "documents") {
               data[key] = result.value.data.documents || {};
             } else {
-              data[key] = result.value.data;
+              data[key] = result.value.data || {};
             }
+          } else {
+            // Even on error (404 etc.) → provide empty object so blank form can be generated
+            if (key !== "documents") {
+              data[key] = {};
+            }
+            // documents list remains empty if failed
           }
         });
 
@@ -85,12 +93,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       formType: "claim",
       description: "Complete accident claim with vehicle and party details",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -99,7 +102,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           />
         </svg>
       ),
-      available: !!documentsData["claim"],
+      // Always available – can send blank if no data
+      available: true,
     },
     {
       id: "pre-inspection",
@@ -107,12 +111,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       formType: "pre-inspection",
       description: "Vehicle condition assessment checklist",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -121,7 +120,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           />
         </svg>
       ),
-      available: !!documentsData["pre-inspection"],
+      available: true,
     },
     {
       id: "cancellation",
@@ -129,12 +128,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       formType: "cancellation",
       description: "Contract cancellation request form",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -143,7 +137,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           />
         </svg>
       ),
-      available: !!documentsData["cancellation"],
+      available: true,
     },
     {
       id: "storage-recovery",
@@ -151,12 +145,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       formType: "storage-recovery",
       description: "Storage and recovery charges agreement",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -165,7 +154,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           />
         </svg>
       ),
-      available: !!documentsData["storage-recovery"],
+      available: true,
     },
     {
       id: "rental-agreement",
@@ -173,12 +162,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       formType: "rental-agreement",
       description: "Vehicle rental terms and conditions",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -187,7 +171,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           />
         </svg>
       ),
-      available: !!documentsData["rental-agreement"],
+      available: true,
     },
   ];
 
@@ -200,12 +184,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         formType: "document",
         description: `Uploaded document: ${id}`,
         icon: (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -228,9 +207,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   };
 
   const selectAll = () => {
-    const availableDocs = allDocuments
-      .filter((d) => d.available)
-      .map((d) => d.id);
+    const availableDocs = allDocuments.filter((d) => d.available).map((d) => d.id);
     setSelectedDocs(availableDocs);
   };
 
@@ -238,32 +215,29 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     setSelectedDocs([]);
   };
 
-  const extractSignatures = (
-    docId: string,
-    data: any
-  ): Record<string, string | null> => {
+  const extractSignatures = (docId: string, data: any): Record<string, string | null> => {
     const signatures: Record<string, string | null> = {};
 
     switch (docId) {
       case "claim":
-        signatures.client = data.client_signature || null;
+        signatures.client = data?.client_signature || null;
         break;
       case "pre-inspection":
-        signatures.customer = data.customer_signature || null;
-        signatures.detailer = data.detailer_signature || null;
+        signatures.customer = data?.customer_signature || null;
+        signatures.detailer = data?.detailer_signature || null;
         break;
       case "cancellation":
-        signatures.cancellation_signature = data.cancellation_signature || null;
+        signatures.cancellation_signature = data?.cancellation_signature || null;
         break;
       case "storage-recovery":
-        signatures.client_signature = data.client_signature || null;
-        signatures.owner_signature = data.owner_signature || null;
+        signatures.client_signature = data?.client_signature || null;
+        signatures.owner_signature = data?.owner_signature || null;
         break;
       case "rental-agreement":
-        signatures.hirer_signature_terms = data.hirer_signature_terms || null;
-        signatures.company_signature = data.company_signature || null;
-        signatures.declaration_signature = data.declaration_signature || null;
-        signatures.liability_signature = data.liability_signature || null;
+        signatures.hirer_signature_terms = data?.hirer_signature_terms || null;
+        signatures.company_signature = data?.company_signature || null;
+        signatures.declaration_signature = data?.declaration_signature || null;
+        signatures.liability_signature = data?.liability_signature || null;
         break;
       default:
         break;
@@ -272,20 +246,17 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     return signatures;
   };
 
-  const extractImages = (
-    docId: string,
-    data: any
-  ): Record<string, string | null> => {
+  const extractImages = (docId: string, data: any): Record<string, string | null> => {
     const images: Record<string, string | null> = {};
 
     switch (docId) {
       case "claim":
-        images.circumstance_drawing = data.circumstance_drawing || null;
-        images.direction_before_drawing = data.direction_before_drawing || null;
-        images.direction_after_drawing = data.direction_after_drawing || null;
+        images.circumstance_drawing = data?.circumstance_drawing || null;
+        images.direction_before_drawing = data?.direction_before_drawing || null;
+        images.direction_after_drawing = data?.direction_after_drawing || null;
         break;
       case "pre-inspection":
-        images.annotated_vehicle_image = data.annotated_vehicle_image || null;
+        images.annotated_vehicle_image = data?.annotated_vehicle_image || null;
         break;
       default:
         break;
@@ -329,16 +300,18 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           text: `Processing ${i + 1}/${selectedDocs.length}: ${doc?.name || docId} ...`,
         });
 
-        if (!doc) {
-          results.push({ filename: docId, success: false, message: "Document not found" });
-          continue;
-        }
+        if (!doc) continue;
 
         let blob: Blob;
         let filename: string;
 
         if (doc.formType === "document") {
-          const url = documentsData["documents"][docId];
+          const url = documentsData["documents"]?.[docId];
+          if (!url) {
+            results.push({ filename: doc.name || docId, success: false, message: "Missing file URL" });
+            continue;
+          }
+
           const res = await fetch(url);
           if (!res.ok) {
             results.push({
@@ -357,22 +330,16 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
           filename = `${doc.id}.${ext}`;
         } else {
-          if (!documentsData[docId]) {
-            results.push({
-              filename: doc.name || doc.formType,
-              success: false,
-              message: "No form data available",
-            });
-            continue;
-          }
+          // Use empty object if no data → blank form
+          const formData = documentsData[docId] || {};
 
           const formDataForPDF: PDFFormData = {
             title: doc.name,
             formType: doc.formType,
             claimId,
-            data: documentsData[docId],
-            signatures: extractSignatures(docId, documentsData[docId]),
-            images: extractImages(docId, documentsData[docId]),
+            data: formData,
+            signatures: extractSignatures(docId, formData),
+            images: extractImages(docId, formData),
           };
 
           setStatus({
@@ -496,7 +463,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           Send Invoice & Documents
         </h2>
         <p className="text-gray-600">
-          Select the documents you want to send and enter the recipient&apos;s email
+          Select the documents you want to send (blank forms are allowed)
         </p>
       </div>
 
@@ -597,6 +564,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                   className={`font-bold mb-1 ${isSelected ? "text-emerald-800" : "text-gray-800"}`}
                 >
                   {doc.name}
+                  {!documentsData[doc.id] && doc.formType !== "document" && (
+                    <span className="ml-2 text-xs font-normal text-amber-600">(blank)</span>
+                  )}
                 </h4>
                 <p className="text-sm text-gray-500 line-clamp-2">{doc.description}</p>
 
@@ -702,12 +672,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         >
           <div className="flex items-center gap-3">
             {status.type === "success" ? (
-              <svg
-                className="w-6 h-6 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -716,12 +681,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 />
               </svg>
             ) : status.type === "error" ? (
-              <svg
-                className="w-6 h-6 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -730,12 +690,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 />
               </svg>
             ) : status.type === "warning" ? (
-              <svg
-                className="w-6 h-6 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -841,8 +796,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           )}
         </button>
       </div>
-
-   
     </div>
   );
 }

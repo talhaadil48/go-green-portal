@@ -346,7 +346,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
         addField,
         addSignature,
         checkNewPage,
-        addWrappedText
+        addWrappedText,
       });
       break;
     case "claim":
@@ -782,6 +782,36 @@ async function generateStoragePDF(
 
   yPos = tableY + 20;
 
+  // Deferred Payment & Cancellation Terms
+  yPos = checkNewPage(yPos, 80); // make sure enough space
+  yPos = addSectionHeader("DEFERRED PAYMENT & CANCELLATION TERMS", yPos);
+
+  // Terms content
+  const termsText = `
+I understand the recovery and storage costs are on a deferred payment basis and will be due and owing from me on completion of storage and that invoices are payable by me to Go Green Car Hire Ltd in no more than one instalment beginning from the date of this agreement within a period of no more than 51 weeks beginning from the date of this agreement.
+
+It is my contractual obligation to pay the outstanding charges as provided by the deferred payment provision.
+
+I further understand that if I fail to co-operate in the pursuit of my claim for damages or appoint other solicitors to act on my behalf, then I understand and agree that the account for recovery and storage will be immediately due and payable by me to Go Green Car Hire Ltd.
+
+This contract constitutes all terms and conditions under this agreement.
+
+You have the right to cancel this agreement within 14 days starting from the date signed on this agreement. Written cancellation notice must be sent within 14 days either by post or email to the address stated above. I understand that any charges incurred will be liable to immediate payment by me.
+`;
+
+  // Split into lines for PDF
+  const termsLines = pdf.splitTextToSize(termsText, pageWidth - margin * 2);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...colors.darkText);
+
+  termsLines.forEach((line) => {
+    pdf.text(line, margin, yPos);
+    yPos += 5; // line height
+  });
+
+  yPos += 10; // extra spacing before signatures
+
   // Signatures
   yPos = checkNewPage(yPos, 45);
   yPos = addSectionHeader("SIGNATURES", yPos);
@@ -801,6 +831,26 @@ async function generateStoragePDF(
     yPos - 32,
     sigWidth,
   );
+  yPos = checkNewPage(yPos, 40);
+  yPos = addSectionHeader("STORAGE LOCATION", yPos);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(...colors.darkText);
+
+  const storageText = [
+    "LITTLE BURTON EAST",
+    "Burton-on-Trent, Staffordshire",
+    "DE14 1PS",
+  ];
+
+  storageText.forEach((line, i) => {
+    const lineY = yPos + i * 7;
+    pdf.text(line, margin + 5, lineY, { align: "left" });
+  });
+
+  yPos += storageText.length * 7 + 12; // line spacing + extra gap after section
+  
 
   return yPos;
 }
@@ -1065,8 +1115,7 @@ async function generateRentalPDF(
   y = addSectionHeader("8. Declaration", y);
 
   // You should paste the real long declaration text here
-const declarationText =
-  `I declare that all statements and particulars given by me in this proposal, which I have read over, are correct, and no material fact has been omitted, mis-represented or mis-stated. I am not aware of any other circumstances likely to affect the risk. I understand that I shall not allow the vehicle to be driven by any person not authorised by the underwriter to drive the vehicle during the period of hire.`;
+  const declarationText = `I declare that all statements and particulars given by me in this proposal, which I have read over, are correct, and no material fact has been omitted, mis-represented or mis-stated. I am not aware of any other circumstances likely to affect the risk. I understand that I shall not allow the vehicle to be driven by any person not authorised by the underwriter to drive the vehicle during the period of hire.`;
   y = addWrappedText(declarationText, margin, y, fullWidth, 9.5);
   y += 12;
 
@@ -1140,7 +1189,10 @@ const declarationText =
     ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
     ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
     ["CDW Per Day", `£${Number(data.cdw_per_day || 0).toFixed(2)}`],
-   ["Total Days", data.total_days !== undefined ? String(data.total_days) : "—"],
+    [
+      "Total Days",
+      data.total_days !== undefined ? String(data.total_days) : "—",
+    ],
     ["Rate per Day", `£${Number(data.rate_per_day || 0).toFixed(2)}`],
     ["Refuelling Total", `£${Number(data.refuelling_total || 0).toFixed(2)}`],
     ["Subtotal", `£${Number(data.subtotal || 0).toFixed(2)}`],

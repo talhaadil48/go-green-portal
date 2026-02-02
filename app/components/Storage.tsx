@@ -233,7 +233,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   const parseGBP = (value: string) => {
     return value.replace(/[^0-9.]/g, "");
   };
-const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numericValue = parseGBP(value);
 
@@ -256,7 +256,7 @@ const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12">
       <div className="max-w-6xl mx-auto px-6">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-10 border border-green-100">
-<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
             <h2 className="text-3xl font-bold text-green-800 text-center sm:text-left tracking-tight">
               Storage and Recovery Invoice and Agreement
             </h2>
@@ -526,12 +526,44 @@ const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
             </section>
 
             {/* Terms & Conditions */}
-            <section className="space-y-6 bg-green-50 p-6 rounded-2xl border border-green-200">
+            <section className="space-y-4 bg-green-50 p-6 rounded-2xl border border-green-200">
+              <h3 className="text-lg font-semibold text-green-800">
+                Deferred Payment & Cancellation Terms
+              </h3>
+
               <p className="text-gray-800 text-sm leading-relaxed">
-                I understand the recovery and storage costs are on a deferred payment basis and will be due and owing from me on completion of storage...
+                I understand the recovery and storage costs are on a deferred payment
+                basis and will be due and owing from me on completion of storage and that
+                invoices are payable by me to Go Green Car Hire Ltd in no more than one
+                instalment beginning from the date of this agreement within a period of
+                no more than 51 weeks beginning from the date of this agreement.
               </p>
-              {/* ... rest of terms (same as before) ... */}
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                It is my contractual obligation to pay the outstanding charges as provided
+                by the deferred payment provision.
+              </p>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                I further understand that if I fail to co-operate in the pursuit of my
+                claim for damages or appoint other solicitors to act on my behalf, then I
+                understand and agree that the account for recovery and storage will be
+                immediately due and payable by me to Go Green Car Hire Ltd.
+              </p>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                This contract constitutes all terms and conditions under this agreement.
+              </p>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                You have the right to cancel this agreement within 14 days starting from
+                the date signed on this agreement. Written cancellation notice must be
+                sent within 14 days either by post or email to the address stated above.
+                I understand that any charges incurred will be liable to immediate
+                payment by me.
+              </p>
             </section>
+
 
             {/* Signatures */}
             <section className="space-y-8">
@@ -623,6 +655,24 @@ const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 </div>
               </div>
             </section>
+            <section className="max-w-md mx-auto space-y-4 bg-green-50 p-6 rounded-2xl border border-green-200 text-center">
+              <h3 className="text-lg font-semibold text-green-800">
+                Storage Location
+              </h3>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                LITTLE BURTON EAST
+              </p>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                Burton-on-Trent, Staffordshire
+              </p>
+
+              <p className="text-gray-800 text-sm leading-relaxed">
+                DE14 1PS
+              </p>
+            </section>
+
 
             {/* Storage Location */}
 

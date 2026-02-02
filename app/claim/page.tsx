@@ -1,4 +1,3 @@
-// app/claims/page.tsx
 "use client";
 
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
@@ -10,7 +9,7 @@ interface Claim {
   claim_id: string;
   claimant_name: string | null;
   claim_type: string | null;
-  claim_start_date: string | null; // assumed ISO string e.g. "2025-03-15"
+  claim_start_date: string | null;
 }
 
 export default function ClaimsPage() {
@@ -21,6 +20,7 @@ export default function ClaimsPage() {
 
   // Create form
   const [formData, setFormData] = useState({
+    claim_id: "",
     claimant_name: "",
     claim_type: "",
   });
@@ -29,9 +29,9 @@ export default function ClaimsPage() {
 
   // Filter + Search
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState(""); // "" = All
-  const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
-  const [endDate, setEndDate] = useState("");   // YYYY-MM-DD
+  const [selectedType, setSelectedType] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const router = useRouter();
   const apiBase = process.env.NEXT_PUBLIC_API_URL;
@@ -55,11 +55,10 @@ export default function ClaimsPage() {
     fetchClaims();
   }, []);
 
-  // Apply all filters
+  // Apply filters
   useEffect(() => {
     let filtered = [...allClaims];
 
-    // 1. Search by claimant name
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase().trim();
       filtered = filtered.filter((claim) =>
@@ -67,24 +66,19 @@ export default function ClaimsPage() {
       );
     }
 
-    // 2. Filter by claim type
     if (selectedType) {
       filtered = filtered.filter((claim) => claim.claim_type === selectedType);
     }
 
-    // 3. Filter by date range
     if (startDate || endDate) {
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
 
       filtered = filtered.filter((claim) => {
         if (!claim.claim_start_date) return false;
-
         const claimDate = new Date(claim.claim_start_date);
-
         if (start && claimDate < start) return false;
         if (end && claimDate > end) return false;
-
         return true;
       });
     }
@@ -103,22 +97,48 @@ export default function ClaimsPage() {
     setCreateError(null);
 
     try {
-      const payload = {
+      const payload: any = {
         claimant_name: formData.claimant_name.trim() || undefined,
         claim_type: formData.claim_type.trim() || undefined,
       };
 
+      if (formData.claim_id.trim()) {
+        payload.claim_id = formData.claim_id.trim();
+      }
+
       await axios.post(`${apiBase}/api/claims`, payload);
 
-      setFormData({ claimant_name: "", claim_type: "" });
+      setFormData({ claim_id: "", claimant_name: "", claim_type: "" });
       await fetchClaims();
     } catch (err: any) {
       console.error(err);
-      setCreateError(
-        err.response?.data?.detail || "Failed to create claim. Try again."
-      );
+      if (err.response?.status === 409) {
+        setCreateError("This Claim ID already exists. Please use a different one or leave it blank.");
+      } else {
+        setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
+      }
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async (claim_id: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete claim ${claim_id}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await axios.delete(`${apiBase}/api/claims/${claim_id}`);
+      await fetchClaims(); // refresh list
+    } catch (err: any) {
+      console.error(err);
+      alert(
+        err.response?.data?.detail ||
+          "Failed to delete claim. Please try again."
+      );
     }
   };
 
@@ -186,6 +206,7 @@ export default function ClaimsPage() {
           </h2>
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Claimant Name
@@ -215,6 +236,20 @@ export default function ClaimsPage() {
                 <option value="personal">Personal</option>
               </select>
             </div>
+             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Claim ID (optional)
+              </label>
+              <input
+                type="text"
+                name="claim_id"
+                value={formData.claim_id}
+                onChange={handleChange}
+                placeholder="e.g. TC-222"
+                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
+              />
+            </div>
+
 
             <div className="md:col-span-3 flex justify-end">
               <button
@@ -346,7 +381,7 @@ export default function ClaimsPage() {
                       Start Date
                     </th>
                     <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
-                      Action
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -368,13 +403,20 @@ export default function ClaimsPage() {
                       <td className="px-6 py-4 text-gray-700">
                         {formatDate(claim.claim_start_date)}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
                         <Link
                           href={`/claim/${claim.claim_id}`}
                           className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
                         >
-                          View Details →
+                          View Details
                         </Link>
+
+                        <button
+                          onClick={() => handleDelete(claim.claim_id)}
+                          className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}
