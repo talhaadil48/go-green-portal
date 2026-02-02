@@ -850,7 +850,6 @@ You have the right to cancel this agreement within 14 days starting from the dat
   });
 
   yPos += storageText.length * 7 + 12; // line spacing + extra gap after section
-  
 
   return yPos;
 }
@@ -1238,6 +1237,493 @@ async function generateRentalPDF(
       fullWidth,
     );
   }
+  // ─── 13. Terms & Definitions ──────────────────────
+  y = addSectionHeader("13. Terms & Definitions", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text(
+    "In the Agreement the following terms shall have the meaning hereby respectively assigned to them:",
+    margin,
+    y,
+  );
+  y += 10;
+
+  const definitions = [
+    { term: "Hirer:", definition: "The person named as such overleaf." },
+    {
+      term: "Driver:",
+      definition:
+        "The Hirer and/or other person named as such overleaf or any other person specifically approved by the Lessor to drive the vehicle during the duration of this agreement.",
+    },
+    {
+      term: "Excess Amount:",
+      definition: "The sum specified overleaf as the excess amount.",
+    },
+    {
+      term: "Vehicle:",
+      definition:
+        "The Original vehicle described overleaf or any replacement vehicle.",
+    },
+    {
+      term: "Accessories:",
+      definition:
+        "The spare wheel, tools or any other items with which the vehicle is supplied and any replacements thereof.",
+    },
+    {
+      term: "Rental Period:",
+      definition:
+        "The period from the date and time out stated overleaf until the re-delivery of the vehicle into the physical custody of the Lessor.",
+    },
+    {
+      term: "Rental Charges:",
+      definition:
+        "The hire charges for the rental period calculated in accordance with the Lessor's current tariff.",
+    },
+    {
+      term: "Current Tariff:",
+      definition: "The Lessor's tariff current at the commencement of hire.",
+    },
+    {
+      term: "Insurance Policy:",
+      definition:
+        "The Lessor's policy of insurance on the vehicle a copy of which is available for inspection at the Rental location.",
+    },
+  ];
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  definitions.forEach((def) => {
+    y = checkNewPage(y, 14);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(def.term, margin + 4, y);
+
+    pdf.setFont("helvetica", "normal");
+    y = addWrappedText(def.definition, margin + 8, y + 3, fullWidth - 12, 8.5);
+    y += 4;
+  });
+
+  y += 6;
+
+  // ─── 14. Hirer's Agreement on Payment ──────────────
+  y = checkNewPage(y, 120);
+  y = addSectionHeader("14. Hirer's Agreement on Payment", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "Where the hire is consequent upon the Hirer's own vehicle being unroadworthy as a result of a road traffic accident and a claim for damages is being or is to be pursued against the third party alleged to be liable for the accident, the hirer agrees to pay the Lessor by one single instalment/payment either at the conclusion of the Claim or within a period not exceeding 12 months beginning with the date of this agreement, whichever is the earlier:",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 8;
+
+  const paymentItems = [
+    "All rental Charges",
+    "Any Value Added Tax, local or other taxes payable in respect of the above",
+  ];
+
+  paymentItems.forEach((item) => {
+    y = checkNewPage(y, 10);
+    pdf.text(`• ${item}`, margin + 4, y);
+    y += 8;
+  });
+
+  y += 6;
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Maximum hire period:", margin + 4, y);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(
+    "The Period of hire, the subject of this agreement shall not exceed 89 days.",
+    margin + 4,
+    y + 5,
+  );
+  y += 16;
+
+  // ─── 15. Lessor's Authorization & Conditions ──────
+  y = addSectionHeader("15. Lessor's Authorization & Conditions", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("The Hirer further agrees that:", margin, y);
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const hirerAgreements = [
+    {
+      num: "1)",
+      text: "The Lessor has been authorised by the Hirer to pursue a claim in the Hirer's name against the third party for the Rental Charges and other Hirer's uninsured losses, and/or appoint solicitors to pursue a claim in the Hirer's name against the third party for the Rental Charges and other Hirer's uninsured losses.",
+    },
+    {
+      num: "2)",
+      text: "If necessary the Lessor's solicitors can pursue such third party claim in the relevant Court and any appeal from any decision of the Court and the Hirer will co-operate fully in the conduct of such action.",
+    },
+    {
+      num: "3)",
+      text: "The Daily/Weekly rental Charges were written to The Agreement before the Agreement was signed.",
+    },
+    {
+      num: "4)",
+      text: "The Hirer authorises the third party insurance company to make monies/cheques payable to the Lessor for any rental/Storage/Recovery/Disbursement charges that were incurred as a result of a road traffic accident due to the negligence of the driver insured by the insurance company. The Hirer confirms that the nature and happening of the road traffic accident as detailed in the documentation supplied to the Lessor is true and correct.",
+    },
+  ];
+
+  hirerAgreements.forEach((agreement) => {
+    y = checkNewPage(y, 16);
+    y = addWrappedText(
+      `${agreement.num} ${agreement.text}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 6;
+  });
+
+  y += 6;
+
+  // ─── 16. Hirer's Acknowledgements ─────────────────
+  y = checkNewPage(y, 40);
+  y = addSectionHeader("16. Hirer's Acknowledgements", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("The Hirer acknowledges that:", margin, y);
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const acknowledgements = [
+    {
+      num: "1)",
+      text: "The vehicle is fit for this purpose and undertakes to return it and its accessories to the place and on the date due back specified overleaf or sooner if requested by the Lessor.",
+    },
+    {
+      num: "2)",
+      text: "He has received the vehicle free from apparent defects or damage (except as indicated on the check sheet).",
+    },
+    {
+      num: "3)",
+      text: "The Lessor has no liability in respect of any injury, loss or damage arising from the use of the vehicle, nor shall the Lessor be liable for any indirect loss or damage, or, in the case of consumers, damage which was not foreseeable by both parties.",
+    },
+    {
+      num: "4)",
+      text: "The Lessor shall not be liable for damages arising from defects or mechanical failures which are not attributable to any breach of the manufacturer's warranty or any warranty implied by law to take reasonable care or exercise reasonable skill.",
+    },
+    {
+      num: "5)",
+      text: "During the rental period, the Hirer shall keep the vehicle and all its accessories in his or any approved driver's possession and free from legal process or lien and when not in use adequately protected and secured.",
+    },
+  ];
+
+  acknowledgements.forEach((ack) => {
+    y = checkNewPage(y, 16);
+    y = addWrappedText(
+      `${ack.num} ${ack.text}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 6;
+  });
+
+  y += 6;
+
+  // ─── 17. Vehicle Usage Restrictions ───────────────
+  y = addSectionHeader("17. Vehicle Usage Restrictions", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text(
+    "The Hirer and any driver shall ensure that the vehicle will not be used:",
+    margin,
+    y,
+  );
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const restrictions = [
+    {
+      num: "a)",
+      text: "For hire or reward, except where the vehicle hired under this agreement by the hirer is a plated vehicle for use either as a taxi cab or a private hire vehicle",
+    },
+    {
+      num: "b)",
+      text: "For racing, pacemaking, rallying, speed testing, driving tuition or similar purposes, or for propelling or towing any vehicle, trailer or other object",
+    },
+    {
+      num: "c)",
+      text: "In any manner which might render void the insurance policy, or other contract of insurance, or for any illegal purpose or in contravention of any legislation affecting the vehicle, its use or construction",
+    },
+  ];
+
+  restrictions.forEach((restriction) => {
+    y = addWrappedText(
+      `${restriction.num} ${restriction.text}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 6;
+  });
+
+  y += 8;
+
+  // Vehicle Use by Unauthorized Persons
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("By any person who:", margin + 4, y);
+  y += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const unauthorizedPersons = [
+    "Is not licensed to drive the vehicle",
+    "Is under the influence of drink or drugs",
+    "Has given a fictitious name, age or address",
+    "Has not been approved by the Lessor as a driver",
+    "Has been convicted of a motoring offence the details of which have not been disclosed in writing to the Lessor at the commencement of the hire",
+    "Outside England, Wales or Scotland without prior written consent of the Lessor",
+  ];
+
+  unauthorizedPersons.forEach((person) => {
+    y = addWrappedText(`• ${person}`, margin + 8, y, fullWidth - 12, 8.5);
+    y += 4;
+  });
+
+  y += 8;
+
+  // ─── 18. Age Requirements ───────────────────────────
+  y = checkNewPage(y, 60);
+  y = addSectionHeader("18. Age Requirements", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "The standard age requirement for hire is between 25 and 65 years old. A Hirer aged 18 to 24 and a Hirer aged 66 to 75 may be eligible to hire only if they have obtained the Lessor's express consent and comprehensively insure the vehicle for the duration of the hire period.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 19. Insurance Responsibility ──────────────────
+  y = addSectionHeader("19. Insurance Responsibility", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "The Hirer will be responsible for the cost of insuring the vehicle and the Lessor has no liability whatsoever towards the insurance cost of the vehicle.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 20. Personal Liability ────────────────────────
+  y = addSectionHeader("20. Personal Liability", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "In the event of loss or damage, the Hirer will be personally liable for the Lessor's losses notwithstanding any claims the Hirer may be entitled to pursue against any third party including their motor insurer.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 21. Payments at Conclusion of Hire ──────────
+  y = addSectionHeader("21. Payments at Conclusion of Hire", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text(
+    "The Hirers agree to pay at the conclusion of the hire period:",
+    margin,
+    y,
+  );
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const conclusions = [
+    "Subject to clause 1 above, all Rental Charges",
+    "Any appropriate Excess Waiver or any Refuelling and miscellaneous charges",
+    "The excess amount in respect of each incident resulting in damage to or loss of the vehicle, its accessories or any property left stored or transported in or upon the vehicle",
+    "All fines and court costs incurred in relation to the vehicle by the Hirer or Lessor from the commencement of the rental until the vehicle is returned to the Lessor, except where caused through the fault of the Lessor",
+  ];
+
+  conclusions.forEach((conclusion, i) => {
+    y = checkNewPage(y, 12);
+    y = addWrappedText(
+      `${i + 1}) ${conclusion}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 4;
+  });
+
+  y += 8;
+
+  // ─── 22. Compensation for Loss or Damage ─────────
+  y = checkNewPage(y, 60);
+  y = addSectionHeader("22. Compensation for Loss or Damage", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "The Hirer shall compensate the Lessor in full on demand for any loss it suffers as a result of any damage to or theft of the vehicle including loss of revenue to the Lessor for the period during which the vehicle shall remain unavailable for rental by reason of such matters and any claims made by any persons in respect of the vehicle whilst it is in the Hirer's custody. This clause applies whether the Hirer has insurance or not.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 23. Hirer & Driver Obligations ───────────────
+  y = addSectionHeader("23. Hirer & Driver Obligations", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("The Hirer and any driver shall:", margin, y);
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const obligations = [
+    "Ensure compliance with the terms, conditions and limitation of the insurance policy, which shall be deemed to be included in this agreement as if the same were fully set out herein",
+    "Inform the Lessor immediately of any loss or damage to or fault developing in the vehicle",
+    "At the request and cost of the Lessor permit to be done in his own name all acts and things as maybe reasonably required by the Lessor for the purposes of repairing the vehicle or enforcing any rights or remedies or of obtaining relief from other parties in respect of any loss or damage to or in connection with the vehicle or its accessories",
+    "Indemnify the Lessor against any loss incurred by reason of any breach of this Agreement by the Hirer or any driver",
+    "Ensure that maximum payload and individual axle plated weights are not exceeded",
+    "Be responsible for the loading or unloading of the vehicle",
+  ];
+
+  obligations.forEach((obligation, i) => {
+    y = checkNewPage(y, 14);
+    y = addWrappedText(
+      `${i + 1}) ${obligation}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 4;
+  });
+
+  y += 8;
+
+  // ─── 24. Hirer & Driver Prohibitions ───────────────
+  y = addSectionHeader("24. Hirer & Driver Prohibitions", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("The Hirer and any driver shall not:", margin, y);
+  y += 10;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+
+  const prohibitions = [
+    "Without prior consent of the Lessor incur any Liability for repairs to the vehicle",
+    "Be the agent or servant of the Lessor for any purpose",
+    "Make any claim for loss of or damage to any property left stored or transported in upon the vehicle unless due to the Lessor's negligence",
+  ];
+
+  prohibitions.forEach((prohibition, i) => {
+    y = checkNewPage(y, 12);
+    y = addWrappedText(
+      `${i + 1}) ${prohibition}`,
+      margin + 4,
+      y,
+      fullWidth - 8,
+      8.5,
+    );
+    y += 4;
+  });
+
+  y += 8;
+
+  // Excess Waiver Exception
+  y = checkNewPage(y, 60);
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(22, 101, 52);
+  pdf.text("Excess Waiver Exception:", margin, y);
+  y += 8;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "Even if an excess waiver fee is paid, the Hirer shall be responsible for payment of any excess amount where the loss of or damage to the vehicle or its accessories arises from the negligent or wilful action of the Hirer or any driver.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 25. Non-Compliance Consequences ───────────────
+  y = addSectionHeader("25. Non-Compliance Consequences", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "If the Hirer does not comply with any of these conditions, he shall return the vehicle to the Lessor immediately and pay to the Lessor on demand any loss it suffers in respect of the Hirer's non-compliance. Failing which, the Lessor shall be at liberty to retake possession of the vehicle and all costs and expenses incidental to recovery of the vehicle shall be paid by the Hirer to the Lessor on demand.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
+  y += 14;
+
+  // ─── 26. Final Agreement Terms ───────────────────
+  y = addSectionHeader("26. Final Agreement Terms", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0);
+  y = addWrappedText(
+    "This agreement and the conditions of hire contain the entire agreement between the parties and supersede all previous representations, agreements and understandings, and may not be modified or altered in any way except by an agreement in writing signed by the parties or their authorised representatives.",
+    margin,
+    y,
+    fullWidth,
+    8.5,
+  );
 
   return y;
 }
