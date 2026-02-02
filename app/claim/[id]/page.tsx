@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { use } from "react";
 import axios from "axios";
 import CancellationNotice from "@/app/components/Cancellation";
 import { AccidentClaimForm } from "@/app/components/ClaimForm";
@@ -10,6 +9,8 @@ import { StorageRecoveryAgreement } from "@/app/components/Storage";
 import { RentalAgreement } from "@/app/components/RentalAgreement";
 import DocumentManager from "@/app/components/Document";
 import InvoiceManager from "@/app/components/InnvoiceManager";
+import UnsavedChangesDialog from "@/app/components/UnsavedChangesDialog";
+import { use } from "react";
 
 type TabKey =
   | "pre-inspection"
@@ -42,6 +43,13 @@ interface ClaimData {
   [key: string]: any;
 }
 
+// Context to share unsaved changes state between parent and children
+const ReactContext = React;
+export const UnsavedChangesContext = ReactContext.createContext<{
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: (value: boolean) => void;
+} | null>(null);
+
 export default function HomePage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const claimId = unwrappedParams.id;
@@ -50,8 +58,34 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [claimData, setClaimData] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingTab, setPendingTab] = useState<TabKey | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"; // fallback for dev
+
+  const handleTabChange = (tabKey: TabKey) => {
+    if (hasUnsavedChanges) {
+      setPendingTab(tabKey);
+      setShowDialog(true);
+    } else {
+      setActiveTab(tabKey);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setShowDialog(false);
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+    setHasUnsavedChanges(false);
+  };
+
+  const handleCancelNavigation = () => {
+    setShowDialog(false);
+    setPendingTab(null);
+  };
 
   useEffect(() => {
     if (!claimId) return;
@@ -148,7 +182,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabChange(tab.key)}
               className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${
                 activeTab === tab.key
                   ? "bg-green-600 text-white shadow-lg"
@@ -162,20 +196,39 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
         {/* Tab Content */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
-          {activeTab === "pre-inspection" && <PreInspectionChecklist claimId={claimId} />}
-          {activeTab === "cancellation" && <CancellationNotice claimId={claimId} />}
-          {activeTab === "storage-recovery" && <StorageRecoveryAgreement claimId={claimId} />}
-          {activeTab === "rental-agreement" && <RentalAgreement claimId={claimId} />}
-          {activeTab === "claim" && <AccidentClaimForm claimId={claimId} />}
+          <UnsavedChangesContext.Provider
+            value={{ hasUnsavedChanges, setHasUnsavedChanges }}
+          >
+            {activeTab === "pre-inspection" && (
+              <PreInspectionChecklist claimId={claimId} />
+            )}
+            {activeTab === "cancellation" && (
+              <CancellationNotice claimId={claimId} />
+            )}
+            {activeTab === "storage-recovery" && (
+              <StorageRecoveryAgreement claimId={claimId} />
+            )}
+            {activeTab === "rental-agreement" && (
+              <RentalAgreement claimId={claimId} />
+            )}
+            {activeTab === "claim" && <AccidentClaimForm claimId={claimId} />}
 
-{activeTab === "document" && (
-            <DocumentManager claimId={claimId} />
-          )}
+            {activeTab === "document" && (
+              <DocumentManager claimId={claimId} />
+            )}
 
-          {activeTab === "invoice" && (
-            <InvoiceManager claimId={claimId} />
-          )}
+            {activeTab === "invoice" && (
+              <InvoiceManager claimId={claimId} />
+            )}
+          </UnsavedChangesContext.Provider>
         </div>
+
+        {/* Unsaved Changes Dialog */}
+        <UnsavedChangesDialog
+          isOpen={showDialog}
+          onDiscard={handleDiscardChanges}
+          onCancel={handleCancelNavigation}
+        />
       </main>
     </div>
   );

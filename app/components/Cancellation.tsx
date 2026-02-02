@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react"
+import React, { useContext } from "react"
 
 import { useState, FormEvent, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
+import { UnsavedChangesContext } from "../claim/[id]/page";
 
 interface ClaimProps {
     claimId: string;
@@ -13,6 +14,7 @@ interface ClaimProps {
 
 export default function CancellationNotice({ claimId }: ClaimProps) {
     const [currentClaimId, setCurrentClaimId] = useState<string>("");
+    const unsavedChangesContext = useContext(UnsavedChangesContext);
 
     const initialFormData = {
         name: "",
@@ -29,6 +31,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     const [error, setError] = useState<string | null>(null);
     const [isFetching, setIsFetching] = useState(true);
     const [isSignatureFromApi, setIsSignatureFromApi] = useState(false);
+    const [initialData, setInitialData] = useState<Record<string, string>>(initialFormData);
 
     useEffect(() => {
         setCurrentClaimId(claimId);
@@ -55,6 +58,10 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
             });
 
             setFormData(updatedFormData);
+            setInitialData(updatedFormData);
+            if (unsavedChangesContext) {
+                unsavedChangesContext.setHasUnsavedChanges(false);
+            }
 
             if (data.cancellation_signature) {
                 setSignature(data.cancellation_signature);
@@ -86,10 +93,19 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     ) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+        
+        // Mark as changed when user modifies form
+        if (unsavedChangesContext) {
+            unsavedChangesContext.setHasUnsavedChanges(true);
+        }
     };
 
     const handleSignature = (dataUrl: string | null) => {
         setSignature(dataUrl);
+        // Mark as changed when user adds signature
+        if (unsavedChangesContext && !isSignatureFromApi) {
+            unsavedChangesContext.setHasUnsavedChanges(true);
+        }
     };
 
     const handleSubmit = async (e: FormEvent) => {
@@ -119,6 +135,9 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
             }
 
             setSubmitted(true);
+            if (unsavedChangesContext) {
+                unsavedChangesContext.setHasUnsavedChanges(false);
+            }
             await fetchCancellationData(); // refresh after submit
         } catch (err: any) {
             console.error("Submission error:", err);

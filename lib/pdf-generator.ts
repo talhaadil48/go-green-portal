@@ -1099,15 +1099,63 @@ async function generateRentalPDF(
   }
 
   // ─── 7. Additional Driver Authorization ────────────
-  y = checkNewPage(y, 40);
-  y = addSectionHeader("7. Additional Driver Authorization", y);
+  // ─── 7. Additional Driver Authorization ────────────
+y = checkNewPage(y, 40);
+y = addSectionHeader("7. Additional Driver Authorization", y);
 
-  pdf.text(
-    `Will any other person drive the vehicle? ${data.additional_driver_auth || "—"}`,
-    margin,
-    y,
-  );
-  y += 18;
+pdf.text(
+  `Will any other person drive the vehicle? ${data.additional_driver_auth || "—"}`,
+  margin,
+  y,
+);
+y += 18;
+
+// ── Very Important Disclosure ────────────────────────
+y = checkNewPage(y, 80); // Give more space since this is longer text
+
+pdf.setFont("helvetica", "bold");
+pdf.setFontSize(12);
+pdf.setTextColor(0, 100, 0); // dark green
+pdf.text("VERY IMPORTANT:", margin, y);
+y += 6;
+
+pdf.setFont("helvetica", "normal");
+pdf.setFontSize(10);
+pdf.setTextColor(0, 0, 0); // back to black
+
+const importantText = 
+  "You are reminded of the need to disclose any fact which the insurers would take into account in the assessment and acceptance of the proposal. " +
+  "If you have any doubt as to whether certain facts are relevant, please contact the self drive hire operator. " +
+  "It is an offence under the Road Traffic Acts to make a false statement or withhold any material information for the purpose of obtaining motor insurance.";
+
+const importantLines = pdf.splitTextToSize(importantText, pageWidth - 2 * margin);
+pdf.text(importantLines, margin, y);
+y += importantLines.length * 6 + 4; // ≈6pt per line + extra spacing
+
+// ── 1984 Data Protection Act ─────────────────────────
+pdf.setFont("helvetica", "bold");
+pdf.setFontSize(12);
+pdf.setTextColor(0, 100, 0);
+pdf.text("1984 Data Protection Act", margin, y);
+y += 6;
+
+pdf.setFont("helvetica", "normal");
+pdf.setFontSize(10);
+pdf.setTextColor(0, 0, 0);
+
+const dataProtectionText = 
+  "Insurers maintain a motor insurance anti-fraud and theft register. " +
+  "In line with the 1984 Data Protection Act's first data protection principle, which is concerned with the obtaining of information, " +
+  "we wish to advise you that insurance companies exchange information with each other to detect fraudulent claims.";
+
+const dpLines = pdf.splitTextToSize(dataProtectionText, pageWidth - 2 * margin);
+pdf.text(dpLines, margin, y);
+y += dpLines.length * 6 + 4; // extra spacing after the block
+
+// Optional: add a light background highlight simulation (if you want visual separation like the HTML)
+// You can draw a light green rect behind each block if pdf-lib supports your use-case:
+// pdf.setFillColor(240, 255, 240);
+// pdf.rect(margin - 4, yBeforeBlock - 8, pageWidth - 2*margin + 8, blockHeight + 16, "F");f
 
   // ─── 8. Declaration ────────────────────────────────
   y = checkNewPage(y, 80);
@@ -1220,12 +1268,46 @@ async function generateRentalPDF(
     ty += 10;
   });
   y = ty + 12;
+  y = checkNewPage(y, 80); // Adjust the height check as needed
+
+  y = addSectionHeader("Parking Fines & Congestion Charges", y);
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(0, 0, 0); // or keep your default color
+
+  // First paragraph – Parking Fines (with surcharge)
+  y = addWrappedText(
+    "To cover administration costs a surcharge of £30 will be made for parking tickets left unpaid in addition to the amount of the fine.",
+    margin,
+    y + 4,
+    fullWidth,
+    9,
+  );
+
+  // Second paragraph – Congestion Charges
+  y = addWrappedText(
+    "The hirer accepts full responsibility to pay any congestion charge upon demand together with an administration fee of £30 and any other associated costs/charges or penalties which may arise therefrom.",
+    margin,
+    y + 6,
+    fullWidth,
+    9,
+  );
+
+  y += 8; // Optional extra breathing room before next section
 
   // ─── 12. Statement of Liability ────────────────────
   y = checkNewPage(y, 60);
   y = addSectionHeader("12. Statement of Liability", y);
 
   addField("Date", data.liability_date || "—", margin + fullWidth - 70, y, 70);
+  y = addWrappedText(
+    "I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.",
+    margin,
+    y + 14,
+    fullWidth,
+    9,
+  );
   y += 14;
 
   if (sigs.liability_signature) {

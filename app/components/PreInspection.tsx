@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react"
+import React, { useContext } from "react"
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor"
 import PDFShareButton from "./PDFShareButton";
+import { UnsavedChangesContext } from "../claim/[id]/page";
 
 interface PreInspectionChecklistProps {
   claimId: string;
@@ -14,6 +15,7 @@ interface PreInspectionChecklistProps {
 
 export default function PreInspectionChecklist({ claimId }: PreInspectionChecklistProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   const checklistItems = [
     "Deep Scratches",
@@ -166,6 +168,11 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleSignature = (field: "customer" | "detailer") => (dataUrl: string | null) => {
@@ -213,6 +220,9 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
       }
 
       setSubmitted(true);
+      if (unsavedChangesContext) {
+        unsavedChangesContext.setHasUnsavedChanges(false);
+      }
       await fetchChecklist(); // refresh → will lock images/signatures if they exist
     } catch (err: unknown) {
       console.error("Submission error:", err);

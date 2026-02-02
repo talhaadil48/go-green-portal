@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react"
+import React, { useContext } from "react"
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import DrawingCanvas from "./DrawingCanvas";
 import PDFShareButton from "./PDFShareButton";
+import { UnsavedChangesContext } from "../claim/[id]/page";
 
 interface ClaimProps {
   claimId: string;
@@ -14,6 +15,7 @@ interface ClaimProps {
 
 export function AccidentClaimForm({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   const checklistItems = [
     "V.D",
@@ -206,6 +208,11 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     }
 
     setFormData((prev) => ({ ...prev, [name]: newValue }));
+    
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleSignature = (dataUrl: string | null) => {
@@ -236,6 +243,9 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
       }
 
       setSubmitted(true);
+      if (unsavedChangesContext) {
+        unsavedChangesContext.setHasUnsavedChanges(false);
+      }
       await fetchClaim();
     } catch (err) {
       console.error("Submission error:", err);

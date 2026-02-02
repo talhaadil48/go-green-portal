@@ -1,18 +1,19 @@
 "use client";
 
-import React from "react"
+import React, { useContext } from "react"
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
-
+import { UnsavedChangesContext } from "../claim/[id]/page";
 interface ClaimProps {
   claimId: string;
 }
 
 export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   const initialFormData = {
     name: "",
@@ -186,6 +187,11 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleSignature = (field: "client_signature" | "owner_signature") => (
@@ -198,6 +204,12 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Validate numerical fields before sending
+    if (!validateNumericFields()) {
+      setLoading(false);
+      return;
+    }
 
     const fullData = {
       ...formData,
@@ -216,6 +228,9 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
       }
 
       setSubmitted(true);
+      if (unsavedChangesContext) {
+        unsavedChangesContext.setHasUnsavedChanges(false);
+      }
       await fetchStorageData(); // refresh → locks signatures
     } catch (err: any) {
       console.error("Submission error:", err);
@@ -241,8 +256,48 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
       ...prev,
       [name]: numericValue,
     }));
+    
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
+  // Validate that numerical fields contain only numeric values
+  const validateNumericFields = (): boolean => {
+    const numericFields = [
+      "number_of_days",
+      "charges_per_day",
+      "total_storage_charge",
+      "recovery_charge",
+      "subtotal",
+      "vat_amount",
+      "invoice_total"
+    ];
+
+    for (const field of numericFields) {
+      const value = String(formData[field] || "").trim();
+      
+      // Skip empty fields (optional)
+      if (value === "") continue;
+      
+      // Check if value contains only numeric characters and dots
+      if (!/^[0-9.]*$/.test(value)) {
+        setError(`${field.replace(/_/g, " ")} contains invalid characters. Only numeric values are allowed.`);
+        return false;
+      }
+
+      // Check for valid decimal format (max 2 decimal places for money)
+      if (field !== "number_of_days") {
+        if (!/^[0-9]*(\.[0-9]{1,2})?$/.test(value) && value !== "") {
+          setError(`${field.replace(/_/g, " ")} must have valid format (up to 2 decimal places).`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
 
   if (isFetching) {
     return (

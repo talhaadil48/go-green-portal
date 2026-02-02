@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react"
+import React, { useContext } from "react"
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
+import { UnsavedChangesContext } from "../claim/[id]/page";
 
 interface ClaimProps {
   claimId: string;
@@ -13,6 +14,7 @@ interface ClaimProps {
 
 export function RentalAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   const initialFormData = {
     // Hirer’s Details
@@ -274,16 +276,31 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleRadio = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleCheckbox = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: checked ? "Yes" : "No" }));
+
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleSignature = (field: string) => (dataUrl: string | null) => {
@@ -306,13 +323,67 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       ...prev,
       [name]: numericValue,
     }));
+
+    // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
+  // Validate that numerical fields contain only numeric values
+  const validateNumericFields = (): boolean => {
+    const numericFields = [
+      "daily_rate",
+      "policy_excess",
+      "deposit",
+      "refuelling_charge",
+      "admin_fee",
+      "delivery_charge",
+      "cdw_per_day",
+      "days_out",
+      "days_in",
+      "total_days",
+      "rate_per_day",
+      "refuelling_total",
+      "subtotal",
+      "vat",
+      "total_cost"
+    ];
+
+    for (const field of numericFields) {
+      const value = String(formData[field] || "").trim();
+
+      // Skip empty fields (optional)
+      if (value === "") continue;
+
+      // Check if value contains only numeric characters and dots
+      if (!/^[0-9.]*$/.test(value)) {
+        setError(`${field.replace(/_/g, " ")} contains invalid characters. Only numeric values are allowed.`);
+        return false;
+      }
+
+      // Check for valid decimal format (max 2 decimal places for money)
+      if (!["days_out", "days_in", "total_days"].includes(field)) {
+        if (!/^[0-9]*(\.[0-9]{1,2})?$/.test(value) && value !== "") {
+          setError(`${field.replace(/_/g, " ")} must have valid format (up to 2 decimal places).`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Validate numerical fields before sending
+    if (!validateNumericFields()) {
+      setLoading(false);
+      return;
+    }
 
     const fullData = {
       ...formData,
@@ -334,6 +405,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       }
 
       setSubmitted(true);
+      if (unsavedChangesContext) {
+        unsavedChangesContext.setHasUnsavedChanges(false);
+      }
       await fetchRentalData(); // refresh → locks signatures
     } catch (err: any) {
       console.error("Submission error:", err);
@@ -937,7 +1011,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
               <h3 className="text-xl font-bold text-green-800 mb-3">VERY IMPORTANT:</h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                You are reminded of the need to disclose any fact which the insurers would take into account in the assessment and acceptance of the proposal...
+                You are reminded of the need to disclose any fact which the insurers would
+                take into account in the assessment and acceptance of the proposal.
+                If you have any doubt as to whether certain facts are relevant, please contact
+                the self drive hire operator. It is an offence under the Road Traffic Acts to
+                make a false statement or withhold any material information for the purpose
+                of obtaining motor insurance.
               </p>
             </div>
 
@@ -947,7 +1026,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 1984 Data Protection Act
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                Insurers maintain a motor insurance anti-fraud and theft register...
+                Insurers maintain a motor insurance anti-fraud and theft
+                register. In line with the 1984 Data Protection Act's first data protection
+                principle, which is concerned with the obtaining of information. We wish to
+                advise you that insurance companies exchange information with each other to
+                detect fraudulent claims.
               </p>
             </div>
 
@@ -1394,7 +1477,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
               <h3 className="text-xl font-bold text-green-800 mb-3">VAT Notice:</h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                For hirers who are VAT registered, the vehicle hired under this contract is a qualifying car...
+                For Hirers who are VAT registered, the vehicle hired under this
+                contract is a qualifying car as delivered under Article 7 (2) of the
+                value added Tax (Input Tax) order 1882, as amended.
               </p>
             </div>
 
@@ -1404,10 +1489,16 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Parking Fines & Congestion Charges
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                To cover administration costs, a surcharge of £30 will be made for parking tickets left unpaid...
+                To cover administration costs a surcharge of £30
+                will be made for parking tickets left unpaid in addition to the
+                amount of fine.
+
               </p>
               <p className="text-gray-700 text-sm leading-relaxed mt-3">
-                The hirer accepts full responsibility to pay any congestion charge upon demand...
+                The hirer accepts full responsibility to pay any congestion charge
+                upon demand together with an administration fee of £30 and any
+                other associated costs/charges or penalties which may arise
+                therefrom
               </p>
             </div>
 
@@ -1417,7 +1508,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Statement of Liability
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                I acknowledge that during the currency of this rental agreement...
+                I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or
+                replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                 <div>
