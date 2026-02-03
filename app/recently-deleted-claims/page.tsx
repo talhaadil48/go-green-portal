@@ -10,23 +10,14 @@ interface Claim {
     claimant_name: string | null;
     claim_type: string | null;
     claim_start_date: string | null;
-    invoice_sent: string | null;
+    recently_deleted_date: string | null;
 }
 
-export default function ClaimsPage() {
+export default function RecentlyDeletedClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    // Create form
-    const [formData, setFormData] = useState({
-        claim_id: "",
-        claimant_name: "",
-        claim_type: "",
-    });
-    const [creating, setCreating] = useState(false);
-    const [createError, setCreateError] = useState<string | null>(null);
 
     // Filter + Search
     const [searchTerm, setSearchTerm] = useState("");
@@ -41,12 +32,12 @@ export default function ClaimsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await axios.get(`${apiBase}/api/claims`);
-            setAllClaims(res.data);
-            setClaims(res.data);
+            const res = await axios.get(`${apiBase}/api/recently`);
+            setAllClaims(res.data.claims);
+            setClaims(res.data.claims);
         } catch (err: any) {
             console.error(err);
-            setError("Failed to load claims. Please try again.");
+            setError("Failed to load recently deleted claims. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -87,58 +78,41 @@ export default function ClaimsPage() {
         setClaims(filtered);
     }, [searchTerm, selectedType, startDate, endDate, allClaims]);
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-    };
+    const handleRestore = async (claim_id: string) => {
+       
 
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        setCreating(true);
-        setCreateError(null);
+    
 
         try {
-            const payload: any = {
-                claimant_name: formData.claimant_name.trim() || undefined,
-                claim_type: formData.claim_type.trim() || undefined,
-            };
-
-            if (formData.claim_id.trim()) {
-                payload.claim_id = formData.claim_id.trim();
-            }
-
-            await axios.post(`${apiBase}/api/claims`, payload);
-
-            setFormData({ claim_id: "", claimant_name: "", claim_type: "" });
-            await fetchClaims();
-        } catch (err: any) {
-            console.error(err);
-            if (err.response?.status === 409) {
-                setCreateError("This Claim ID already exists. Please use a different one or leave it blank.");
-            } else {
-                setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
-            }
-        } finally {
-            setCreating(false);
-        }
-    };
-
-    const handleDelete = async (claim_id: string) => {
-        // Show confirmation dialog
-        const confirmed = window.confirm(
-            `Are you sure you want to delete claim ${claim_id}?\n\nThis action cannot be undone.`
-        );
-
-        if (!confirmed) return;
-
-        try {
-            await axios.put(`${apiBase}/api/claims/${claim_id}/soft-delete`);
+            await axios.put(`${apiBase}/api/claims/${claim_id}/restore`);
             await fetchClaims(); // refresh list
         } catch (err: any) {
             console.error(err);
             alert(
                 err.response?.data?.detail ||
-                "Failed to delete claim. Please try again."
+                "Failed to restore claim. Please try again."
+            );
+        }
+    };
+
+    const handlePermanentDelete = async (claim_id: string) => {
+        const confirmed = window.confirm(
+            `⚠️ PERMANENTLY DELETE CLAIM ${claim_id}?\n\n` +
+            "This action CANNOT be undone.\n" +
+            "All data related to this claim will be permanently removed."
+        );
+
+        if (!confirmed) return;
+
+        try {
+            await axios.delete(`${apiBase}/api/claims/${claim_id}`);
+            await fetchClaims(); // refresh list
+            alert("Claim permanently deleted.");
+        } catch (err: any) {
+            console.error(err);
+            alert(
+                err.response?.data?.detail ||
+                "Failed to permanently delete claim. Please try again."
             );
         }
     };
@@ -178,10 +152,10 @@ export default function ClaimsPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10">
                     <div>
                         <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
-                            Claims Dashboard
+                            Recently Deleted Claims
                         </h1>
                         <p className="mt-2 text-lg text-green-700/80">
-                            Manage all your claims in one place 🌱
+                            View and restore deleted claims • These will be permanently removed after 3 days.
                         </p>
                     </div>
 
@@ -199,91 +173,6 @@ export default function ClaimsPage() {
                         {error}
                     </div>
                 )}
-
-                {/* Create Claim Form */}
-                <div className="mb-12 bg-white/80 backdrop-blur-md shadow-xl rounded-3xl border border-green-100/60 p-8 md:p-10">
-                    <h2 className="text-2xl font-bold text-green-800 mb-6">
-                        Create New Claim
-                    </h2>
-
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claimant Name
-                            </label>
-                            <input
-                                type="text"
-                                name="claimant_name"
-                                value={formData.claimant_name}
-                                onChange={handleChange}
-                                placeholder="John Doe"
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claim Type
-                            </label>
-                            <select
-                                name="claim_type"
-                                value={formData.claim_type}
-                                onChange={handleChange}
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
-                            >
-                                <option value="">Select claim type</option>
-                                <option value="taxi">Taxi</option>
-                                <option value="personal">Personal</option>
-                                <option value="sovereign">Sovereign</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claim ID (optional)
-                            </label>
-                            <input
-                                type="text"
-                                name="claim_id"
-                                value={formData.claim_id}
-                                onChange={handleChange}
-                                placeholder="e.g. TC-222"
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
-                            />
-                        </div>
-
-
-                        <div className="md:col-span-3 flex justify-end">
-                            <button
-                                type="submit"
-                                disabled={creating}
-                                className={`
-                  bg-gradient-to-r from-green-600 to-emerald-600
-                  hover:from-green-700 hover:to-emerald-700
-                  text-white font-semibold py-3 px-10 rounded-full
-                  shadow-lg transform hover:scale-105 transition-all duration-300
-                  disabled:opacity-60 disabled:cursor-not-allowed
-                  flex items-center gap-2
-                `}
-                            >
-                                {creating ? (
-                                    <>
-                                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                        Creating...
-                                    </>
-                                ) : (
-                                    "Create Claim →"
-                                )}
-                            </button>
-                        </div>
-
-                        {createError && (
-                            <p className="md:col-span-3 text-red-600 text-center font-medium mt-2">
-                                {createError}
-                            </p>
-                        )}
-                    </form>
-                </div>
 
                 {/* Search + Filter Bar */}
                 <div className="mb-8 bg-white/70 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6">
@@ -361,8 +250,8 @@ export default function ClaimsPage() {
                     <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                         <p className="text-xl text-green-700/80">
                             {searchTerm || selectedType || startDate || endDate
-                                ? "No claims match your filters 😔"
-                                : "No claims found yet. Create your first one above! 🌿"}
+                                ? "No deleted claims match your filters 😔"
+                                : "No recently deleted claims found 🌿"}
                         </p>
                     </div>
                 ) : (
@@ -384,7 +273,7 @@ export default function ClaimsPage() {
                                             Start Date
                                         </th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Innvoice
+                                            Deleted Date
                                         </th>
                                         <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
                                             Actions
@@ -404,15 +293,15 @@ export default function ClaimsPage() {
                                                 {claim.claimant_name || "—"}
                                             </td>
                                             <td className="px-6 py-4 text-gray-700">
-                                                {(claim.claim_type
+                                                {claim.claim_type
                                                     ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
-                                                    : "Not specified")}
+                                                    : "Not specified"}
                                             </td>
                                             <td className="px-6 py-4 text-gray-700">
                                                 {formatDate(claim.claim_start_date)}
                                             </td>
                                             <td className="px-6 py-4 text-gray-700">
-                                                {claim.invoice_sent}
+                                                {formatDate(claim.recently_deleted_date)}
                                             </td>
                                             <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
                                                 <Link
@@ -423,10 +312,17 @@ export default function ClaimsPage() {
                                                 </Link>
 
                                                 <button
-                                                    onClick={() => handleDelete(claim.claim_id)}
+                                                    onClick={() => handleRestore(claim.claim_id)}
+                                                    className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition"
+                                                >
+                                                    Restore
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handlePermanentDelete(claim.claim_id)}
                                                     className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
                                                 >
-                                                    Delete
+                                                    Delete Permanently
                                                 </button>
                                             </td>
                                         </tr>

@@ -949,21 +949,6 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
             </section>
 
             {/* CIRCUMSTANCES OF ACCIDENT */}
-            <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
-              <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
-                CIRCUMSTANCES OF ACCIDENT
-              </h3>
-
-              <div className="max-w-4xl mx-auto">
-                <DrawingCanvas
-                  width={900}
-                  height={500}
-                  onDrawingChange={setCircumstanceDrawing}
-                  initialImage={circumstanceDrawing}
-                  isFromApi={isCircumstanceFromApi}
-                />
-              </div>
-            </section>
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md mt-6">
               <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
                 Accident Description

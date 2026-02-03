@@ -6,18 +6,16 @@ import Cookies from 'js-cookie'
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
-    const checkToken = () => {
-      const token = Cookies.get('access_token')
-      setIsLoggedIn(!!token)
-    }
+    const timer = setTimeout(() => {
+      const token = Cookies.get('access_token');
+      setIsLoggedIn(!!token);
+    }, 500); // 500ms = 0.5s
 
-    checkToken() // initial check
-
-    const interval = setInterval(checkToken, 500) // check every 0.5s
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearTimeout(timer); // cleanup in case component unmounts
+  }, []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-green-950 via-emerald-950 to-black">
@@ -28,8 +26,8 @@ export default function Navbar() {
             <span className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]">GREEN</span>
           </Link>
 
-          <div className="hidden md:flex items-center space-x-8 font-medium">
-            {isLoggedIn && (
+          {isLoggedIn && (
+            <div className="hidden md:flex items-center space-x-8 font-medium">
               <Link
                 href="/claim"
                 className="text-green-100 hover:text-white transition-colors duration-300 relative group"
@@ -37,17 +35,45 @@ export default function Navbar() {
                 Claims
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
               </Link>
-            )}
-          </div>
+              <Link
+                href="/recently-deleted-claims"
+                className="text-green-100 hover:text-white transition-colors duration-300 relative group"
+              >
+                Deleted Claims
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
+              </Link>
+            </div>
+          )}
 
           <div className="md:hidden">
-            <button className="text-green-200 hover:text-white focus:outline-none transition-colors" aria-label="Toggle menu">
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="text-green-200 hover:text-white focus:outline-none transition-colors"
+              aria-label="Toggle menu"
+            >
               <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           </div>
         </div>
+
+        {mobileOpen && isLoggedIn && (
+          <div className="md:hidden mt-2 space-y-2 px-2">
+            <Link
+              href="/claim"
+              className="block text-green-100 hover:text-white transition-colors duration-300"
+            >
+              Claims
+            </Link>
+            <Link
+              href="/recently-deleted-claims"
+              className="block text-green-100 hover:text-white transition-colors duration-300"
+            >
+              Deleted Claims
+            </Link>
+          </div>
+        )}
       </div>
     </nav>
   )

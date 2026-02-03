@@ -446,60 +446,164 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
           <form onSubmit={handleSubmit} className="space-y-12">
             {/* Hirer’s Details */}
-            <section className="space-y-6">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Hirer’s Details
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-10">
+              {/* Merged section – side by side on md+ */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
+                {/* Left: Hirer’s Details (wider label area + name layout) */}
+                <section className="lg:col-span-2 space-y-6">
+                  <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                    Hirer’s Details
+                  </h3>
+
+                  {/* Title + Full Name in one row */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Title
+                      </label>
+                      <select
+                        name="title"
+                        value={formData.title}
+                        onChange={handleChange}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition bg-white"
+                      >
+                        <option value="">Select</option>
+                        <option value="Mr">Mr</option>
+                        <option value="Mrs">Mrs</option>
+                        <option value="Miss">Miss</option>
+                        <option value="Ms">Ms</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Hirer’s Name (in full)
+                      </label>
+                      <input
+                        type="text"
+                        name="hirer_name"
+                        value={formData.hirer_name}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title
+                      Permanent Address
                     </label>
-                    <select
-                      name="title"
-                      value={formData.title}
+                    <textarea
+                      name="permanent_address"
+                      value={formData.permanent_address}
                       onChange={handleChange}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition bg-white"
-                    >
-                      <option value="">Title</option>
-                      <option value="Mr">Mr</option>
-                      <option value="Mrs">Mrs</option>
-                      <option value="Miss">Miss</option>
-                      <option value="Ms">Ms</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hirer’s Name (in full)
-                    </label>
-                    <input
-                      type="text"
-                      name="hirer_name"
-                      value={formData.hirer_name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition"
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition resize-y min-h-[100px]"
                     />
                   </div>
-                </div>
+                </section>
 
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Permanent Address:
-                </label>
-                <textarea
-                  name="permanent_address"
-                  value={formData.permanent_address}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                />
-              </div>
-            </section>
+                {/* Right: Hire Vehicle */}
+                <section className="lg:col-span-3 space-y-6">
+                  <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                    Hire Vehicle
+                  </h3>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_reg"
+                        value={formData.hire_vehicle_reg}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_make"
+                        value={formData.hire_vehicle_make}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_model"
+                        value={formData.hire_vehicle_model}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_group"
+                        value={formData.hire_vehicle_group}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
+                      <input
+                        type="date"
+                        name="hire_vehicle_date_out"
+                        value={formData.hire_vehicle_date_out}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date in</label>
+                      <input
+                        type="date"
+                        name="hire_vehicle_date_in"
+                        value={formData.hire_vehicle_date_in}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fuel out</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_fuel_out"
+                        placeholder="e.g. Full / 3/4 / 1/2"
+                        value={formData.hire_vehicle_fuel_out}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fuel in</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_fuel_in"
+                        placeholder="e.g. Full / 3/4 / 1/2"
+                        value={formData.hire_vehicle_fuel_in}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
             {/* Additional Driver’s Details */}
             <section className="space-y-6">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
@@ -833,140 +937,150 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
+            <div className="space-y-10 lg:space-y-0">
+              {/* Merged Insurance + Medical – side by side on large screens, equal width */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                {/* Left: Insurance Proposal */}
+                <section className="space-y-6">
+                  <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                    Insurance Proposal
+                  </h3>
+                  <p className="text-gray-700 text-sm italic">
+                    (if not using own insurance / intended use other than social, domestic, and pleasure)
+                  </p>
+                  <p className="text-gray-700">Please answer the following:</p>
 
-            {/* Insurance Proposal */}
-            <section className="space-y-6">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Insurance Proposal (if not using own insurance / intended use other than social, domestic, and pleasure)
-              </h3>
-              <p className="text-gray-700">Please answer the following:</p>
-              <div className="space-y-4">
-                {[
-                  {
-                    question:
-                      "Have you been convicted or received notice of intended prosecution for any motoring offence (including endorsable fixed penalty offences) in the last 3 years?",
-                    name: "motoring_offence_3yrs",
-                  },
-                  {
-                    question: "Have you been disqualified from driving in the last 5 years?",
-                    name: "disqualified_5yrs",
-                  },
-                  {
-                    question:
-                      "Have you been involved in any motoring accident or loss in the last 3 years?",
-                    name: "accident_3yrs",
-                  },
-                  {
-                    question:
-                      "Has any motoring insurance proposal been declined, non-renewed, cancelled, or had special conditions applied in the last 5 years?",
-                    name: "insurance_declined_5yrs",
-                  },
-                  {
-                    question:
-                      "Have you ever been convicted or received notice of intended prosecution involving dishonesty of any kind?",
-                    name: "dishonesty_conviction",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <label className="text-sm text-gray-700 flex-1">
-                      {item.question}
-                    </label>
-                    <div className="flex gap-8">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={item.name}
-                          value="Yes"
-                          checked={formData[item.name] === "Yes"}
-                          onChange={handleRadio}
-                          className="h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2">Yes</span>
+                  <div className="space-y-5 pt-1">
+                    {[
+                      {
+                        question:
+                          "Have you been convicted or received notice of intended prosecution for any motoring offence (including endorsable fixed penalty offences) in the last 3 years?",
+                        name: "motoring_offence_3yrs",
+                      },
+                      {
+                        question: "Have you been disqualified from driving in the last 5 years?",
+                        name: "disqualified_5yrs",
+                      },
+                      {
+                        question:
+                          "Have you been involved in any motoring accident or loss in the last 3 years?",
+                        name: "accident_3yrs",
+                      },
+                      {
+                        question:
+                          "Has any motoring insurance proposal been declined, non-renewed, cancelled, or had special conditions applied in the last 5 years?",
+                        name: "insurance_declined_5yrs",
+                      },
+                      {
+                        question:
+                          "Have you ever been convicted or received notice of intended prosecution involving dishonesty of any kind?",
+                        name: "dishonesty_conviction",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.name}
+                        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+                      >
+                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">
+                          {item.question}
+                        </label>
+                        <div className="flex gap-10 shrink-0 pt-1 sm:pt-0">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={item.name}
+                              value="Yes"
+                              checked={formData[item.name] === "Yes"}
+                              onChange={handleRadio}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500"
+                            />
+                            <span className="ml-2 text-sm">Yes</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={item.name}
+                              value="No"
+                              checked={formData[item.name] === "No"}
+                              onChange={handleRadio}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500"
+                            />
+                            <span className="ml-2 text-sm">No</span>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Right: Medical Declaration */}
+                <section className="space-y-6">
+                  <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                    Medical Declaration
+                  </h3>
+                  <p className="text-gray-700">Do you suffer from:</p>
+
+                  <div className="space-y-5 pt-1">
+                    {[
+                      {
+                        q: "Diabetes, fits, heart condition, or take regular prescribed medication?",
+                        name: "medical_condition1",
+                      },
+                      {
+                        q: "Any other disease or physical infirmity which could impair your ability to drive?",
+                        name: "medical_condition2",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.name}
+                        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+                      >
+                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">
+                          {item.q}
+                        </label>
+                        <div className="flex gap-10 shrink-0 pt-1 sm:pt-0">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={item.name}
+                              value="Yes"
+                              checked={formData[item.name] === "Yes"}
+                              onChange={handleRadio}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500"
+                            />
+                            <span className="ml-2 text-sm">Yes</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name={item.name}
+                              value="No"
+                              checked={formData[item.name] === "No"}
+                              onChange={handleRadio}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500"
+                            />
+                            <span className="ml-2 text-sm">No</span>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        If “Yes” to any above, please give details:
                       </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={item.name}
-                          value="No"
-                          checked={formData[item.name] === "No"}
-                          onChange={handleRadio}
-                          className="h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2">No</span>
-                      </label>
+                      <textarea
+                        name="medical_details"
+                        value={formData.medical_details || ""}
+                        onChange={handleChange}
+                        rows={4}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition resize-y min-h-[100px]"
+                      />
                     </div>
                   </div>
-                ))}
+                </section>
               </div>
-            </section>
-
-            {/* Medical Declaration */}
-            <section className="space-y-6">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Medical Declaration
-              </h3>
-              <p className="text-gray-700">Do you suffer from:</p>
-              <div className="space-y-4">
-                {[
-                  {
-                    q: "Diabetes, fits, heart condition, or take regular prescribed medication?",
-                    name: "medical_condition1",
-                  },
-                  {
-                    q: "Any other disease or physical infirmity which could impair your ability to drive?",
-                    name: "medical_condition2",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <label className="text-sm text-gray-700 flex-1">
-                      {item.q}
-                    </label>
-                    <div className="flex gap-8">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={item.name}
-                          value="Yes"
-                          checked={formData[item.name] === "Yes"}
-                          onChange={handleRadio}
-                          className="h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2">Yes</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name={item.name}
-                          value="No"
-                          checked={formData[item.name] === "No"}
-                          onChange={handleRadio}
-                          className="h-4 w-4 text-green-600 focus:ring-green-500"
-                        />
-                        <span className="ml-2">No</span>
-                      </label>
-                    </div>
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    If “Yes” to any above, please give details:
-                  </label>
-                  <textarea
-                    name="medical_details"
-                    value={formData.medical_details}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-              </div>
-            </section>
+            </div>
 
             {/* Additional Driver Authorization */}
             <section className="space-y-6">
@@ -1095,112 +1209,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </section>
 
             {/* Hire Vehicle */}
-            <section className="space-y-6">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Hire Vehicle
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reg:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_reg"
-                    value={formData.hire_vehicle_reg}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Make:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_make"
-                    value={formData.hire_vehicle_make}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Model:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_model"
-                    value={formData.hire_vehicle_model}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Group:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_group"
-                    value={formData.hire_vehicle_group}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date out:
-                  </label>
-                  <input
-                    type="date"
-                    name="hire_vehicle_date_out"
-                    value={formData.hire_vehicle_date_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date in:
-                  </label>
-                  <input
-                    type="date"
-                    name="hire_vehicle_date_in"
-                    value={formData.hire_vehicle_date_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fuel out:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_fuel_out"
-                    placeholder="e.g. Full / 3/4 / 1/2"
-                    value={formData.hire_vehicle_fuel_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fuel in:
-                  </label>
-                  <input
-                    type="text"
-                    name="hire_vehicle_fuel_in"
-                    placeholder="e.g. Full / 3/4 / 1/2"
-                    value={formData.hire_vehicle_fuel_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-              </div>
-            </section>
-
             {/* Change of Hire Vehicle */}
             <section className="space-y-6">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
