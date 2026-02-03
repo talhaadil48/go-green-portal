@@ -96,18 +96,11 @@ export default function RecentlyDeletedClaimsPage() {
     };
 
     const handlePermanentDelete = async (claim_id: string) => {
-        const confirmed = window.confirm(
-            `⚠️ PERMANENTLY DELETE CLAIM ${claim_id}?\n\n` +
-            "This action CANNOT be undone.\n" +
-            "All data related to this claim will be permanently removed."
-        );
-
-        if (!confirmed) return;
+       
 
         try {
             await axios.delete(`${apiBase}/api/claims/${claim_id}`);
             await fetchClaims(); // refresh list
-            alert("Claim permanently deleted.");
         } catch (err: any) {
             console.error(err);
             alert(

@@ -103,6 +103,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [error, setError] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(true);
 
+  // Conditional section states
+  const [showAdditionalDriver, setShowAdditionalDriver] = useState<boolean | null>(null);
+  const [showOwnInsurance, setShowOwnInsurance] = useState<boolean | null>(null);
+  const [showChangeVehicle, setShowChangeVehicle] = useState<boolean | null>(null);
+  
+  // Flag to check if data already exists from API (don't ask, just show)
+  const [hasApiData, setHasApiData] = useState(false);
+
   // Refs for clearing signature pads (if component supports .clear())
   const hirerTermsRef = useRef<any>(null);
   const companyRef = useRef<any>(null);
@@ -212,6 +220,34 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       });
 
       setFormData(updatedFormData);
+
+      // Check if API data exists for conditional sections
+      const hasAdditionalDriverData = data.additional_driver_name || data.licence_no || data.dob || data.occupation;
+      const hasOwnInsuranceData = data.insurance_company || data.policy_no || data.insurance_dates;
+      const hasChangeVehicleData = data.change_vehicle_reg || data.change_vehicle_make || data.change_vehicle_model;
+
+      // If API has data for a section, skip question and show form directly
+      if (hasAdditionalDriverData) {
+        setHasApiData(true);
+        setShowAdditionalDriver(true);
+      } else {
+        // If no API data, reset to null (show question again)
+        setShowAdditionalDriver(null);
+      }
+
+      if (hasOwnInsuranceData) {
+        setHasApiData(true);
+        setShowOwnInsurance(true);
+      } else {
+        setShowOwnInsurance(null);
+      }
+
+      if (hasChangeVehicleData) {
+        setHasApiData(true);
+        setShowChangeVehicle(true);
+      } else {
+        setShowChangeVehicle(null);
+      }
 
       // Load signatures + set locked flags
       if (data.hirer_signature_terms) {
@@ -604,8 +640,43 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </section>
               </div>
             </div>
-            {/* Additional Driver’s Details */}
-            <section className="space-y-6">
+
+            {/* Conditional: Ask about additional driver (only if state is null) */}
+            {showAdditionalDriver === null && (
+              <section className="space-y-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
+                  <label className="text-sm font-medium text-gray-700">
+                    Will there be an additional driver?
+                  </label>
+                  <div className="flex gap-8">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_additional_driver"
+                        checked={showAdditionalDriver === true}
+                        onChange={() => setShowAdditionalDriver(true)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">Yes</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_additional_driver"
+                        checked={showAdditionalDriver === false}
+                        onChange={() => setShowAdditionalDriver(false)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">No</span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Additional Driver's Details - Show only if selected or API data exists */}
+            {showAdditionalDriver && (
+            <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                 Additional Driver’s Details
               </h3>
@@ -696,6 +767,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
+            )}
 
             {/* Hire Agreement Terms */}
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
@@ -825,8 +897,43 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
-            {/* Hirer’s Own Insurance */}
-            <section className="space-y-6">
+
+            {/* Conditional: Ask about own insurance (only if state is null) */}
+            {showOwnInsurance === null && (
+              <section className="space-y-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
+                  <label className="text-sm font-medium text-gray-700">
+                    Do you have your own insurance?
+                  </label>
+                  <div className="flex gap-8">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_own_insurance"
+                        checked={showOwnInsurance === true}
+                        onChange={() => setShowOwnInsurance(true)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">Yes</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_own_insurance"
+                        checked={showOwnInsurance === false}
+                        onChange={() => setShowOwnInsurance(false)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">No</span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Hirer's Own Insurance - Show only if selected or API data exists */}
+            {showOwnInsurance && (
+            <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                 Hirer’s Own Insurance (if applicable)
               </h3>
@@ -937,6 +1044,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
+            )}
+
             <div className="space-y-10 lg:space-y-0">
               {/* Merged Insurance + Medical – side by side on large screens, equal width */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
@@ -1209,8 +1318,43 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </section>
 
             {/* Hire Vehicle */}
-            {/* Change of Hire Vehicle */}
-            <section className="space-y-6">
+
+            {/* Conditional: Ask about change of vehicle (only if state is null) */}
+            {showChangeVehicle === null && (
+              <section className="space-y-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
+                  <label className="text-sm font-medium text-gray-700">
+                    Was the vehicle changed during the rental period?
+                  </label>
+                  <div className="flex gap-8">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_change_vehicle"
+                        checked={showChangeVehicle === true}
+                        onChange={() => setShowChangeVehicle(true)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">Yes</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="show_change_vehicle"
+                        checked={showChangeVehicle === false}
+                        onChange={() => setShowChangeVehicle(false)}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm font-medium">No</span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Change of Hire Vehicle - Show only if selected or API data exists */}
+            {showChangeVehicle && (
+            <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                 Change of Hire Vehicle
               </h3>
@@ -1318,6 +1462,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 (Leave blank if no vehicle change occurred during the hire period)
               </p>
             </section>
+            )}
 
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
               <h3 className="text-2xl font-semibold text-green-800 pb-4 border-b border-green-300">
