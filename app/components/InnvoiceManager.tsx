@@ -537,11 +537,11 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                         className={`cursor-pointer transition-colors ${!isAvailable
                                             ? "bg-gray-50 text-gray-400 cursor-not-allowed"
                                             : isSelected
-                                                ? "bg-emerald-50/70 hover:bg-emerald-100"
+                                                ? "bg-emerald-300"
                                                 : "hover:bg-gray-50"
                                             }`}
                                     >
-                                        <td className="px-4 py-4">
+                                        <td className="px-4">
                                             <div
                                                 className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all ${isSelected
                                                     ? "bg-emerald-500 border-emerald-500"
@@ -566,12 +566,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                             </div>
                                         </td>
 
-                                        <td className="px-4 py-4">
+                                        <td className="px-4">
                                             <div className="flex items-center gap-3">
                                                 <div
-                                                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected
+                                                    className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected
                                                         ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
-                                                        : "bg-gray-100 text-gray-600"
+                                                        : "bg-gray-200 text-gray-600"
                                                         }`}
                                                 >
                                                     {doc.icon}

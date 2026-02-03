@@ -998,6 +998,44 @@ async function generateRentalPDF(
   y += Math.max(addrHeight, 8) + 6;
 
   // ─── 2. Additional Driver (conditional) ────────────
+ 
+  
+    y = checkNewPage(y, 30);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Driver's Details", margin, y);
+    y += 5;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+
+   
+
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Licence No", margin, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.new_licence_no || "—", margin + 25, y);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Date Issued", margin + col3, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.new_date_issued || "—", margin + col3 + 25, y);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Expiry Date", margin + col3 * 2, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.new_expiry_date || "—", margin + col3 * 2 + 25, y);
+    y += 5;
+
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("DOB", margin, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.new_dob || "—", margin + 25, y);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Test Passed", margin + col3, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.new_date_test_passed || "—", margin + col3 + 25, y);
+    pdf.setTextColor(80, 80, 80);
+  
+    y += 8;
+  
   const hasAdditionalDriver = !!(
     data.additional_driver_name?.trim() ||
     data.licence_no?.trim() ||

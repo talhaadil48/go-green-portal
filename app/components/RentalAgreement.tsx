@@ -34,6 +34,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     policy_excess: "",
     deposit: "",
     refuelling_charge: "",
+    new_licence_no: "",
+    new_date_issued: "",
+    new_expiry_date: "",
+    new_dob: "",
+    new_date_test_passed: "",
+    new_occupation: "",
     // Hirer’s Own Insurance
     insurance_company: "",
     policy_no: "",
@@ -107,7 +113,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [showAdditionalDriver, setShowAdditionalDriver] = useState<boolean | null>(null);
   const [showOwnInsurance, setShowOwnInsurance] = useState<boolean | null>(null);
   const [showChangeVehicle, setShowChangeVehicle] = useState<boolean | null>(null);
-  
+
   // Flag to check if data already exists from API (don't ask, just show)
   const [hasApiData, setHasApiData] = useState(false);
 
@@ -640,133 +646,212 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </section>
               </div>
             </div>
-
-            {/* Conditional: Ask about additional driver (only if state is null) */}
-            {showAdditionalDriver === null && (
-              <section className="space-y-6 mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
-                  <label className="text-sm font-medium text-gray-700">
-                    Will there be an additional driver?
-                  </label>
-                  <div className="flex gap-8">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="show_additional_driver"
-                        checked={showAdditionalDriver === true}
-                        onChange={() => setShowAdditionalDriver(true)}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm font-medium">Yes</span>
-                    </label>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="show_additional_driver"
-                        checked={showAdditionalDriver === false}
-                        onChange={() => setShowAdditionalDriver(false)}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm font-medium">No</span>
-                    </label>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Additional Driver's Details - Show only if selected or API data exists */}
-            {showAdditionalDriver && (
             <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Additional Driver’s Details
+                Driver Details
               </h3>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name (in full):
-                  </label>
-                  <input
-                    type="text"
-                    name="additional_driver_name"
-                    value={formData.additional_driver_name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Driving Licence No:
                   </label>
                   <input
                     type="text"
-                    name="licence_no"
-                    value={formData.licence_no}
+                    name="new_licence_no"
+                    value={formData.new_licence_no}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Date Issued:
                   </label>
                   <input
                     type="date"
-                    name="date_issued"
-                    value={formData.date_issued}
+                    name="new_date_issued"
+                    value={formData.new_date_issued}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Expiry Date:
                   </label>
                   <input
                     type="date"
-                    name="expiry_date"
-                    value={formData.expiry_date}
+                    name="new_expiry_date"
+                    value={formData.new_expiry_date}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Date of Birth:
                   </label>
                   <input
                     type="date"
-                    name="dob"
-                    value={formData.dob}
+                    name="new_dob"
+                    value={formData.new_dob}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Date Test Passed:
                   </label>
                   <input
                     type="date"
-                    name="date_test_passed"
-                    value={formData.date_test_passed}
+                    name="new_date_test_passed"
+                    value={formData.new_date_test_passed}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
-                <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Occupation:
+
+              
+              </div>
+            </section>
+
+
+
+
+
+
+
+
+            <section className="space-y-6 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
+                <label className="text-sm font-medium text-gray-700">
+                  Will there be an additional driver?
+                </label>
+                <div className="flex gap-8">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="show_additional_driver"
+                      checked={showAdditionalDriver === true}
+                      onChange={() => setShowAdditionalDriver(true)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm font-medium">Yes</span>
                   </label>
-                  <input
-                    type="text"
-                    name="occupation"
-                    value={formData.occupation}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="show_additional_driver"
+                      checked={showAdditionalDriver === false}
+                      onChange={() => setShowAdditionalDriver(false)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-2 text-sm font-medium">No</span>
+                  </label>
                 </div>
               </div>
             </section>
+
+
+            {/* Additional Driver's Details - Show only if selected or API data exists */}
+            {showAdditionalDriver && (
+              <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
+                <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                  Additional Driver’s Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name (in full):
+                    </label>
+                    <input
+                      type="text"
+                      name="additional_driver_name"
+                      value={formData.additional_driver_name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Driving Licence No:
+                    </label>
+                    <input
+                      type="text"
+                      name="licence_no"
+                      value={formData.licence_no}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date Issued:
+                    </label>
+                    <input
+                      type="date"
+                      name="date_issued"
+                      value={formData.date_issued}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Expiry Date:
+                    </label>
+                    <input
+                      type="date"
+                      name="expiry_date"
+                      value={formData.expiry_date}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date of Birth:
+                    </label>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={formData.dob}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date Test Passed:
+                    </label>
+                    <input
+                      type="date"
+                      name="date_test_passed"
+                      value={formData.date_test_passed}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Occupation:
+                    </label>
+                    <input
+                      type="text"
+                      name="occupation"
+                      value={formData.occupation}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                </div>
+              </section>
             )}
 
             {/* Hire Agreement Terms */}
@@ -933,117 +1018,117 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
             {/* Hirer's Own Insurance - Show only if selected or API data exists */}
             {showOwnInsurance && (
-            <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Hirer’s Own Insurance (if applicable)
-              </h3>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Insurance Company:
-                  </label>
-                  <input
-                    type="text"
-                    name="insurance_company"
-                    value={formData.insurance_company}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Policy / Certificate No:
-                  </label>
-                  <input
-                    type="text"
-                    name="policy_no"
-                    value={formData.policy_no}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start and Expiry Date:
-                  </label>
-                  <input
-                    type="text"
-                    name="insurance_dates"
-                    value={formData.insurance_dates}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="own_insurance_confirm"
-                    checked={formData.own_insurance_confirm === "Yes"}
-                    onChange={handleCheckbox}
-                    className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-3 text-sm text-gray-700">
-                    I confirm that the hire will be covered by my own insurance for comprehensive risks.
-                  </label>
-                </div>
-
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hirer’s Signature:
-                  </label>
-
-                  {isHirerInsuranceFromApi && signatures.hirer_signature_insurance ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
-                      <img
-                        src={signatures.hirer_signature_insurance || "/placeholder.svg"}
-                        alt="Hirer insurance signature"
-                        className="max-h-40 mx-auto object-contain"
-                      />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
-                        Signature saved ✓ (from record)
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <Signature
-                        ref={hirerInsuranceRef}
-                        onSign={handleSignature("hirer_signature_insurance")}
-                      />
-                      {signatures.hirer_signature_insurance && (
-                        <p></p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
+                <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                  Hirer’s Own Insurance (if applicable)
+                </h3>
+                <div className="space-y-5">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date:
-                    </label>
-                    <input
-                      type="date"
-                      name="insurance_date"
-                      value={formData.insurance_date}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Time:
+                      Insurance Company:
                     </label>
                     <input
                       type="text"
-                      name="insurance_time"
-                      value={formData.insurance_time}
+                      name="insurance_company"
+                      value={formData.insurance_company}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Policy / Certificate No:
+                    </label>
+                    <input
+                      type="text"
+                      name="policy_no"
+                      value={formData.policy_no}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start and Expiry Date:
+                    </label>
+                    <input
+                      type="text"
+                      name="insurance_dates"
+                      value={formData.insurance_dates}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="own_insurance_confirm"
+                      checked={formData.own_insurance_confirm === "Yes"}
+                      onChange={handleCheckbox}
+                      className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-3 text-sm text-gray-700">
+                      I confirm that the hire will be covered by my own insurance for comprehensive risks.
+                    </label>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Hirer’s Signature:
+                    </label>
+
+                    {isHirerInsuranceFromApi && signatures.hirer_signature_insurance ? (
+                      <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                        <img
+                          src={signatures.hirer_signature_insurance || "/placeholder.svg"}
+                          alt="Hirer insurance signature"
+                          className="max-h-40 mx-auto object-contain"
+                        />
+                        <p className="mt-4 text-sm text-green-700 font-medium">
+                          Signature saved ✓ (from record)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4">
+                        <Signature
+                          ref={hirerInsuranceRef}
+                          onSign={handleSignature("hirer_signature_insurance")}
+                        />
+                        {signatures.hirer_signature_insurance && (
+                          <p></p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date:
+                      </label>
+                      <input
+                        type="date"
+                        name="insurance_date"
+                        value={formData.insurance_date}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Time:
+                      </label>
+                      <input
+                        type="text"
+                        name="insurance_time"
+                        value={formData.insurance_time}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
             )}
 
             <div className="space-y-10 lg:space-y-0">
@@ -1354,114 +1439,114 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
             {/* Change of Hire Vehicle - Show only if selected or API data exists */}
             {showChangeVehicle && (
-            <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
-              <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                Change of Hire Vehicle
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reg:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_reg"
-                    value={formData.change_vehicle_reg}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
+              <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
+                <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
+                  Change of Hire Vehicle
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Reg:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_reg"
+                      value={formData.change_vehicle_reg}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Make:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_make"
+                      value={formData.change_vehicle_make}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Model:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_model"
+                      value={formData.change_vehicle_model}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Group:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_group"
+                      value={formData.change_vehicle_group}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date out:
+                    </label>
+                    <input
+                      type="date"
+                      name="change_vehicle_date_out"
+                      value={formData.change_vehicle_date_out}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date in:
+                    </label>
+                    <input
+                      type="date"
+                      name="change_vehicle_date_in"
+                      value={formData.change_vehicle_date_in}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fuel out:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_fuel_out"
+                      placeholder="e.g. Full / 3/4 / 1/2"
+                      value={formData.change_vehicle_fuel_out}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fuel in:
+                    </label>
+                    <input
+                      type="text"
+                      name="change_vehicle_fuel_in"
+                      placeholder="e.g. Full / 3/4 / 1/2"
+                      value={formData.change_vehicle_fuel_in}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Make:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_make"
-                    value={formData.change_vehicle_make}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Model:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_model"
-                    value={formData.change_vehicle_model}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Group:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_group"
-                    value={formData.change_vehicle_group}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date out:
-                  </label>
-                  <input
-                    type="date"
-                    name="change_vehicle_date_out"
-                    value={formData.change_vehicle_date_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date in:
-                  </label>
-                  <input
-                    type="date"
-                    name="change_vehicle_date_in"
-                    value={formData.change_vehicle_date_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fuel out:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_fuel_out"
-                    placeholder="e.g. Full / 3/4 / 1/2"
-                    value={formData.change_vehicle_fuel_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Fuel in:
-                  </label>
-                  <input
-                    type="text"
-                    name="change_vehicle_fuel_in"
-                    placeholder="e.g. Full / 3/4 / 1/2"
-                    value={formData.change_vehicle_fuel_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 italic mt-4">
-                (Leave blank if no vehicle change occurred during the hire period)
-              </p>
-            </section>
+                <p className="text-sm text-gray-500 italic mt-4">
+                  (Leave blank if no vehicle change occurred during the hire period)
+                </p>
+              </section>
             )}
 
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">

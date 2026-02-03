@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       "change_vehicle_date_in",
       "declaration_date",
       "liability_date",
-        "daily_rate",
+      "daily_rate",
       "policy_excess",
       "deposit",
       "refuelling_charge",
@@ -73,9 +73,11 @@ export async function POST(req: NextRequest) {
       "subtotal",
       "vat",
       "total_cost",
+      "new_date_issued",
+      "new_expiry_date",
+      "new_dob",
+      "new_date_test_passed",
     ];
-
-   
 
     // Handle date fields
     DATE_FIELDS.forEach((field) => {
@@ -84,10 +86,9 @@ export async function POST(req: NextRequest) {
       }
     });
 
-   
     // === NEW: Forward to your external backend ===
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/rental-agreements`; // adjust path if needed
-
+    console.log(fullData)
     const externalResponse = await fetch(EXTERNAL_API_URL, {
       method: "POST",
       headers: {
