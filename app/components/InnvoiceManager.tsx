@@ -32,7 +32,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     >(null);
     const [documentsData, setDocumentsData] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(true);
-    const apiBase = process.env.NEXT_PUBLIC_API_URL 
+    const apiBase = process.env.NEXT_PUBLIC_API_URL
 
     // Fetch all form data – allow missing forms (treat as empty)
     useEffect(() => {
@@ -90,7 +90,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const documents: DocumentOption[] = [
         {
             id: "claim",
-            name: "Accident Claim Form",
+            name: "RTA Form",
             formType: "claim",
             description: "Complete accident claim with vehicle and party details",
             icon: (
@@ -108,7 +108,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         },
         {
             id: "pre-inspection",
-            name: "Pre-Inspection Checklist",
+            name: "Hire Vehicle Checklist",
             formType: "pre-inspection",
             description: "Vehicle condition assessment checklist",
             icon: (
@@ -284,11 +284,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
 
         setIsSending(true);
-        setStatus({ type: "info", text: "Preparing documents for sending..." });
+        setStatus({ type: "info", text: "Uploading documents one by one..." });
         setCurrentProgress({ current: 0, total: selectedDocs.length });
 
         try {
-            const formData = new FormData();
+            const uploadedDocs: { name: string; url: string; sizeKb: string }[] = [];
+            const uploadErrors: string[] = [];
 
             for (let i = 0; i < selectedDocs.length; i++) {
                 const docId = selectedDocs[i];
@@ -298,7 +299,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 setCurrentProgress({ current: i + 1, total: selectedDocs.length });
                 setStatus({
                     type: "info",
-                    text: `Processing ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
+                    text: `Uploading ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
                 });
 
                 let blob: Blob;
@@ -307,12 +308,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 if (doc.formType === "document") {
                     const url = documentsData["documents"]?.[docId];
                     if (!url) {
+                        uploadErrors.push(doc.name || docId);
                         setStatus({ type: "error", text: `Missing file URL for ${doc.name}` });
                         continue;
                     }
 
                     const res = await fetch(url);
                     if (!res.ok) {
+                        uploadErrors.push(doc.name || docId);
                         setStatus({ type: "error", text: `Failed to fetch ${doc.name} (${res.status})` });
                         continue;
                     }
@@ -337,28 +340,59 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     filename = `${doc.formType}-${claimId}.pdf`;
                 }
 
-                formData.append("files", blob, filename);
+                // Upload single file
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', blob, filename);
+                uploadFormData.append('claimId', claimId);
+                uploadFormData.append('docName', doc.name || docId);
+
+                const uploadResponse = await fetch(`/api/upload-docs`, {
+                    method: "POST",
+                    body: uploadFormData,
+                });
+
+                const uploadData = await uploadResponse.json();
+
+                if (uploadResponse.ok && uploadData.success) {
+                    uploadedDocs.push({
+                        name: uploadData.name,
+                        url: uploadData.url,
+                        sizeKb: uploadData.sizeKb,
+                    });
+                } else {
+                    uploadErrors.push(filename);
+                    console.error(`Upload failed for ${filename}:`, uploadData);
+                }
             }
 
-            formData.append("fileCount", selectedDocs.length.toString());
-            formData.append("email", email);
-            formData.append("subject", subject);
-            formData.append("message", message);
-            formData.append("claimId", claimId);
+            if (uploadedDocs.length === 0) {
+                setStatus({ type: "error", text: "No documents uploaded successfully." });
+                return;
+            }
 
-            setStatus({ type: "info", text: "Sending all documents..." });
+            setStatus({ type: "info", text: "Sending email with document links..." });
 
-            const response = await fetch(`${apiBase}/send`, {
+            // Now send the links (small JSON payload)
+            const sendPayload = {
+                email,
+                subject,
+                message,
+                claimId,
+                documents: uploadedDocs, // array of {name, url, sizeKb}
+            };
+
+            const sendResponse = await fetch(`/api/send-documents`, {
                 method: "POST",
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sendPayload),
             });
 
-            const data = await response.json();
+            const sendData = await sendResponse.json();
 
-            if (response.ok && data.success) {
+            if (sendResponse.ok && sendData.success) {
                 setStatus({
                     type: "success",
-                    text: `All ${selectedDocs.length} documents sent successfully!`,
+                    text: `All ${uploadedDocs.length} documents uploaded and links sent successfully!`,
                 });
 
                 // Optionally mark invoice as sent
@@ -378,22 +412,21 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             } else {
                 setStatus({
                     type: "error",
-                    text: data.message || `Failed to send ${selectedDocs.length} documents.`,
+                    text: sendData.message || `Failed to send links for ${uploadedDocs.length} documents.`,
                 });
-                console.error("Send error:", data);
+                console.error("Send error:", sendData);
             }
         } catch (err: any) {
-            console.error("Unexpected error during send:", err);
+            console.error("Unexpected error:", err);
             setStatus({
                 type: "error",
-                text: "Unexpected error during sending. Some documents may not have been sent.",
+                text: "Unexpected error during process. Some documents may not have been handled.",
             });
         } finally {
             setIsSending(false);
             setCurrentProgress(null);
         }
     };
-
     if (isLoading) {
         return (
             <div className="min-h-[400px] flex items-center justify-center">
