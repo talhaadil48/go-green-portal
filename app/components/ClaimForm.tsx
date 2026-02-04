@@ -270,12 +270,12 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
       <div className="max-w-5xl mx-auto">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-10 border border-green-100/50">
 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-    <h1 className="text-3xl sm:text-4xl font-extrabold text-green-900 text-center sm:text-left">
-      Go Green Car Hire Ltd
+    <h1 className="text-2xl font-extrabold text-green-900 text-center sm:text-left">
+      RTA Form
     </h1>
     <PDFShareButton
       formData={{
-        title: "Accident Claim Form",
+        title: "RTA Form",
         formType: "claim",
         claimId: currentClaimId,
         data: formData,

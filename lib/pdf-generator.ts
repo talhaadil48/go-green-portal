@@ -1877,9 +1877,10 @@ export async function emailPDF(
   subject: string,
   formType: string,
   claimId: string,
+  title : string
 ) {
   const formData = new FormData();
-  formData.append("file", blob, `${formType}-${claimId}.pdf`);
+  formData.append("file", blob, `${title}-${claimId}.pdf`);
   formData.append("email", email);
   formData.append("subject", subject);
   formData.append("formType", formType);

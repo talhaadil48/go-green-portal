@@ -26,7 +26,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "rental-agreement", label: "Rental Agreement" },
   { key: "storage-recovery", label: "Storage" },
   { key: "cancellation", label: "Cancellation Form" },
-  { key: "pre-inspection", label: "Checklist" },
+  { key: "pre-inspection", label: "Hire Vehicle"},
   { key: "document", label: "Document" },
   { key: "invoice", label: "Invoice" },
 ];

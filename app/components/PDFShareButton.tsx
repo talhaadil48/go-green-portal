@@ -22,7 +22,7 @@ export default function PDFShareButton({ formData, className = "" }: PDFShareBut
         try {
             console.log(formData)
             const blob = await generatePDF(formData);
-            const filename = `${formData.formType}-${formData.claimId}-${new Date().toISOString().split('T')[0]}.pdf`;
+            const filename = `${formData.title}-${formData.claimId}-${new Date().toISOString().split('T')[0]}.pdf`;
             downloadPDF(blob, filename);
             setMessage({ type: "success", text: "PDF downloaded successfully!" });
             setTimeout(() => {
@@ -64,7 +64,8 @@ export default function PDFShareButton({ formData, className = "" }: PDFShareBut
                 email,
                 `${formData.title} - Claim ${formData.claimId}`,
                 formData.formType,
-                formData.claimId
+                formData.claimId,
+                formData.title
             );
             setMessage({ type: "success", text: "PDF sent successfully!" });
             setEmail("");

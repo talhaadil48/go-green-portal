@@ -245,12 +245,12 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
       <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-10 border border-green-100/50">
 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-green-900 text-center sm:text-left tracking-tight">
-              Pre-Inspection Checklist
+            <h1 className="text-2xl font-extrabold text-green-900 text-center sm:text-left tracking-tight">
+              Hired Vehicle Checklist
             </h1>
             <PDFShareButton
               formData={{
-                title: "Pre-Inspection Checklist",
+                title: "Hired Vehicle Checklist",
                 formType: "pre-inspection",
                 claimId: currentClaimId,
                 data: formData,

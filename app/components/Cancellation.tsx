@@ -159,7 +159,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
             <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
                 <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 md:p-10 border border-green-100">
 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
-                        <h2 className="text-3xl md:text-4xl font-bold text-green-800 text-center sm:text-left tracking-tight">
+                        <h2 className="text-2xl font-bold text-green-800 text-center sm:text-left tracking-tight">
                             Cancellation Notice
                         </h2>
                         <PDFShareButton
