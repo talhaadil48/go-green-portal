@@ -1028,9 +1028,7 @@ async function generateRentalPDF(
     pdf.text("DOB", margin, y);
     pdf.setTextColor(0, 0, 0);
     pdf.text(data.new_dob || "—", margin + 25, y);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Test Passed", margin + col3, y);
-  
+    
   
     y += 8;
   
@@ -1077,8 +1075,7 @@ async function generateRentalPDF(
     pdf.text("DOB", margin, y);
     pdf.setTextColor(0, 0, 0);
     pdf.text(data.dob || "—", margin + 25, y);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Test Passed", margin + col3, y);
+
    
     pdf.setTextColor(80, 80, 80);
     pdf.text("Occupation", margin + col3 * 2, y);
