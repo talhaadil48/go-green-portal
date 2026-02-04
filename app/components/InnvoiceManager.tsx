@@ -284,24 +284,22 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
 
         setIsSending(true);
-        setStatus({ type: "info", text: "Starting to prepare and send documents..." });
+        setStatus({ type: "info", text: "Preparing documents for sending..." });
         setCurrentProgress({ current: 0, total: selectedDocs.length });
 
-        const results: { filename: string; success: boolean; message?: string }[] = [];
-        let hasAnySuccess = false;
-
         try {
+            const formData = new FormData();
+
             for (let i = 0; i < selectedDocs.length; i++) {
                 const docId = selectedDocs[i];
                 const doc = allDocuments.find((d) => d.id === docId);
+                if (!doc) continue;
 
                 setCurrentProgress({ current: i + 1, total: selectedDocs.length });
                 setStatus({
                     type: "info",
-                    text: `Processing ${i + 1}/${selectedDocs.length}: ${doc?.name || docId} ...`,
+                    text: `Processing ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
                 });
-
-                if (!doc) continue;
 
                 let blob: Blob;
                 let filename: string;
@@ -309,125 +307,86 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 if (doc.formType === "document") {
                     const url = documentsData["documents"]?.[docId];
                     if (!url) {
-                        results.push({ filename: doc.name || docId, success: false, message: "Missing file URL" });
+                        setStatus({ type: "error", text: `Missing file URL for ${doc.name}` });
                         continue;
                     }
 
                     const res = await fetch(url);
                     if (!res.ok) {
-                        results.push({
-                            filename: doc.name || docId,
-                            success: false,
-                            message: `Failed to fetch (${res.status})`,
-                        });
+                        setStatus({ type: "error", text: `Failed to fetch ${doc.name} (${res.status})` });
                         continue;
                     }
-                    blob = await res.blob();
 
+                    blob = await res.blob();
                     let ext = "pdf";
                     if (blob.type === "image/jpeg") ext = "jpg";
                     else if (blob.type === "image/png") ext = "png";
                     else if (blob.type === "application/pdf") ext = "pdf";
-
                     filename = `${doc.id}.${ext}`;
                 } else {
-                    // Use empty object if no data → blank form
-                    const formData = documentsData[docId] || {};
-
-                    const formDataForPDF: PDFFormData = {
+                    const formDataObj = documentsData[docId] || {};
+                    const pdfData: PDFFormData = {
                         title: doc.name,
                         formType: doc.formType,
                         claimId,
-                        data: formData,
-                        signatures: extractSignatures(docId, formData),
-                        images: extractImages(docId, formData),
+                        data: formDataObj,
+                        signatures: extractSignatures(docId, formDataObj),
+                        images: extractImages(docId, formDataObj),
                     };
-
-                    setStatus({
-                        type: "info",
-                        text: `Generating PDF (${i + 1}/${selectedDocs.length}): ${doc.name} ...`,
-                    });
-
-                    blob = await generatePDF(formDataForPDF);
+                    blob = await generatePDF(pdfData);
                     filename = `${doc.formType}-${claimId}.pdf`;
                 }
 
-                const formData = new FormData();
-                formData.append("file_0", blob, filename);
-                formData.append("fileCount", "1");
-                formData.append("email", email);
-                formData.append("subject", subject);
-                formData.append("message", message);
-                formData.append("claimId", claimId);
-
-                setStatus({
-                    type: "info",
-                    text: `Sending ${i + 1}/${selectedDocs.length}: ${filename} ...`,
-                });
-
-                const response = await fetch("/api/send-multiple-pdfs", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    results.push({
-                        filename,
-                        success: true,
-                        message: `Sent (${data.message || "OK"})`,
-                    });
-                    hasAnySuccess = true; try {
-                        const markResponse = await fetch(`${apiBase}/api/claims/mark-invoice-sent/${claimId}`, {
-                            method: "POST",
-                        });
-                        const markData = await markResponse.json();
-                        console.log("Invoice update:", markData);
-                    } catch (err) {
-                        console.error("Failed to mark invoice as sent:", err);
-                    }
-                } else {
-                    results.push({
-                        filename,
-                        success: false,
-                        message: data.message || "Failed to send",
-                    });
-                }
+                formData.append("files", blob, filename);
             }
 
-            const successCount = results.filter((r) => r.success).length;
-            const total = results.length;
+            formData.append("fileCount", selectedDocs.length.toString());
+            formData.append("email", email);
+            formData.append("subject", subject);
+            formData.append("message", message);
+            formData.append("claimId", claimId);
 
-            if (successCount === 0) {
-                setStatus({
-                    type: "error",
-                    text: `Failed to send any of the ${total} documents.`,
-                });
-            } else if (successCount === total) {
+            setStatus({ type: "info", text: "Sending all documents..." });
+
+            const response = await fetch(`${apiBase}/send`, {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
                 setStatus({
                     type: "success",
-                    text: `All ${total} documents sent successfully!`,
+                    text: `All ${selectedDocs.length} documents sent successfully!`,
                 });
-            } else {
-                setStatus({
-                    type: "warning",
-                    text: `Sent ${successCount} of ${total} documents (${total - successCount} failed).`,
-                });
-            }
 
-            console.table(results);
+                // Optionally mark invoice as sent
+                try {
+                    const markResponse = await fetch(`${apiBase}/api/claims/mark-invoice-sent/${claimId}`, {
+                        method: "POST",
+                    });
+                    const markData = await markResponse.json();
+                    console.log("Invoice update:", markData);
+                } catch (err) {
+                    console.error("Failed to mark invoice as sent:", err);
+                }
 
-            if (hasAnySuccess) {
                 setSelectedDocs([]);
                 setEmail("");
                 setMessage("");
+            } else {
+                setStatus({
+                    type: "error",
+                    text: data.message || `Failed to send ${selectedDocs.length} documents.`,
+                });
+                console.error("Send error:", data);
             }
         } catch (err: any) {
-            console.error("Send loop error:", err);
+            console.error("Unexpected error during send:", err);
             setStatus({
                 type: "error",
-                text: "Unexpected error during sending. Some documents may have been sent.",
+                text: "Unexpected error during sending. Some documents may not have been sent.",
             });
         } finally {
             setIsSending(false);
