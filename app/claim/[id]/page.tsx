@@ -22,11 +22,11 @@ type TabKey =
   | "invoice";
 
 const tabs: { key: TabKey; label: string }[] = [
-  { key: "claim", label: "Claim Form" },
-  { key: "pre-inspection", label: "Pre-Inspection" },
-  { key: "cancellation", label: "Cancellation Form" },
-  { key: "storage-recovery", label: "Storage" },
+  { key: "claim", label: "RTA Form" },
   { key: "rental-agreement", label: "Rental Agreement" },
+  { key: "storage-recovery", label: "Storage" },
+  { key: "cancellation", label: "Cancellation Form" },
+  { key: "pre-inspection", label: "Checklist" },
   { key: "document", label: "Document" },
   { key: "invoice", label: "Invoice" },
 ];

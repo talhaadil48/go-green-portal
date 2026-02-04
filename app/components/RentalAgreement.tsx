@@ -704,18 +704,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date Test Passed:
-                  </label>
-                  <input
-                    type="date"
-                    name="new_date_test_passed"
-                    value={formData.new_date_test_passed}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                  />
-                </div>
+               
 
               
               </div>
@@ -826,18 +815,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date Test Passed:
-                    </label>
-                    <input
-                      type="date"
-                      name="date_test_passed"
-                      value={formData.date_test_passed}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
+                
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Occupation:
