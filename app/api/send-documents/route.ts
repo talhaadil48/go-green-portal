@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
       text: `
 Go Green! 🌱 New documents uploaded
 
-From: ${fromEmail}
 Project/Claim #: ${claimId}
 Total documents: ${documents.length}
 

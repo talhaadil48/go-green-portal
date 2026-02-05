@@ -163,7 +163,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
                             Cancellation Notice
                         </h2>
                         <PDFShareButton
-                            formData={{
+                            formData={{ 
                                 title: "Cancellation Notice",
                                 formType: "cancellation",
                                 claimId: currentClaimId,
