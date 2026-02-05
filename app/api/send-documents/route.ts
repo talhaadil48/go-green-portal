@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       from: `"Go Green " <${EMAIL_USER}>`,
       to: fromEmail, // admin / sustainability team
       // cc: fromEmail,        // optional — copy to uploader
-      subject: `${subject} – #${claimId} – ${documents.length} file(s) uploaded`,
+      subject: `${subject}`,
       text: `
 Go Green! 🌱 New documents uploaded
 
