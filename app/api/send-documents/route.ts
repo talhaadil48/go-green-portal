@@ -110,15 +110,11 @@ export async function POST(request: NextRequest) {
               </h2>
               
               <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#2e4a3d;">
-                <strong>From:</strong> ${fromEmail}<br>
                 <strong>Project / Claim #:</strong> ${claimId}<br>
                 <strong>Total files:</strong> ${documents.length}
               </p>
 
-              <p style="margin:0 0 20px; font-size:16px; line-height:1.6; color:#2e4a3d;">
-                Fresh documents have been uploaded to support our green journey.
-                Let's keep making the planet healthier together!
-              </p>
+             
 
               ${
                 message
