@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const getRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/claim-documents/${claimId}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
       );
 
       if (getRes.ok) {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     // PUT to your FastAPI endpoint
     const putRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/claim-documents/${claimId}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

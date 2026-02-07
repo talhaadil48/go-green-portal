@@ -1,20 +1,34 @@
 "use client";
 
-import React, { useContext } from "react"
+import React, { useContext } from "react";
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
-import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor"
+import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
+import api from "@/lib/axios";
 
 interface PreInspectionChecklistProps {
   claimId: string;
 }
 
+interface InspectionForm {
+  inspection_id: string;
+  claim_id: string;
+  date?: string;
+  customer?: string;
+  [key: string]: any;
+}
+
 export default function PreInspectionChecklist({ claimId }: PreInspectionChecklistProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
+  const [allForms, setAllForms] = useState<InspectionForm[]>([]);
+  const [showNewFormPrompt, setShowNewFormPrompt] = useState(false);
+  const [newClaimId, setNewClaimId] = useState<string>("");
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   const checklistItems = [
@@ -94,15 +108,45 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
     setCurrentClaimId(claimId);
   }, [claimId]);
 
-  const fetchChecklist = async () => {
+  const fetchAllInspections = async () => {
     setIsFetching(true);
     setError(null);
 
     try {
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/pre-inspection-forms/${claimId}`
-      );
+      const response = await api.get(`/api/pre-inspection-forms/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
+      const data = Array.isArray(response.data) ? response.data : [response.data];
+      setAllForms(data);
 
+      // Select the first inspection if available
+      if (data.length > 0) {
+        setSelectedInspectionId(data[0].inspection_id);
+        loadInspectionForm(data[0].inspection_id);
+      } else {
+        // No inspections exist, show blank form
+        setFormData(initialFormData);
+        setSelectedInspectionId(null);
+      }
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        console.log("Pre-inspection not found (404) → showing blank form");
+        setFormData(initialFormData);
+        setSelectedInspectionId(null);
+      } else {
+        console.error("Fetch error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load inspection forms");
+      }
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const loadInspectionForm = async (inspectionId: string) => {
+    try {
+      const response = await api.get(`/api/pre-inspection-forms/inspection/${inspectionId}`, {
+        headers: { requiresAuth: true },
+      });
       const data = response.data;
 
       const updatedFormData = { ...initialFormData };
@@ -116,7 +160,6 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
 
       setFormData(updatedFormData);
 
-      // Customer Signature - only lock if it exists in API response
       if (data.customer_signature) {
         setSignatures((prev) => ({ ...prev, customer: data.customer_signature }));
         setIsCustomerSigFromApi(true);
@@ -125,7 +168,6 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         setIsCustomerSigFromApi(false);
       }
 
-      // Detailer Signature - only lock if it exists in API response
       if (data.detailer_signature) {
         setSignatures((prev) => ({ ...prev, detailer: data.detailer_signature }));
         setIsDetailerSigFromApi(true);
@@ -134,7 +176,6 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         setIsDetailerSigFromApi(false);
       }
 
-      // Annotated image - only lock if it exists in API response
       if (data.annotated_vehicle_image) {
         setApiAnnotatedImage(data.annotated_vehicle_image);
         setIsImageFromApi(true);
@@ -143,32 +184,37 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         setIsImageFromApi(false);
       }
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
-        console.log("Pre-inspection not found (404) → showing blank form");
-        // Reset to fresh state for new form
-        setIsImageFromApi(false);
-        setApiAnnotatedImage(null);
-        setIsCustomerSigFromApi(false);
-        setIsDetailerSigFromApi(false);
-      } else {
-        console.error("Fetch error:", err);
-        setError(err instanceof Error ? err.message : "Failed to load checklist data");
-      }
-    } finally {
-      setIsFetching(false);
+      console.error("Error loading inspection:", err);
+      setError("Failed to load inspection form");
     }
+  };
+
+  const createNewInspection = async () => {
+    setIsCreatingNew(true);
+    // Simulate a brief loading state for UX feedback
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    setSelectedInspectionId(null);
+    setFormData(initialFormData);
+    setSignatures({ customer: null, detailer: null });
+    setIsCustomerSigFromApi(false);
+    setIsDetailerSigFromApi(false);
+    setApiAnnotatedImage(null);
+    setIsImageFromApi(false);
+    setSubmitted(false);
+    setIsCreatingNew(false);
   };
 
   useEffect(() => {
     if (claimId) {
-      fetchChecklist();
+      fetchAllInspections();
     }
   }, [claimId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
+
     // Mark as changed when user modifies form
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
@@ -184,20 +230,13 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
     setLoading(true);
     setError(null);
 
-    // Determine the annotated image to send:
-    // - If image is from API, keep using it
-    // - If editor has changes, get the annotated image
-    // - If no changes (default or cleared), send null
     let finalAnnotatedImage: string | null = null;
-    
+
     if (isImageFromApi) {
-      // Keep the existing API image
       finalAnnotatedImage = apiAnnotatedImage;
     } else if (editorRef.current?.hasChanges()) {
-      // Only get the image if user made changes (drawing or uploaded new image)
       finalAnnotatedImage = editorRef.current.getAnnotatedImage();
     } else {
-      // No changes made (default image or cleared) - send null
       finalAnnotatedImage = null;
     }
 
@@ -208,6 +247,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
       base_vehicle_image: null,
       annotated_vehicle_image: finalAnnotatedImage,
       claim_id: currentClaimId,
+      inspection_id: selectedInspectionId || undefined, // Include inspection_id if updating existing
     };
 
     try {
@@ -219,17 +259,25 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
         throw new Error(response.data.message || "Submission failed");
       }
 
+      const newInspectionId = response.data.inspection_id;
+      setSelectedInspectionId(newInspectionId);
       setSubmitted(true);
       if (unsavedChangesContext) {
         unsavedChangesContext.setHasUnsavedChanges(false);
       }
-      await fetchChecklist(); // refresh → will lock images/signatures if they exist
+      await fetchAllInspections(); // refresh all inspections list
     } catch (err: unknown) {
       console.error("Submission error:", err);
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Get display number for inspection (1, 2, 3 instead of real ID)
+  const getInspectionNumber = (inspectionId: string) => {
+    const index = allForms.findIndex(f => f.inspection_id === inspectionId);
+    return index !== -1 ? index + 1 : 0;
   };
 
   if (isFetching) {
@@ -244,7 +292,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12">
       <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-10 border border-green-100/50">
-<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
             <h1 className="text-2xl font-extrabold text-green-900 text-center sm:text-left tracking-tight">
               Hired Vehicle Checklist
             </h1>
@@ -262,7 +310,67 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
             />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-10">
+          {/* Inspections List Section */}
+          <div className="mb-10 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl border border-green-200">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-lg font-bold text-gray-800">Claim ID: {currentClaimId}</h2>
+                <button
+                  type="button"
+                  onClick={createNewInspection}
+                  disabled={isCreatingNew}
+                  className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-300 ${
+                    isCreatingNew ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {isCreatingNew ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      Creating...
+                    </span>
+                  ) : (
+                    "+ New Inspection"
+                  )}
+                </button>
+              </div>
+
+              {allForms.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-2">Existing Inspections:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {allForms.map((form) => {
+                      const inspectionNumber = getInspectionNumber(form.inspection_id);
+                      return (
+                        <button
+                          key={form.inspection_id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedInspectionId(form.inspection_id);
+                            loadInspectionForm(form.inspection_id);
+                            setSubmitted(false);
+                          }}
+                          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                            selectedInspectionId === form.inspection_id
+                              ? "bg-green-600 text-white shadow-lg scale-105"
+                              : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+                          }`}
+                        >
+                          <span className="text-base">{inspectionNumber}</span>
+                          
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="h-1 bg-gradient-to-r from-green-200 via-blue-200 to-green-200 rounded-full" />
+
+            </div>
+          </div>
+
+          {/* Fade in animation for new form */}
+          <form onSubmit={handleSubmit} className={`space-y-10 transition-opacity duration-500 ${isCreatingNew ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
             {/* Basic Info */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
@@ -272,7 +380,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
               <div>
@@ -282,7 +390,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="customer"
                   value={formData.customer}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
               <div>
@@ -292,7 +400,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="detailer"
                   value={formData.detailer}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
               <div>
@@ -302,7 +410,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="order_number"
                   value={formData.order_number}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
 
@@ -313,7 +421,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="year"
                   value={formData.year}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
               <div>
@@ -323,7 +431,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="make"
                   value={formData.make}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
               <div>
@@ -333,7 +441,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   name="model"
                   value={formData.model}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
                 />
               </div>
             </div>
@@ -345,7 +453,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 return (
                   <div
                     key={i}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 px-5 bg-gradient-to-r from-white to-green-50/30 border border-gray-200 rounded-2xl"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between py-3.5 px-5 bg-gradient-to-r from-white to-green-50/30 border border-gray-200 rounded-2xl hover:border-green-300 hover:shadow-md transition-all duration-200"
                   >
                     <span className="text-gray-900 font-medium text-base sm:text-lg mb-3 sm:mb-0 flex-1">
                       {i + 1}. {item}
@@ -362,13 +470,12 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                             className="w-5 h-5 accent-green-600"
                           />
                           <span
-                            className={`text-sm sm:text-base font-medium ${
-                              cond === "Good"
+                            className={`text-sm sm:text-base font-medium ${cond === "Good"
                                 ? "text-green-700"
                                 : cond === "Moderate"
-                                ? "text-amber-700"
-                                : "text-red-700"
-                            }`}
+                                  ? "text-amber-700"
+                                  : "text-red-700"
+                              }`}
                           >
                             {cond}
                           </span>
@@ -389,7 +496,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   value={formData.notes}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 focus:border-green-500 resize-none"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none outline-none transition-all"
                   placeholder="Additional observations..."
                 />
               </div>
@@ -400,7 +507,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                   value={formData.recommendations}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-green-500 focus:border-green-500 resize-none"
+                  className="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none outline-none transition-all"
                   placeholder="Suggested repairs or actions..."
                 />
               </div>
@@ -424,8 +531,8 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 </div>
               ) : (
                 // Show editable canvas when no API image exists
-                <ImageDrawEditor 
-                  ref={editorRef} 
+                <ImageDrawEditor
+                  ref={editorRef}
                   defaultBackgroundSrc="/image.jpeg"
                 />
               )}
@@ -451,9 +558,9 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                     </p>
                   </div>
                 ) : (
-                  <Signature 
-                    ref={customerSigRef} 
-                    onSign={handleSignature("customer")} 
+                  <Signature
+                    ref={customerSigRef}
+                    onSign={handleSignature("customer")}
                   />
                 )}
               </div>
@@ -476,9 +583,9 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                     </p>
                   </div>
                 ) : (
-                  <Signature 
-                    ref={detailerSigRef} 
-                    onSign={handleSignature("detailer")} 
+                  <Signature
+                    ref={detailerSigRef}
+                    onSign={handleSignature("detailer")}
                   />
                 )}
               </div>
@@ -489,16 +596,22 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
               <button
                 type="submit"
                 disabled={loading}
-                className={`inline-flex items-center px-14 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`inline-flex items-center px-14 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${loading ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
-                {loading ? "Submitting..." : "Submit Inspection Checklist"}
+                {loading ? (
+                  <span className="flex items-center gap-3">
+                    <span className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Submitting...
+                  </span>
+                ) : (
+                  "Submit Inspection Checklist"
+                )}
               </button>
 
               {submitted && (
                 <p className="mt-8 text-green-700 font-semibold text-lg animate-pulse">
-                  Checklist successfully submitted
+                  ✓ Checklist successfully submitted
                 </p>
               )}
               {error && <p className="mt-8 text-red-700 font-semibold text-lg">{error}</p>}

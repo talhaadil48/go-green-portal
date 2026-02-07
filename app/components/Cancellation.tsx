@@ -4,6 +4,7 @@ import React, { useContext } from "react"
 
 import { useState, FormEvent, useEffect } from "react";
 import axios from "axios";
+import api from "@/lib/axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
@@ -33,55 +34,54 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     const [isSignatureFromApi, setIsSignatureFromApi] = useState(false);
     const [initialData, setInitialData] = useState<Record<string, string>>(initialFormData);
 
-    useEffect(() => {
-        setCurrentClaimId(claimId);
-    }, [claimId]);
+  useEffect(() => {
+    setCurrentClaimId(claimId);
+}, [claimId]);
 
-    const fetchCancellationData = async () => {
-        setIsFetching(true);
-        setError(null);
+const fetchCancellationData = async () => {
+    setIsFetching(true);
+    setError(null);
 
-        try {
-            const response = await axios.get(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/cancellation-forms/${claimId}`
-            );
+    try {
+        const response = await api.get(`/api/cancellation-forms/${claimId}`, {
+            headers: { requiresAuth: true },
+        });
 
-            const data = response.data;
+        const data = response.data;
+        const updatedFormData = { ...initialFormData };
 
-            const updatedFormData = { ...initialFormData };
-
-            Object.keys(data).forEach((key) => {
-                const value = data[key];
-                if (value !== null && value !== "" && key in updatedFormData) {
-                    updatedFormData[key] = value;
-                }
-            });
-
-            setFormData(updatedFormData);
-            setInitialData(updatedFormData);
-            if (unsavedChangesContext) {
-                unsavedChangesContext.setHasUnsavedChanges(false);
+        Object.keys(data).forEach((key) => {
+            const value = data[key];
+            if (value !== null && value !== "" && key in updatedFormData) {
+                updatedFormData[key] = value;
             }
+        });
 
-            if (data.cancellation_signature) {
-                setSignature(data.cancellation_signature);
-                setIsSignatureFromApi(true);           // ← important: mark as locked/external
-            } else {
-                setSignature(null);
-                setIsSignatureFromApi(false);
-            }
-        } catch (err: any) {
-            if (axios.isAxiosError(err) && err.response?.status === 404) {
-                console.log("Cancellation form not found (404) → showing blank form");
-            } else {
-                console.error("Fetch error:", err);
-                setError(err.message || "Failed to load cancellation data");
-            }
-        } finally {
-            setIsFetching(false);
+        setFormData(updatedFormData);
+        setInitialData(updatedFormData);
+
+        if (unsavedChangesContext) {
+            unsavedChangesContext.setHasUnsavedChanges(false);
         }
-    };
 
+        if (data.cancellation_signature) {
+            setSignature(data.cancellation_signature);
+            setIsSignatureFromApi(true); // mark as locked/external
+        } else {
+            setSignature(null);
+            setIsSignatureFromApi(false);
+        }
+    } catch (err: any) {
+        if (err.response?.status === 404) {
+            console.log("Cancellation form not found (404) → showing blank form");
+        } else {
+            console.error("Fetch error:", err);
+            setError(err.message || "Failed to load cancellation data");
+        }
+    } finally {
+        setIsFetching(false);
+    }
+};
     useEffect(() => {
         if (claimId) {
             fetchCancellationData();
@@ -111,10 +111,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
 
-        if (!signature) {
-            setError("Please provide your signature before submitting.");
-            return;
-        }
+      
 
         setLoading(true);
         setError(null);

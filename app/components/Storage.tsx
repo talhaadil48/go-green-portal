@@ -7,6 +7,7 @@ import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
+import api from "@/lib/axios";
 interface ClaimProps {
   claimId: string;
 }
@@ -130,9 +131,9 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     setError(null);
 
     try {
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/storage-forms/${claimId}`
-      );
+ const response = await api.get(`/api/storage-forms/${claimId}`, {
+  headers: { requiresAuth: true },
+});;
 
       const data = response.data;
 

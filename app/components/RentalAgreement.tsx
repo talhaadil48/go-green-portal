@@ -7,6 +7,7 @@ import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
+import api from "@/lib/axios";
 
 interface ClaimProps {
   claimId: string;
@@ -210,9 +211,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     setError(null);
 
     try {
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/rental-agreements/${claimId}`
-      );
+      const response = await api.get(`/api/rental-agreements/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
 
       const data = response.data;
 
@@ -476,7 +477,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               Rental Agreement
             </h2>
             <PDFShareButton
-              formData={{ 
+              formData={{
                 title: "Rental Agreement",
                 formType: "rental-agreement",
                 claimId: currentClaimId,
@@ -704,9 +705,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   />
                 </div>
 
-               
 
-              
+
+
               </div>
             </section>
 
@@ -815,7 +816,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                     />
                   </div>
-                
+
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Occupation:

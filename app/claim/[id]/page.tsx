@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "@/lib/axios";
 import CancellationNotice from "@/app/components/Cancellation";
 import { AccidentClaimForm } from "@/app/components/ClaimForm";
 import PreInspectionChecklist from "@/app/components/PreInspection";
@@ -26,7 +26,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "rental-agreement", label: "Rental Agreement" },
   { key: "storage-recovery", label: "Storage" },
   { key: "cancellation", label: "Cancellation Form" },
-  { key: "pre-inspection", label: "Hire Vehicle"},
+  { key: "pre-inspection", label: "Hire Vehicle" },
   { key: "document", label: "Document" },
   { key: "invoice", label: "Invoice" },
 ];
@@ -95,13 +95,16 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       setError(null);
 
       try {
-        const res = await axios.get(`${apiBase}/api/claims/${claimId}`);
+        const res = await api.get(`/api/claims/${claimId}`, {
+          headers: { requiresAuth: true },
+        });
+
         setClaimData(res.data);
       } catch (err: any) {
         console.error("Failed to fetch claim:", err);
         setError(
           err.response?.data?.detail ||
-            "Could not load claim details. Please try again later."
+          "Could not load claim details. Please try again later."
         );
       } finally {
         setLoading(false);
@@ -109,7 +112,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     };
 
     fetchClaim();
-  }, [claimId, apiBase]);
+  }, [claimId]);
 
   const getCustomerTypeLabel = (type?: string) => {
     if (!type) return "—";
@@ -126,7 +129,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
       {/* Header */}
-     
+
       {/* Customer Info Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
@@ -183,11 +186,10 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${
-                activeTab === tab.key
+              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
                   ? "bg-green-600 text-white shadow-lg"
                   : "text-gray-600 hover:bg-white/50"
-              }`}
+                }`}
             >
               {tab.label}
             </button>

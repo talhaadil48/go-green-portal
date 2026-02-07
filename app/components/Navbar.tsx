@@ -3,48 +3,78 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
+import { LogOut } from 'lucide-react'
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const token = Cookies.get('access_token');
+    const interval = setInterval(() => {
+      const token = Cookies.get("access_token");
       setIsLoggedIn(!!token);
-    }, 500); // 500ms = 0.5s
+    }, 500); // checks every 500ms
 
-    return () => clearTimeout(timer); // cleanup in case component unmounts
+    return () => clearInterval(interval); // cleanup on unmount
   }, []);
+
+  const handleLogout = () => {
+    // Remove all relevant cookies
+    Cookies.remove('access_token', { path: '/' })
+    Cookies.remove('refresh_token', { path: '/' })
+    Cookies.remove('user_role', { path: '/' })
+    Cookies.remove('user', { path: '/' })
+
+    // Optional: force redirect to login/home
+    window.location.href = '/' // or '/' — choose what fits your app
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-green-950 via-emerald-950 to-black">
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-18">
-          <Link href="/" className="text-2xl md:text-3xl font-black tracking-tight text-white hover:text-green-300 transition-colors duration-300 flex items-center gap-2">
+          <Link
+            href="/"
+            className="text-2xl md:text-3xl font-black tracking-tight text-white hover:text-green-300 transition-colors duration-300 flex items-center gap-2"
+          >
             GO
             <span className="text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.6)]">GREEN</span>
           </Link>
 
           {isLoggedIn && (
-            <div className="hidden md:flex items-center space-x-8 font-medium">
-              <Link
-                href="/claim"
-                className="text-green-100 hover:text-white transition-colors duration-300 relative group"
-              >
-                Claims
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
-              </Link>
-              <Link
-                href="/recently-deleted-claims"
-                className="text-green-100 hover:text-white transition-colors duration-300 relative group"
-              >
-                Deleted Claims
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
-              </Link>
-            </div>
+            <>
+              {/* Desktop menu */}
+              <div className="hidden md:flex items-center space-x-8 font-medium">
+                <Link
+                  href="/claim"
+                  className="text-green-100 hover:text-white transition-colors duration-300 relative group"
+                >
+                  Claims
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
+                </Link>
+                <Link
+                  href="/recently-deleted-claims"
+                  className="text-green-100 hover:text-white transition-colors duration-300 relative group"
+                >
+                  Deleted Claims
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
+                </Link>
+
+                {/* Logout button – desktop */}
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-green-100 hover:text-red-300 transition-colors duration-300 relative group"
+                  aria-label="Log out"
+                >
+                  <LogOut size={20} />
+                  Logout
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-red-400 group-hover:w-full transition-all duration-300"></span>
+                </button>
+              </div>
+            </>
           )}
 
+          {/* Mobile hamburger */}
           <div className="md:hidden">
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -58,20 +88,35 @@ export default function Navbar() {
           </div>
         </div>
 
+        {/* Mobile menu */}
         {mobileOpen && isLoggedIn && (
-          <div className="md:hidden mt-2 space-y-2 px-2">
+          <div className="md:hidden mt-2 space-y-3 px-2 pb-4">
             <Link
               href="/claim"
               className="block text-green-100 hover:text-white transition-colors duration-300"
+              onClick={() => setMobileOpen(false)}
             >
               Claims
             </Link>
             <Link
               href="/recently-deleted-claims"
               className="block text-green-100 hover:text-white transition-colors duration-300"
+              onClick={() => setMobileOpen(false)}
             >
               Deleted Claims
             </Link>
+
+            {/* Logout – mobile */}
+            <button
+              onClick={() => {
+                handleLogout()
+                setMobileOpen(false)
+              }}
+              className="flex items-center gap-2 w-full text-left text-green-100 hover:text-red-300 transition-colors duration-300"
+            >
+              <LogOut size={20} />
+              Logout
+            </button>
           </div>
         )}
       </div>

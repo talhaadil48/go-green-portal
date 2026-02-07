@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     });
 
     // === NEW: Forward to your external backend ===
-    const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/pre-inspection-forms`; // adjust path if needed
+    const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/pre-inspection-forms/`; // adjust path if needed
 
     const externalResponse = await fetch(EXTERNAL_API_URL, {
       method: "POST",

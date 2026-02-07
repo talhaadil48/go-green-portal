@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-
+import api from "@/lib/axios";
 interface Claim {
     claim_id: string;
     claimant_name: string | null;
@@ -26,13 +26,14 @@ export default function RecentlyDeletedClaimsPage() {
     const [endDate, setEndDate] = useState("");
 
     const router = useRouter();
-    const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchClaims = async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await axios.get(`${apiBase}/api/recently`);
+            const res = await api.get("/api/recently", {
+                headers: { requiresAuth: true },
+            });
             setAllClaims(res.data.claims);
             setClaims(res.data.claims);
         } catch (err: any) {
@@ -79,12 +80,15 @@ export default function RecentlyDeletedClaimsPage() {
     }, [searchTerm, selectedType, startDate, endDate, allClaims]);
 
     const handleRestore = async (claim_id: string) => {
-       
 
-    
+
+
 
         try {
-            await axios.put(`${apiBase}/api/claims/${claim_id}/restore`);
+          await api.put(`/api/claims/${claim_id}/restore`, null, {
+  headers: { requiresAuth: true },
+});
+
             await fetchClaims(); // refresh list
         } catch (err: any) {
             console.error(err);
@@ -96,10 +100,12 @@ export default function RecentlyDeletedClaimsPage() {
     };
 
     const handlePermanentDelete = async (claim_id: string) => {
-       
+
 
         try {
-            await axios.delete(`${apiBase}/api/claims/${claim_id}`);
+           await api.delete(`/api/claims/${claim_id}`, {
+  headers: { requiresAuth: true },
+});
             await fetchClaims(); // refresh list
         } catch (err: any) {
             console.error(err);

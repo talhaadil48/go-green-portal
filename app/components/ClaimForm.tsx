@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useContext } from "react"
+import React, { useContext } from "react";
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
+import api from "@/lib/axios";
 import Signature from "./Signature";
 import DrawingCanvas from "./DrawingCanvas";
 import PDFShareButton from "./PDFShareButton";
@@ -119,6 +120,9 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
   const [loading, setLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
 
+  const [hasWitness, setHasWitness] = useState<boolean | null>(null);
+  const [isWitnessFromApi, setIsWitnessFromApi] = useState(false);
+
   const sigRef = useRef<{ clear: () => void } | null>(null);
 
   useEffect(() => {
@@ -130,11 +134,11 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     setError(null);
 
     try {
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accident-claims/${claimId}`
-      );
-      const data = response.data;
+      const response = await api.get(`/api/accident-claims/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
 
+      const data = response.data;
       const updatedFormData = { ...initialFormData };
 
       Object.keys(data).forEach((key) => {
@@ -178,8 +182,25 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
         setSignatures((prev) => ({ ...prev, client: null }));
         setIsSignatureFromApi(false);
       }
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
+
+      // Check if witness data comes from API
+      const hasWitnessData = !!(
+        data.witness1_name ||
+        data.witness1_address ||
+        data.witness1_postcode ||
+        data.witness1_telephone ||
+        data.witness2_name ||
+        data.witness2_address ||
+        data.witness2_postcode ||
+        data.witness2_telephone
+      );
+
+      if (hasWitnessData) {
+        setIsWitnessFromApi(true);
+        setHasWitness(true);
+      }
+    } catch (err: any) {
+      if (err.response?.status === 404) {
         console.log("Claim not found (404) – showing empty form");
       } else {
         console.error("Fetch error:", err);
@@ -191,7 +212,6 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
       setIsFetching(false);
     }
   };
-
   useEffect(() => {
     if (claimId) fetchClaim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -208,7 +228,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     }
 
     setFormData((prev) => ({ ...prev, [name]: newValue }));
-    
+
     // Mark as changed when user modifies form
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
@@ -217,6 +237,25 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
 
   const handleSignature = (dataUrl: string | null) => {
     setSignatures((prev) => ({ ...prev, client: dataUrl }));
+  };
+
+  const handleCopyOwnerToDriver = () => {
+    setFormData((prev) => ({
+      ...prev,
+      driver_full_name: prev.owner_full_name,
+      driver_email: prev.owner_email,
+      driver_telephone: prev.owner_telephone,
+      driver_address: prev.owner_address,
+      driver_postcode: prev.owner_postcode,
+      driver_dob: prev.owner_dob,
+      driver_ni_number: prev.owner_ni_number,
+      driver_occupation: prev.owner_occupation,
+    }));
+
+    // Mark as changed when copying
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -269,25 +308,25 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 py-12 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-6 sm:p-10 border border-green-100/50">
-<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-    <h1 className="text-2xl font-extrabold text-green-900 text-center sm:text-left">
-      RTA Form
-    </h1>
-    <PDFShareButton
-      formData={{
-        title: "RTA Form",
-        formType: "claim",
-        claimId: currentClaimId,
-        data: formData,
-        signatures: signatures,
-        images: {
-          circumstance_drawing: circumstanceDrawing,
-          direction_before_drawing: beforeDrawing,
-          direction_after_drawing: afterDrawing,
-        },
-      }}
-    />
-  </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+            <h1 className="text-2xl font-extrabold text-green-900 text-center sm:text-left">
+              RTA Form
+            </h1>
+            <PDFShareButton
+              formData={{
+                title: "RTA Form",
+                formType: "claim",
+                claimId: currentClaimId,
+                data: formData,
+                signatures: signatures,
+                images: {
+                  circumstance_drawing: circumstanceDrawing,
+                  direction_before_drawing: beforeDrawing,
+                  direction_after_drawing: afterDrawing,
+                },
+              }}
+            />
+          </div>
 
           {/* Checklist */}
           <div className="mb-10">
@@ -333,9 +372,12 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
 
             {/* VEHICLE OWNER DETAILS */}
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
-              <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
-                VEHICLE OWNER DETAILS
-              </h3>
+              <div className="flex items-center justify-between mb-4 border-b border-green-300 pb-2">
+                <h3 className="text-xl font-bold text-green-800">
+                  VEHICLE OWNER DETAILS
+                </h3>
+               
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -438,9 +480,18 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
 
             {/* DRIVER DETAILS */}
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
-              <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
-                DRIVER DETAILS
-              </h3>
+              <div className="flex items-center justify-between mb-4 border-b border-green-300 pb-2">
+                <h3 className="text-xl font-bold text-green-800">
+                  DRIVER DETAILS
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleCopyOwnerToDriver}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                >
+                  Copy 
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -964,75 +1015,93 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
               />
             </section>
 
-
-            {/* WITNESSES */}
-            <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
-              <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
-                WITNESSES
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {[1, 2].map((num) => (
-                  <div key={num}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Full Name
+            {/* WITNESS QUESTION - Always visible unless data from API */}
+            {!isWitnessFromApi && (
+              <section className="bg-gradient-to-b from-white to-blue-50/20 p-6 rounded-2xl border border-blue-200 shadow-md">
+                <label className="flex items-center gap-4 text-lg font-semibold text-gray-800">
+                  <span>Were there any witnesses to the accident?</span>
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="has_witness"
+                        value="yes"
+                        checked={hasWitness === true}
+                        onChange={() => setHasWitness(true)}
+                        className="h-5 w-5"
+                      />
+                      <span className="text-base font-medium">Yes</span>
                     </label>
-                    <input
-                      type="text"
-                      name={`witness${num}_name`}
-                      value={
-                        formData[
-                        `witness${num}_name` as keyof typeof formData
-                        ] || ""
-                      }
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
-                    />
-                    <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
-                      Address
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="has_witness"
+                        value="no"
+                        checked={hasWitness === false}
+                        onChange={() => setHasWitness(false)}
+                        className="h-5 w-5"
+                      />
+                      <span className="text-base font-medium">No</span>
                     </label>
-                    <textarea
-                      name={`witness${num}_address`}
-                      value={
-                        formData[
-                        `witness${num}_address` as keyof typeof formData
-                        ] || ""
-                      }
-                      onChange={handleChange}
-                      rows={2}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
-                    />
-                    <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
-                      Postcode
-                    </label>
-                    <input
-                      type="text"
-                      name={`witness${num}_postcode`}
-                      value={
-                        formData[
-                        `witness${num}_postcode` as keyof typeof formData
-                        ] || ""
-                      }
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
-                    />
-                    <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
-                      Telephone
-                    </label>
-                    <input
-                      type="tel"
-                      name={`witness${num}_telephone`}
-                      value={
-                        formData[
-                        `witness${num}_telephone` as keyof typeof formData
-                        ] || ""
-                      }
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
-                    />
                   </div>
+                </label>
+              </section>
+            )}
+
+            {/* WITNESSES - Show only if hasWitness is true or data from API */}
+            {(hasWitness === true || isWitnessFromApi) && (
+              <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
+                <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
+                  WITNESSES
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {[1, 2].map((num) => (
+                    <div key={num}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        name={`witness${num}_name`}
+                        value={formData[`witness${num}_name` as keyof typeof formData] || ""}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
+                      />
+                      <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
+                        Address
+                      </label>
+                      <textarea
+                        name={`witness${num}_address`}
+                        value={formData[`witness${num}_address` as keyof typeof formData] || ""}
+                        onChange={handleChange}
+                        rows={2}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
+                      />
+                      <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
+                        Postcode
+                      </label>
+                      <input
+                        type="text"
+                        name={`witness${num}_postcode`}
+                        value={formData[`witness${num}_postcode` as keyof typeof formData] || ""}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
+                      />
+                      <label className="block text-sm font-medium text-gray-700 mt-4 mb-1.5">
+                        Telephone
+                      </label>
+                      <input
+                        type="tel"
+                        name={`witness${num}_telephone`}
+                        value={formData[`witness${num}_telephone` as keyof typeof formData] || ""}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
+                      />
+                    </div>
                 ))}
               </div>
             </section>
+            )}
 
             {/* EXTRA INFORMATION */}
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md">
@@ -1137,7 +1206,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 type="submit"
                 disabled={loading}
                 className={`inline-flex items-center px-16 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${loading ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                }`}
               >
                 {loading ? "Submitting..." : "Submit Claim Form"}
               </button>
@@ -1153,8 +1222,6 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 </p>
               )}
             </div>
-
-
           </form>
         </div>
       </div>

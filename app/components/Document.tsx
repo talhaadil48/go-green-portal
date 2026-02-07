@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import axios from "axios";
-
+import api from "@/lib/axios";
 interface DocumentManagerProps {
   claimId: string;
 }
@@ -23,24 +23,27 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [uploading, setUploading] = useState(false);
   const [sourceType, setSourceType] = useState<"file" | "camera" | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  const fetchDocuments = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await axios.get(`${apiBase}/api/claim-documents/${claimId}`);
-      setDocuments(res.data.documents || {});
-    } catch (err: any) {
-      if (err.response?.status === 404) {
-        setDocuments({});
-      } else {
-        setError(err.response?.data?.detail || "Failed to load documents.");
-      }
-    } finally {
-      setLoading(false);
+ const fetchDocuments = async () => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const res = await api.get(`/api/claim-documents/${claimId}`, {
+      headers: { requiresAuth: true },
+    });
+    setDocuments(res.data.documents || {});
+  } catch (err: any) {
+    if (err.response?.status === 404) {
+      setDocuments({});
+    } else {
+      setError(err.response?.data?.detail || "Failed to load documents.");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     if (claimId) fetchDocuments();
@@ -103,26 +106,27 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   };
 
   const handleDelete = async (docKey: string) => {
-    if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
+  if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
 
-    const previous = { ...documents };
-    const updated = { ...documents };
-    delete updated[docKey];
-    setDocuments(updated);
+  const previous = { ...documents };
+  const updated = { ...documents };
+  delete updated[docKey];
+  setDocuments(updated);
 
-    setError(null);
-    setSuccessMsg(null);
+  setError(null);
+  setSuccessMsg(null);
 
-    try {
-      await axios.delete(`${apiBase}/api/claim-documents/${claimId}/${docKey}`);
-      setSuccessMsg(`"${docKey}" deleted successfully.`);
-    } catch (err: any) {
-      setDocuments(previous);
-      setError(err.response?.data?.detail || "Delete failed – changes reverted.");
-      console.error("Delete error:", err);
-    }
-  };
-
+  try {
+    await api.delete(`/api/claim-documents/${claimId}/${docKey}`, {
+      headers: { requiresAuth: true },
+    });
+    setSuccessMsg(`"${docKey}" deleted successfully.`);
+  } catch (err: any) {
+    setDocuments(previous);
+    setError(err.response?.data?.detail || "Delete failed – changes reverted.");
+    console.error("Delete error:", err);
+  }
+};
   const handleClearForm = () => {
     setSelectedFile(null);
     setDocName("");

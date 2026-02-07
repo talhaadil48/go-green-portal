@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { generatePDF, PDFFormData } from "@/lib/pdf-generator";
 import { JSX } from "react/jsx-runtime";
+import api from "@/lib/axios";
 
 interface InvoiceManagerProps {
     claimId: string;
@@ -32,13 +33,11 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     >(null);
     const [documentsData, setDocumentsData] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(true);
-    const apiBase = process.env.NEXT_PUBLIC_API_URL
 
     // Fetch all form data – allow missing forms (treat as empty)
     useEffect(() => {
         const fetchAllData = async () => {
             setIsLoading(true);
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
             try {
                 const endpoints = [
@@ -51,7 +50,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 ];
 
                 const results = await Promise.allSettled(
-                    endpoints.map((ep) => axios.get(`${apiBase}${ep.url}`))
+                    endpoints.map((ep) =>
+                        api.get(ep.url, { headers: { requiresAuth: true } })
+                    )
                 );
 
                 const data: Record<string, any> = {};
@@ -62,12 +63,17 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     if (result.status === "fulfilled") {
                         if (key === "documents") {
                             data[key] = result.value.data.documents || {};
+                        } else if (key === "pre-inspection") {
+                            // Handle array of pre-inspection forms
+                            data[key] = Array.isArray(result.value.data) ? result.value.data : [result.value.data || {}];
                         } else {
                             data[key] = result.value.data || {};
                         }
                     } else {
                         // Even on error (404 etc.) → provide empty object so blank form can be generated
-                        if (key !== "documents") {
+                        if (key === "pre-inspection") {
+                            data[key] = [];
+                        } else if (key !== "documents") {
                             data[key] = {};
                         }
                         // documents list remains empty if failed
@@ -104,23 +110,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 </svg>
             ),
             // Always available – can send blank if no data
-            available: true,
-        },
-        {
-            id: "pre-inspection",
-            name: "Hire Vehicle Checklist",
-            formType: "pre-inspection",
-            description: "Vehicle condition assessment checklist",
-            icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                    />
-                </svg>
-            ),
             available: true,
         },
         {
@@ -176,6 +165,30 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         },
     ];
 
+    // Add dynamic pre-inspection forms from array
+    const preInspectionForms: DocumentOption[] = [];
+    if (documentsData["pre-inspection"] && Array.isArray(documentsData["pre-inspection"])) {
+        documentsData["pre-inspection"].forEach((form: any, index: number) => {
+            preInspectionForms.push({
+                id: `pre-inspection-${form.inspection_id || index}`,
+                name: `Hire Vehicle Checklist ${index + 1}`,
+                formType: "pre-inspection",
+                description: `Vehicle inspection `,
+                icon: (
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                        />
+                    </svg>
+                ),
+                available: true,
+            });
+        });
+    }
+
     const uploadedDocuments: DocumentOption[] = [];
     if (documentsData["documents"]) {
         for (const id in documentsData["documents"]) {
@@ -199,7 +212,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
     }
 
-    const allDocuments = [...documents, ...uploadedDocuments];
+    const allDocuments = [...documents, ...preInspectionForms, ...uploadedDocuments];
 
     const toggleDocument = (docId: string) => {
         setSelectedDocs((prev) =>
@@ -326,6 +339,30 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     else if (blob.type === "image/png") ext = "png";
                     else if (blob.type === "application/pdf") ext = "pdf";
                     filename = `${doc.id}.${ext}`;
+                } else if (doc.formType === "pre-inspection") {
+                    // Handle pre-inspection forms from array
+                    const inspectionId = docId.replace("pre-inspection-", "");
+                    let formDataObj = {};
+                    
+                    if (Array.isArray(documentsData["pre-inspection"])) {
+                        const form = documentsData["pre-inspection"].find((f: any) => 
+                            String(f.inspection_id) === inspectionId
+                        );
+                        if (form) {
+                            formDataObj = form;
+                        }
+                    }
+                    
+                    const pdfData: PDFFormData = {
+                        title: doc.name,
+                        formType: "pre-inspection",
+                        claimId,
+                        data: formDataObj,
+                        signatures: extractSignatures("pre-inspection", formDataObj),
+                        images: extractImages("pre-inspection", formDataObj),
+                    };
+                    blob = await generatePDF(pdfData);
+                    filename = `pre-inspection-${inspectionId}-${claimId}.pdf`;
                 } else {
                     const formDataObj = documentsData[docId] || {};
                     const pdfData: PDFFormData = {
@@ -397,12 +434,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
                 // Optionally mark invoice as sent
                 try {
-                    const markResponse = await fetch(`${apiBase}/api/claims/mark-invoice-sent/${claimId}`, {
-                        method: "POST",
-                    });
-                    const markData = await markResponse.json();
-                    console.log("Invoice update:", markData);
-                } catch (err) {
+                    const markResponse = await api.post(
+                        `/api/claims/mark-invoice-sent/${claimId}`,
+                        null, // no body
+                        { headers: { requiresAuth: true } }
+                    );
+                    console.log("Invoice update:", markResponse.data);
+                } catch (err: any) {
                     console.error("Failed to mark invoice as sent:", err);
                 }
 
@@ -571,9 +609,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                 <div>
                                                     <div className="font-medium text-gray-900">
                                                         {doc.name}
-                                                        {!documentsData[doc.id] && doc.formType !== "document" && (
-                                                            <span className="ml-2 text-xs font-normal text-amber-600">(blank)</span>
-                                                        )}
+                                                       
                                                     </div>
                                                     <div className="text-sm text-gray-500 md:hidden line-clamp-1">
                                                         {doc.description}

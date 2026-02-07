@@ -2,8 +2,9 @@
 
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
-import axios from "axios";
 import { useRouter } from "next/navigation";
+import api from "@/lib/axios";
+import { head } from "framer-motion/client";
 
 interface Claim {
     claim_id: string;
@@ -41,7 +42,11 @@ export default function ClaimsPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await axios.get(`${apiBase}/api/claims`);
+            const res = await api.get("/api/claims", {
+                headers: {
+                    requiresAuth: true,
+                }
+            });
             setAllClaims(res.data);
             setClaims(res.data);
         } catch (err: any) {
@@ -93,55 +98,56 @@ export default function ClaimsPage() {
     };
 
     const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        setCreating(true);
-        setCreateError(null);
+    e.preventDefault();
+    setCreating(true);
+    setCreateError(null);
 
-        try {
-            const payload: any = {
-                claimant_name: formData.claimant_name.trim() || undefined,
-                claim_type: formData.claim_type.trim() || undefined,
-            };
+    try {
+        const payload: any = {
+            claimant_name: formData.claimant_name.trim() || undefined,
+            claim_type: formData.claim_type.trim() || undefined,
+        };
 
-            if (formData.claim_id.trim()) {
-                payload.claim_id = formData.claim_id.trim();
-            }
-
-            await axios.post(`${apiBase}/api/claims`, payload);
-
-            setFormData({ claim_id: "", claimant_name: "", claim_type: "" });
-            await fetchClaims();
-        } catch (err: any) {
-            console.error(err);
-            if (err.response?.status === 409) {
-                setCreateError("This Claim ID already exists. Please use a different one or leave it blank.");
-            } else {
-                setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
-            }
-        } finally {
-            setCreating(false);
+        if (formData.claim_id.trim()) {
+            payload.claim_id = formData.claim_id.trim();
         }
-    };
 
-    const handleDelete = async (claim_id: string) => {
-        // Show confirmation dialog
-        const confirmed = window.confirm(
-            `Are you sure you want to delete claim ${claim_id}?\n\nThis action cannot be undone.`
-        );
+        await api.post("/api/claims", payload, {
+            headers: { requiresAuth: true },
+        });
 
-        if (!confirmed) return;
-
-        try {
-            await axios.put(`${apiBase}/api/claims/${claim_id}/soft-delete`);
-            await fetchClaims(); // refresh list
-        } catch (err: any) {
-            console.error(err);
-            alert(
-                err.response?.data?.detail ||
-                "Failed to delete claim. Please try again."
+        setFormData({ claim_id: "", claimant_name: "", claim_type: "" });
+        await fetchClaims();
+    } catch (err: any) {
+        console.error(err);
+        if (err.response?.status === 409) {
+            setCreateError(
+                "This Claim ID already exists. Please use a different one or leave it blank."
             );
+        } else {
+            setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
         }
-    };
+    } finally {
+        setCreating(false);
+    }
+};
+
+const handleDelete = async (claim_id: string) => {
+    const confirmed = window.confirm(
+        `Are you sure you want to delete claim ${claim_id}?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+        await api.put(`/api/claims/${claim_id}/soft-delete`, null, {
+            headers: { requiresAuth: true },
+        });
+        await fetchClaims();
+    } catch (err: any) {
+        console.error(err);
+        alert(err.response?.data?.detail || "Failed to delete claim. Please try again.");
+    }
+};
 
     const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
@@ -384,7 +390,7 @@ export default function ClaimsPage() {
                                             Start Date
                                         </th>
                                         <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Innvoice
+                                            Invoice
                                         </th>
                                         <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
                                             Actions
