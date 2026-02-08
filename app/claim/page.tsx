@@ -4,7 +4,6 @@ import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
-import { head } from "framer-motion/client";
 
 interface Claim {
     claim_id: string;
@@ -14,11 +13,18 @@ interface Claim {
     invoice_sent: string | null;
 }
 
+type SortColumn = "claim_id" | "claimant_name" | "claim_type" | "claim_start_date" | "invoice_sent";
+type SortDirection = "asc" | "desc" | null;
+
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Sorting
+    const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+    const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
     // Create form
     const [formData, setFormData] = useState({
@@ -61,7 +67,7 @@ export default function ClaimsPage() {
         fetchClaims();
     }, []);
 
-    // Apply filters
+    // Apply filters and sorting
     useEffect(() => {
         let filtered = [...allClaims];
 
@@ -89,8 +95,67 @@ export default function ClaimsPage() {
             });
         }
 
+        // Apply sorting
+        if (sortColumn && sortDirection) {
+            filtered.sort((a, b) => {
+                let aValue: any = a[sortColumn];
+                let bValue: any = b[sortColumn];
+
+                // Handle null/undefined
+                if (aValue === null || aValue === undefined) aValue = "";
+                if (bValue === null || bValue === undefined) bValue = "";
+
+                // For dates, convert to Date objects for proper comparison
+                if (sortColumn === "claim_start_date") {
+                    aValue = aValue ? new Date(aValue).getTime() : 0;
+                    bValue = bValue ? new Date(bValue).getTime() : 0;
+                }
+
+                // String comparison
+                if (typeof aValue === "string") {
+                    aValue = aValue.toLowerCase();
+                    bValue = bValue.toLowerCase();
+                    if (sortDirection === "asc") {
+                        return aValue.localeCompare(bValue);
+                    } else {
+                        return bValue.localeCompare(aValue);
+                    }
+                }
+
+                // Number comparison
+                if (sortDirection === "asc") {
+                    return aValue > bValue ? 1 : -1;
+                } else {
+                    return aValue < bValue ? 1 : -1;
+                }
+            });
+        }
+
         setClaims(filtered);
-    }, [searchTerm, selectedType, startDate, endDate, allClaims]);
+    }, [searchTerm, selectedType, startDate, endDate, allClaims, sortColumn, sortDirection]);
+
+    const handleSort = (column: SortColumn) => {
+        if (sortColumn === column) {
+            // Toggle direction or reset
+            if (sortDirection === "asc") {
+                setSortDirection("desc");
+            } else if (sortDirection === "desc") {
+                setSortDirection(null);
+                setSortColumn(null);
+            }
+        } else {
+            // New column selected
+            setSortColumn(column);
+            setSortDirection("asc");
+        }
+    };
+
+    const getSortArrow = (column: SortColumn) => {
+        if (sortColumn !== column) return " ↑↓";
+        if (sortDirection === "asc") return " ↑";
+        if (sortDirection === "desc") return " ↓";
+        return " ↑↓";
+    };
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -175,6 +240,8 @@ const handleDelete = async (claim_id: string) => {
         setSelectedType("");
         setStartDate("");
         setEndDate("");
+        setSortColumn(null);
+        setSortDirection(null);
     };
 
     return (
@@ -377,20 +444,35 @@ const handleDelete = async (claim_id: string) => {
                             <table className="min-w-full divide-y divide-green-100">
                                 <thead className="bg-green-50/70">
                                     <tr>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Claim ID
+                                        <th 
+                                            onClick={() => handleSort("claim_id")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                        >
+                                            Claim ID{getSortArrow("claim_id")}
                                         </th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Claimant
+                                        <th 
+                                            onClick={() => handleSort("claimant_name")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                        >
+                                            Claimant{getSortArrow("claimant_name")}
                                         </th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Type
+                                        <th 
+                                            onClick={() => handleSort("claim_type")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                        >
+                                            Type{getSortArrow("claim_type")}
                                         </th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Start Date
+                                        <th 
+                                            onClick={() => handleSort("claim_start_date")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                        >
+                                            Start Date{getSortArrow("claim_start_date")}
                                         </th>
-                                        <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">
-                                            Invoice
+                                        <th 
+                                            onClick={() => handleSort("invoice_sent")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                        >
+                                            Invoice{getSortArrow("invoice_sent")}
                                         </th>
                                         <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
                                             Actions
