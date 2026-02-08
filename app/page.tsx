@@ -72,8 +72,8 @@ export default function LoginPage() {
 
       router.push('/claim') // or '/' or your dashboard route
     } catch (err: any) {
-      console.error('Login error:', err)
-      // TODO: show error message to user (add state + UI)
+      console.log(err)
+      alert(err)
     } finally {
       setIsLoading(false)
     }
