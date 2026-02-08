@@ -8,11 +8,14 @@ import { LogOut } from 'lucide-react'
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     const interval = setInterval(() => {
       const token = Cookies.get("access_token");
+      const userRole = Cookies.get("user_role");
       setIsLoggedIn(!!token);
+      setRole(userRole || null);
     }, 500); // checks every 500ms
 
     return () => clearInterval(interval); // cleanup on unmount
@@ -59,6 +62,14 @@ export default function Navbar() {
                   Deleted Claims
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
                 </Link>
+                {role === 'admin' &&
+                  <Link
+                    href="/users"
+                    className="text-green-100 hover:text-white transition-colors duration-300 relative group"
+                  >
+                    Moderators
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
+                  </Link>}
 
                 {/* Logout button – desktop */}
                 <button

@@ -10,8 +10,7 @@ const api = axios.create({
 const getUser = () => {
   const access_token = Cookies.get('access_token')
   const refresh_token = Cookies.get("refresh_token");
-    console.log("Access Token:", access_token);
-    console.log("Refresh Token:", refresh_token);
+
   if (access_token && refresh_token) {
     return {
       access_token,
