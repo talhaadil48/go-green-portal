@@ -631,15 +631,22 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   </label>
 
                   {isClientSigFromApi && signatures.client_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.client_signature || "/placeholder.svg"}
                         alt="Client signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsClientSigFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
@@ -674,15 +681,22 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                   </label>
 
                   {isOwnerSigFromApi && signatures.owner_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.owner_signature || "/placeholder.svg"}
                         alt="Owner signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsOwnerSigFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">

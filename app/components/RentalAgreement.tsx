@@ -879,15 +879,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </label>
 
                   {isHirerTermsFromApi && signatures.hirer_signature_terms ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.hirer_signature_terms || "/placeholder.svg"}
                         alt="Hirer signature (terms)"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsHirerTermsFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
@@ -905,15 +912,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </label>
 
                   {isCompanyFromApi && signatures.company_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.company_signature || "/placeholder.svg"}
                         alt="Company signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsCompanyFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
@@ -1053,19 +1067,26 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
                   <div className="mt-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Hirer’s Signature:
+                      Hirer's Signature:
                     </label>
 
                     {isHirerInsuranceFromApi && signatures.hirer_signature_insurance ? (
-                      <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                      <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                         <img
                           src={signatures.hirer_signature_insurance || "/placeholder.svg"}
                           alt="Hirer insurance signature"
                           className="max-h-40 mx-auto object-contain"
                         />
-                        <p className="mt-4 text-sm text-green-700 font-medium">
+                        <p className="text-sm text-green-700 font-medium">
                           Signature saved ✓ (from record)
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsHirerInsuranceFromApi(false)}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                        >
+                          Update
+                        </button>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-4">
@@ -1339,19 +1360,26 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hirer’s Signature:
+                    Hirer's Signature:
                   </label>
 
                   {isDeclarationFromApi && signatures.declaration_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.declaration_signature || "/placeholder.svg"}
                         alt="Declaration signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsDeclarationFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
@@ -1747,15 +1775,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </label>
 
                   {isLiabilityFromApi && signatures.liability_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center">
+                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
                         src={signatures.liability_signature || "/placeholder.svg"}
                         alt="Liability signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="mt-4 text-sm text-green-700 font-medium">
+                      <p className="text-sm text-green-700 font-medium">
                         Signature saved ✓ (from record)
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsLiabilityFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">

@@ -263,15 +263,22 @@ const fetchCancellationData = async () => {
 
                                     {isSignatureFromApi && signature ? (
                                         // ── Locked view-only image from API (Cloudinary etc.)
-                                        <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto">
+                                        <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto space-y-3">
                                             <img
                                                 src={signature || "/placeholder.svg"}
                                                 alt="Saved signature from record"
                                                 className="max-h-48 mx-auto object-contain"
                                             />
-                                            <p className="mt-4 text-sm text-green-700 font-medium">
+                                            <p className="text-sm text-green-700 font-medium">
                                                 Signature on file ✓ (from previous submission)
                                             </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsSignatureFromApi(false)}
+                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                                            >
+                                                Update
+                                            </button>
                                         </div>
                                     ) : (
                                         // ── Editable canvas for new signatures

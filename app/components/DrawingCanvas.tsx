@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 
 interface DrawingCanvasProps {
   width: number;
@@ -22,47 +22,60 @@ export default function DrawingCanvas({
   const lastPos = useRef({ x: 0, y: 0 });
   const isInitialized = useRef(false);
 
+  // History for undo
+  const history = useRef<string[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+
+  const saveState = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    history.current.push(dataUrl);
+    setCanUndo(history.current.length > 1);
+    onDrawingChange(dataUrl);
+  }, [onDrawingChange]);
+
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || isInitialized.current) return;
 
     const dpr = window.devicePixelRatio || 1;
-    
-    // Set the actual canvas size in memory (scaled for high DPI)
+
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    
-    // Set the display size
+
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
-    // Scale for high DPI
+
     ctx.scale(dpr, dpr);
-    
-    // Fill with white background
+
+    // White background
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, width, height);
-    
-    // Set drawing styles
+
+    // Drawing styles
     ctx.strokeStyle = "#991b1b";
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
     isInitialized.current = true;
-  }, [width, height]);
+
+    // Save initial empty state
+    saveState();
+  }, [width, height, saveState]);
 
   const getPosition = useCallback((e: MouseEvent | TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-    
+
     const rect = canvas.getBoundingClientRect();
     const scaleX = width / rect.width;
     const scaleY = height / rect.height;
-    
+
     if ("touches" in e && e.touches.length) {
       return {
         x: (e.touches[0].clientX - rect.left) * scaleX,
@@ -88,16 +101,16 @@ export default function DrawingCanvas({
     if (!isDrawing.current) return;
     e.preventDefault();
     e.stopPropagation();
-    
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
     const dpr = window.devicePixelRatio || 1;
     const pos = getPosition(e);
-    
+
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.strokeStyle = "#991b1b";
@@ -109,43 +122,95 @@ export default function DrawingCanvas({
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     ctx.restore();
-    
+
     lastPos.current = pos;
   }, [getPosition]);
 
   const stopDrawing = useCallback(() => {
     if (isDrawing.current) {
       isDrawing.current = false;
-      const canvas = canvasRef.current;
-      if (canvas) {
-        onDrawingChange(canvas.toDataURL("image/png"));
-      }
+      saveState();
     }
-  }, [onDrawingChange]);
+  }, [saveState]);
+
+  const loadImageToCanvas = useCallback((dataUrl: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+
+    // 1. FULL CLEAR
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset completely
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Re-apply DPR scale
+    ctx.scale(dpr, dpr);
+
+    const img = new Image();
+    img.src = dataUrl;
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => {
+      // 3. Draw at logical size (width × height)
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 4. Re-apply drawing styles (important!)
+      ctx.strokeStyle = "#991b1b";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // Update parent
+      onDrawingChange(dataUrl);
+    };
+  }, [width, height, onDrawingChange]);
+
+  const undo = useCallback(() => {
+    if (history.current.length <= 1) return;
+
+    // Remove last state
+    history.current.pop();
+
+    const previousState = history.current[history.current.length - 1];
+
+    setCanUndo(history.current.length > 1);
+
+    loadImageToCanvas(previousState);
+  }, [loadImageToCanvas]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
     const dpr = window.devicePixelRatio || 1;
-    ctx.save();
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    
-    onDrawingChange(null);
-  }, [onDrawingChange]);
 
-  // Initialize canvas
+    // Re-apply scale for future drawing
+    ctx.scale(dpr, dpr);
+
+    // Reset history
+    history.current = [];
+    saveState();
+
+    onDrawingChange(null);
+  }, [saveState, onDrawingChange]);
+
+  // Initialize
   useEffect(() => {
     initCanvas();
   }, [initCanvas]);
 
-  // Attach event listeners
+  // Events
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -154,7 +219,7 @@ export default function DrawingCanvas({
     const handleMouseMove = (e: MouseEvent) => draw(e);
     const handleMouseUp = () => stopDrawing();
     const handleMouseLeave = () => stopDrawing();
-    
+
     const handleTouchStart = (e: TouchEvent) => startDrawing(e);
     const handleTouchMove = (e: TouchEvent) => draw(e);
     const handleTouchEnd = () => stopDrawing();
@@ -180,7 +245,6 @@ export default function DrawingCanvas({
     };
   }, [startDrawing, draw, stopDrawing]);
 
-  // If from API, show image instead of canvas
   if (isFromApi && initialImage) {
     return (
       <div className="text-center">
@@ -202,21 +266,37 @@ export default function DrawingCanvas({
       <canvas
         ref={canvasRef}
         className="border-4 border-gray-400 rounded-2xl shadow-lg cursor-crosshair bg-white"
-        style={{ 
-          width: "100%", 
+        style={{
+          width: "100%",
           height: "100%",
           touchAction: "none",
           maxWidth: width,
-          maxHeight: height
+          maxHeight: height,
         }}
       />
-      <button
-        type="button"
-        onClick={clearCanvas}
-        className="absolute bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm shadow transition"
-      >
-        Clear
-      </button>
+
+      <div className="absolute bottom-4 right-4 flex gap-3">
+        <button
+          type="button"
+          onClick={undo}
+          disabled={!canUndo}
+          className={`px-5 py-2 rounded-lg text-sm shadow transition text-white ${
+            canUndo
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          Undo
+        </button>
+
+        <button
+          type="button"
+          onClick={clearCanvas}
+          className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm shadow transition"
+        >
+          Clear
+        </button>
+      </div>
     </div>
   );
 }

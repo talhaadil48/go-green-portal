@@ -1,9 +1,8 @@
-// app/components/DocumentManager.tsx
 "use client";
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
-import axios from "axios";
 import api from "@/lib/axios";
+
 interface DocumentManagerProps {
   claimId: string;
 }
@@ -18,52 +17,61 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [docName, setDocName] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileNames, setFileNames] = useState<string[]>([]); // one name per file
+  const [singleDocName, setSingleDocName] = useState(""); // only for 1 file mode
   const [uploading, setUploading] = useState(false);
   const [sourceType, setSourceType] = useState<"file" | "camera" | null>(null);
 
+  const fetchDocuments = async () => {
+    setLoading(true);
+    setError(null);
 
- const fetchDocuments = async () => {
-  setLoading(true);
-  setError(null);
-
-  try {
-    const res = await api.get(`/api/claim-documents/${claimId}`, {
-      headers: { requiresAuth: true },
-    });
-    setDocuments(res.data.documents || {});
-  } catch (err: any) {
-    if (err.response?.status === 404) {
-      setDocuments({});
-    } else {
-      setError(err.response?.data?.detail || "Failed to load documents.");
+    try {
+      const res = await api.get(`/api/claim-documents/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
+      setDocuments(res.data.documents || {});
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setDocuments({});
+      } else {
+        setError(err.response?.data?.detail || "Failed to load documents.");
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   useEffect(() => {
     if (claimId) fetchDocuments();
   }, [claimId]);
 
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>, from: "file" | "camera") => {
-    if (e.target.files?.[0]) {
-      setSelectedFile(e.target.files[0]);
+  const handleFilesSelect = (e: ChangeEvent<HTMLInputElement>, from: "file" | "camera") => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles(filesArray);
+      // Initialize names with original filenames
+      setFileNames(filesArray.map((f) => f.name));
       setSourceType(from);
+      // Clear single name when switching to multi
+      setSingleDocName("");
     }
+  };
+
+  const updateFileName = (index: number, name: string) => {
+    const newNames = [...fileNames];
+    newNames[index] = name;
+    setFileNames(newNames);
   };
 
   const handleUpload = async (e: FormEvent) => {
     e.preventDefault();
-    if (!selectedFile || !docName.trim()) {
-      setError("Please enter a document name and select/take a photo.");
+
+    if (selectedFiles.length === 0) {
+      setError("Please select at least one file.");
       return;
     }
-
-    const normalizedName = docName.trim();
 
     setUploading(true);
     setError(null);
@@ -71,9 +79,26 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
     try {
       const formData = new FormData();
-      formData.append("file", selectedFile);
       formData.append("claimId", claimId);
-      formData.append("documentName", normalizedName);
+
+      // Append files
+      selectedFiles.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      // Append names (in same order as files)
+      if (selectedFiles.length === 1) {
+        const name = singleDocName.trim() || selectedFiles[0].name;
+        formData.append("names", name);
+      } else {
+        // Multiple files → send array of names
+        const cleanedNames = fileNames.map((n, i) =>
+          n.trim() ? n.trim() : selectedFiles[i].name
+        );
+        cleanedNames.forEach((name) => {
+          formData.append("names", name);
+        });
+      }
 
       const uploadRes = await fetch("/api/upload-document", {
         method: "POST",
@@ -87,18 +112,20 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
       await fetchDocuments();
 
+      const count = selectedFiles.length;
       setSuccessMsg(
-        documents[normalizedName]
-          ? `"${normalizedName}" replaced successfully`
-          : `"${normalizedName}" uploaded successfully`
+        count === 1
+          ? `Document "${singleDocName.trim() || selectedFiles[0].name}" uploaded successfully`
+          : `${count} files uploaded successfully`
       );
 
-      // Reset form
-      setSelectedFile(null);
-      setDocName("");
+      // Reset
+      setSelectedFiles([]);
+      setFileNames([]);
+      setSingleDocName("");
       setSourceType(null);
     } catch (err: any) {
-      setError(err.message || "Failed to upload/save document.");
+      setError(err.message || "Failed to upload document(s).");
       console.error(err);
     } finally {
       setUploading(false);
@@ -106,82 +133,108 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   };
 
   const handleDelete = async (docKey: string) => {
-  if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
 
-  const previous = { ...documents };
-  const updated = { ...documents };
-  delete updated[docKey];
-  setDocuments(updated);
+    const previous = { ...documents };
+    const updated = { ...documents };
+    delete updated[docKey];
+    setDocuments(updated);
 
-  setError(null);
-  setSuccessMsg(null);
+    setError(null);
+    setSuccessMsg(null);
 
-  try {
-    await api.delete(`/api/claim-documents/${claimId}/${docKey}`, {
-      headers: { requiresAuth: true },
-    });
-    setSuccessMsg(`"${docKey}" deleted successfully.`);
-  } catch (err: any) {
-    setDocuments(previous);
-    setError(err.response?.data?.detail || "Delete failed – changes reverted.");
-    console.error("Delete error:", err);
-  }
-};
+    try {
+      await api.delete(`/api/claim-documents/${claimId}/${docKey}`, {
+        headers: { requiresAuth: true },
+      });
+      setSuccessMsg(`"${docKey}" deleted successfully.`);
+    } catch (err: any) {
+      setDocuments(previous);
+      setError(err.response?.data?.detail || "Delete failed – changes reverted.");
+      console.error("Delete error:", err);
+    }
+  };
+
   const handleClearForm = () => {
-    setSelectedFile(null);
-    setDocName("");
+    setSelectedFiles([]);
+    setFileNames([]);
+    setSingleDocName("");
     setSourceType(null);
     setError(null);
     setSuccessMsg(null);
   };
+
+  const isMultiple = selectedFiles.length > 1;
 
   return (
     <div className="space-y-10">
       {/* Upload form */}
       <div className="bg-white border border-green-100 rounded-2xl shadow-lg p-6 md:p-8">
         <h2 className="text-2xl font-bold text-green-800 mb-6">
-          Upload or Replace Document
+          Upload Documents (Photos, Videos, PDFs)
         </h2>
 
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Document Name / Category
+                {isMultiple ? "File Names (edit below)" : "Document Name / Category"}
               </label>
-              <input
-                type="text"
-                value={docName}
-                onChange={(e) => setDocName(e.target.value)}
-                placeholder="e.g. Police Report, Invoice, License, Damage Photo"
-                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
-                required
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Use same name to replace existing document
-              </p>
+
+              {!isMultiple && (
+                <>
+                  <input
+                    type="text"
+                    value={singleDocName}
+                    onChange={(e) => setSingleDocName(e.target.value)}
+                    placeholder="e.g. Police Report, Front Damage, Invoice"
+                    className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Use this name to replace existing document (if same name)
+                  </p>
+                </>
+              )}
+
+              {isMultiple && selectedFiles.length > 0 && (
+                <div className="space-y-3 mt-2">
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex flex-col">
+                      <label className="text-xs text-gray-600 mb-1 truncate">
+                        {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                      </label>
+                      <input
+                        type="text"
+                        value={fileNames[index] || ""}
+                        onChange={(e) => updateFileName(index, e.target.value)}
+                        placeholder={`Suggested: ${file.name}`}
+                        className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                File or Photo
+                Files / Media
               </label>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                {/* Choose from files */}
                 <label className="flex-1 cursor-pointer">
                   <div className="w-full px-4 py-3 border border-green-200 rounded-xl bg-green-50/50 hover:bg-green-100 transition text-center text-green-700 font-medium">
-                    Choose File
+                    Choose Files
                   </div>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => handleFileSelect(e, "file")}
+                    accept="image/*,video/*,.pdf"
+                    multiple
+                    onChange={(e) => handleFilesSelect(e, "file")}
                     className="hidden"
                   />
                 </label>
 
-                {/* Take photo */}
                 <label className="flex-1 cursor-pointer">
                   <div className="w-full px-4 py-3 border border-green-200 rounded-xl bg-green-50/50 hover:bg-green-100 transition text-center text-green-700 font-medium">
                     Take Photo
@@ -190,17 +243,21 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(e) => handleFileSelect(e, "camera")}
+                    onChange={(e) => handleFilesSelect(e, "camera")}
                     className="hidden"
                   />
                 </label>
               </div>
 
-              {selectedFile && (
-                <p className="mt-2 text-sm text-gray-600 truncate">
-                  Selected: {selectedFile.name}{" "}
-                  {sourceType === "camera" && "(from camera)"}
-                  {sourceType === "file" && "(from files)"}
+              {selectedFiles.length > 0 && !isMultiple && (
+                <p className="mt-3 text-sm text-gray-600 truncate">
+                  Selected: {selectedFiles[0].name} {sourceType && `(${sourceType})`}
+                </p>
+              )}
+
+              {isMultiple && (
+                <p className="mt-3 text-sm text-gray-600">
+                  {selectedFiles.length} files selected
                 </p>
               )}
             </div>
@@ -217,7 +274,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
             <button
               type="submit"
-              disabled={uploading || !selectedFile || !docName.trim()}
+              disabled={uploading || selectedFiles.length === 0}
               className={`
                 px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600
                 hover:from-green-700 hover:to-emerald-700 text-white font-semibold
@@ -228,12 +285,10 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
               {uploading ? (
                 <>
                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {documents[docName.trim()] ? "Replacing..." : "Uploading..."}
+                  Uploading...
                 </>
-              ) : documents[docName.trim()] ? (
-                "Replace Document"
               ) : (
-                "Upload Document"
+                `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? "s" : ""}`
               )}
             </button>
           </div>
@@ -257,7 +312,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           <div className="text-center py-16 text-gray-600">
             No documents uploaded for this claim yet.
             <br />
-            <span className="text-sm">Use the form above to add your first document.</span>
+            <span className="text-sm">Use the form above to add documents.</span>
           </div>
         ) : (
           <div className="space-y-4">

@@ -404,7 +404,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Order #</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Car Reg</label>
                 <input
                   type="text"
                   name="order_number"
@@ -519,15 +519,22 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
 
               {isImageFromApi && apiAnnotatedImage ? (
                 // Show read-only image when it comes from API
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   <img
                     src={apiAnnotatedImage || "/placeholder.svg"}
                     alt="Annotated vehicle condition"
                     className="max-w-full mx-auto border-4 border-gray-300 rounded-2xl shadow-xl object-contain max-h-[600px]"
                   />
-                  <p className="mt-4 text-sm text-gray-600 italic">
-                    (Previously saved annotated image - view only)
+                  <p className="text-sm text-gray-600 italic">
+                    (Previously saved annotated image - from submission)
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsImageFromApi(false)}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                  >
+                    Update
+                  </button>
                 </div>
               ) : (
                 // Show editable canvas when no API image exists
@@ -547,15 +554,22 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 </label>
 
                 {isCustomerSigFromApi && signatures.customer ? (
-                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
+                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50 space-y-3">
                     <img
                       src={signatures.customer || "/placeholder.svg"}
                       alt="Customer signature"
                       className="max-h-48 mx-auto object-contain"
                     />
-                    <p className="mt-4 text-sm text-green-700 font-medium">
+                    <p className="text-sm text-green-700 font-medium">
                       Signature saved (from record)
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomerSigFromApi(false)}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                    >
+                      Update
+                    </button>
                   </div>
                 ) : (
                   <Signature
@@ -572,15 +586,22 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
                 </label>
 
                 {isDetailerSigFromApi && signatures.detailer ? (
-                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50">
+                  <div className="text-center border border-green-300 rounded-xl p-6 bg-green-50 space-y-3">
                     <img
                       src={signatures.detailer || "/placeholder.svg"}
                       alt="Detailer signature"
                       className="max-h-48 mx-auto object-contain"
                     />
-                    <p className="mt-4 text-sm text-green-700 font-medium">
+                    <p className="text-sm text-green-700 font-medium">
                       Signature saved (from record)
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsDetailerSigFromApi(false)}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                    >
+                      Update
+                    </button>
                   </div>
                 ) : (
                   <Signature

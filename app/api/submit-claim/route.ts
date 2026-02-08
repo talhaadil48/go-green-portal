@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
         normalizedData[field] = null;
       }
     });
-
     // === NEW: Forward to your external backend ===
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/accident-claims/{${fullData.claim_id}}`; // adjust path if needed
 

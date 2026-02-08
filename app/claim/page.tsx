@@ -2,7 +2,6 @@
 
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
 
 interface Claim {
@@ -11,10 +10,28 @@ interface Claim {
     claim_type: string | null;
     claim_start_date: string | null;
     invoice_sent: string | null;
+    council: string | null;
 }
 
-type SortColumn = "claim_id" | "claimant_name" | "claim_type" | "claim_start_date" | "invoice_sent";
+type SortColumn =
+    | "claim_id"
+    | "claimant_name"
+    | "claim_type"
+    | "claim_start_date"
+    | "invoice_sent"
+    | "council";
+
 type SortDirection = "asc" | "desc" | null;
+
+const COUNCIL_OPTIONS = [
+    { value: "", label: "All Councils" },
+    { value: "Wolverhampton", label: "Wolverhampton" },
+    { value: "East Staffordshire", label: "East Staffordshire" },
+    { value: "South Derbyshire", label: "South Derbyshire" },
+    { value: "Ashfield", label: "Ashfield" },
+    { value: "Lichfield District", label: "Lichfield District" },
+    { value: "North West Leicestershire", label: "North West Leicestershire" },
+];
 
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
@@ -31,27 +48,24 @@ export default function ClaimsPage() {
         claim_id: "",
         claimant_name: "",
         claim_type: "",
+        council: "",
     });
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
 
-    // Filter + Search
+    // Filters
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
+    const [selectedCouncil, setSelectedCouncil] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
-
-    const router = useRouter();
-    const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
     const fetchClaims = async () => {
         setLoading(true);
         setError(null);
         try {
             const res = await api.get("/api/claims", {
-                headers: {
-                    requiresAuth: true,
-                }
+                headers: { requiresAuth: true },
             });
             setAllClaims(res.data);
             setClaims(res.data);
@@ -67,10 +81,11 @@ export default function ClaimsPage() {
         fetchClaims();
     }, []);
 
-    // Apply filters and sorting
+    // Filtering + Sorting
     useEffect(() => {
         let filtered = [...allClaims];
 
+        // Search by claimant name
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter((claim) =>
@@ -78,10 +93,17 @@ export default function ClaimsPage() {
             );
         }
 
+        // Filter by type
         if (selectedType) {
             filtered = filtered.filter((claim) => claim.claim_type === selectedType);
         }
 
+        // Filter by council (empty string = show all)
+        if (selectedCouncil) {
+            filtered = filtered.filter((claim) => claim.council === selectedCouncil);
+        }
+
+        // Date range filter
         if (startDate || endDate) {
             const start = startDate ? new Date(startDate) : null;
             const end = endDate ? new Date(endDate) : null;
@@ -95,48 +117,36 @@ export default function ClaimsPage() {
             });
         }
 
-        // Apply sorting
+        // Sorting
         if (sortColumn && sortDirection) {
             filtered.sort((a, b) => {
-                let aValue: any = a[sortColumn];
-                let bValue: any = b[sortColumn];
+                let aVal: any = a[sortColumn] ?? "";
+                let bVal: any = b[sortColumn] ?? "";
 
-                // Handle null/undefined
-                if (aValue === null || aValue === undefined) aValue = "";
-                if (bValue === null || bValue === undefined) bValue = "";
-
-                // For dates, convert to Date objects for proper comparison
+                // Special handling for dates
                 if (sortColumn === "claim_start_date") {
-                    aValue = aValue ? new Date(aValue).getTime() : 0;
-                    bValue = bValue ? new Date(bValue).getTime() : 0;
+                    aVal = aVal ? new Date(aVal).getTime() : -Infinity;
+                    bVal = bVal ? new Date(bVal).getTime() : -Infinity;
                 }
 
-                // String comparison
-                if (typeof aValue === "string") {
-                    aValue = aValue.toLowerCase();
-                    bValue = bValue.toLowerCase();
-                    if (sortDirection === "asc") {
-                        return aValue.localeCompare(bValue);
-                    } else {
-                        return bValue.localeCompare(aValue);
-                    }
+                // String comparison (case-insensitive)
+                if (typeof aVal === "string" && typeof bVal === "string") {
+                    const comparison = aVal.toLowerCase().localeCompare(bVal.toLowerCase());
+                    return sortDirection === "asc" ? comparison : -comparison;
                 }
 
-                // Number comparison
-                if (sortDirection === "asc") {
-                    return aValue > bValue ? 1 : -1;
-                } else {
-                    return aValue < bValue ? 1 : -1;
-                }
+                // Numeric fallback
+                return sortDirection === "asc"
+                    ? (aVal > bVal ? 1 : aVal < bVal ? -1 : 0)
+                    : (aVal < bVal ? 1 : aVal > bVal ? -1 : 0);
             });
         }
 
         setClaims(filtered);
-    }, [searchTerm, selectedType, startDate, endDate, allClaims, sortColumn, sortDirection]);
+    }, [allClaims, searchTerm, selectedType, selectedCouncil, startDate, endDate, sortColumn, sortDirection]);
 
     const handleSort = (column: SortColumn) => {
         if (sortColumn === column) {
-            // Toggle direction or reset
             if (sortDirection === "asc") {
                 setSortDirection("desc");
             } else if (sortDirection === "desc") {
@@ -144,17 +154,16 @@ export default function ClaimsPage() {
                 setSortColumn(null);
             }
         } else {
-            // New column selected
             setSortColumn(column);
             setSortDirection("asc");
         }
     };
 
     const getSortArrow = (column: SortColumn) => {
-        if (sortColumn !== column) return " ↑↓";
+        if (sortColumn !== column) return " ↕";
         if (sortDirection === "asc") return " ↑";
         if (sortDirection === "desc") return " ↓";
-        return " ↑↓";
+        return " ↕";
     };
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -163,63 +172,51 @@ export default function ClaimsPage() {
     };
 
     const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    setCreateError(null);
+        e.preventDefault();
+        setCreating(true);
+        setCreateError(null);
 
-    try {
-        const payload: any = {
-            claimant_name: formData.claimant_name.trim() || undefined,
-            claim_type: formData.claim_type.trim() || undefined,
-        };
+        try {
+            const payload: any = {
+                claimant_name: formData.claimant_name.trim() || undefined,
+                claim_type: formData.claim_type.trim() || undefined,
+                council: formData.council.trim() || undefined,
+            };
 
-        if (formData.claim_id.trim()) {
-            payload.claim_id = formData.claim_id.trim();
+            if (formData.claim_id.trim()) {
+                payload.claim_id = formData.claim_id.trim();
+            }
+
+            await api.post("/api/claims", payload, {
+                headers: { requiresAuth: true },
+            });
+
+            setFormData({ claim_id: "", claimant_name: "", claim_type: "", council: "" });
+            await fetchClaims();
+        } catch (err: any) {
+            console.error(err);
+            if (err.response?.status === 409) {
+                setCreateError("This Claim ID already exists. Please use a different one or leave it blank.");
+            } else {
+                setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
+            }
+        } finally {
+            setCreating(false);
         }
-
-        await api.post("/api/claims", payload, {
-            headers: { requiresAuth: true },
-        });
-
-        setFormData({ claim_id: "", claimant_name: "", claim_type: "" });
-        await fetchClaims();
-    } catch (err: any) {
-        console.error(err);
-        if (err.response?.status === 409) {
-            setCreateError(
-                "This Claim ID already exists. Please use a different one or leave it blank."
-            );
-        } else {
-            setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
-        }
-    } finally {
-        setCreating(false);
-    }
-};
-
-const handleDelete = async (claim_id: string) => {
-    const confirmed = window.confirm(
-        `Are you sure you want to delete claim ${claim_id}?\n\nThis action cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    try {
-        await api.put(`/api/claims/${claim_id}/soft-delete`, null, {
-            headers: { requiresAuth: true },
-        });
-        await fetchClaims();
-    } catch (err: any) {
-        console.error(err);
-        alert(err.response?.data?.detail || "Failed to delete claim. Please try again.");
-    }
-};
-
-    const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(e.target.value);
     };
 
-    const handleTypeFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        setSelectedType(e.target.value);
+    const handleDelete = async (claim_id: string) => {
+        if (!window.confirm(`Delete claim ${claim_id}? This cannot be undone.`)) return;
+
+        try {
+            await api.put(`/api/claims/${claim_id}/soft-delete`, null, {
+                headers: { requiresAuth: true },
+            });
+            await fetchClaims();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.response?.data?.detail || "Failed to delete claim.");
+        }
     };
 
     const formatDate = (dateStr: string | null) => {
@@ -238,6 +235,7 @@ const handleDelete = async (claim_id: string) => {
     const clearFilters = () => {
         setSearchTerm("");
         setSelectedType("");
+        setSelectedCouncil("");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -257,7 +255,6 @@ const handleDelete = async (claim_id: string) => {
                             Manage all your claims in one place 🌱
                         </p>
                     </div>
-
                     <button
                         onClick={fetchClaims}
                         disabled={loading}
@@ -273,71 +270,72 @@ const handleDelete = async (claim_id: string) => {
                     </div>
                 )}
 
-                {/* Create Claim Form */}
+                {/* Create Form */}
                 <div className="mb-12 bg-white/80 backdrop-blur-md shadow-xl rounded-3xl border border-green-100/60 p-8 md:p-10">
-                    <h2 className="text-2xl font-bold text-green-800 mb-6">
-                        Create New Claim
-                    </h2>
+                    <h2 className="text-2xl font-bold text-green-800 mb-6">Create New Claim</h2>
 
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claimant Name
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claimant Name</label>
                             <input
                                 type="text"
                                 name="claimant_name"
                                 value={formData.claimant_name}
                                 onChange={handleChange}
-                                placeholder="John Doe"
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
+                                placeholder="e.g. John Doe"
+                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claim Type
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim Type</label>
                             <select
                                 name="claim_type"
                                 value={formData.claim_type}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
+                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
                             >
-                                <option value="">Select claim type</option>
+                                <option value="">Select type</option>
                                 <option value="taxi">Taxi</option>
                                 <option value="personal">Personal</option>
                                 <option value="sovereign">Sovereign</option>
                             </select>
                         </div>
+
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                                Claim ID (optional)
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Council</label>
+                            <select
+                                name="council"
+                                value={formData.council}
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                            >
+                                <option value="">None / Not applicable</option>
+                                {COUNCIL_OPTIONS.slice(1).map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim ID (optional)</label>
                             <input
                                 type="text"
                                 name="claim_id"
                                 value={formData.claim_id}
                                 onChange={handleChange}
-                                placeholder="e.g. TC-222"
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/70"
+                                placeholder="e.g. TC-333"
+                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
                             />
                         </div>
 
-
-                        <div className="md:col-span-3 flex justify-end">
+                        <div className="md:col-span-4 flex justify-end">
                             <button
                                 type="submit"
                                 disabled={creating}
-                                className={`
-                  bg-gradient-to-r from-green-600 to-emerald-600
-                  hover:from-green-700 hover:to-emerald-700
-                  text-white font-semibold py-3 px-10 rounded-full
-                  shadow-lg transform hover:scale-105 transition-all duration-300
-                  disabled:opacity-60 disabled:cursor-not-allowed
-                  flex items-center gap-2
-                `}
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-10 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-60 flex items-center gap-2"
                             >
                                 {creating ? (
                                     <>
@@ -351,37 +349,36 @@ const handleDelete = async (claim_id: string) => {
                         </div>
 
                         {createError && (
-                            <p className="md:col-span-3 text-red-600 text-center font-medium mt-2">
-                                {createError}
-                            </p>
+                            <p className="md:col-span-4 text-red-600 text-center font-medium mt-2">{createError}</p>
                         )}
                     </form>
                 </div>
 
-                {/* Search + Filter Bar */}
-                <div className="mb-8 bg-white/70 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Filters */}
+                <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Search by Claimant
                             </label>
                             <input
                                 type="text"
                                 value={searchTerm}
-                                onChange={handleSearchChange}
-                                placeholder="Type name here..."
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Type name..."
+                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Filter by Type
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Claim Type
                             </label>
                             <select
                                 value={selectedType}
-                                onChange={handleTypeFilterChange}
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                                onChange={(e) => setSelectedType(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                             >
                                 <option value="">All Types</option>
                                 <option value="taxi">Taxi</option>
@@ -391,41 +388,61 @@ const handleDelete = async (claim_id: string) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                Council
+                            </label>
+                            <select
+                                value={selectedCouncil}
+                                onChange={(e) => setSelectedCouncil(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                            >
+                                {COUNCIL_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Start Date
                             </label>
                             <input
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                             />
                         </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                             <div className="flex-1">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
                                     End Date
                                 </label>
                                 <input
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                 />
                             </div>
 
                             <button
                                 onClick={clearFilters}
-                                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition border border-gray-300 w-full sm:w-auto"
+                                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
                             >
-                                Clear Filters
+                                Clear
                             </button>
                         </div>
+
                     </div>
                 </div>
 
-                {/* Claims Table */}
+
+
+                {/* Table */}
                 {loading ? (
                     <div className="flex justify-center py-20">
                         <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
@@ -433,9 +450,9 @@ const handleDelete = async (claim_id: string) => {
                 ) : claims.length === 0 ? (
                     <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                         <p className="text-xl text-green-700/80">
-                            {searchTerm || selectedType || startDate || endDate
-                                ? "No claims match your filters 😔"
-                                : "No claims found yet. Create your first one above! 🌿"}
+                            {searchTerm || selectedType || selectedCouncil || startDate || endDate
+                                ? "No matching claims found"
+                                : "No claims yet — create one above!"}
                         </p>
                     </div>
                 ) : (
@@ -444,72 +461,65 @@ const handleDelete = async (claim_id: string) => {
                             <table className="min-w-full divide-y divide-green-100">
                                 <thead className="bg-green-50/70">
                                     <tr>
-                                        <th 
+                                        <th
                                             onClick={() => handleSort("claim_id")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
                                         >
-                                            Claim ID{getSortArrow("claim_id")}
+                                            Claim ID {getSortArrow("claim_id")}
                                         </th>
-                                        <th 
+                                        <th
                                             onClick={() => handleSort("claimant_name")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
                                         >
-                                            Claimant{getSortArrow("claimant_name")}
+                                            Claimant {getSortArrow("claimant_name")}
                                         </th>
-                                        <th 
+                                        <th
                                             onClick={() => handleSort("claim_type")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
                                         >
-                                            Type{getSortArrow("claim_type")}
+                                            Type {getSortArrow("claim_type")}
                                         </th>
-                                        <th 
+                                        <th
+                                            onClick={() => handleSort("council")}
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                        >
+                                            Council {getSortArrow("council")}
+                                        </th>
+                                        <th
                                             onClick={() => handleSort("claim_start_date")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
                                         >
-                                            Start Date{getSortArrow("claim_start_date")}
+                                            Start Date {getSortArrow("claim_start_date")}
                                         </th>
-                                        <th 
+                                        <th
                                             onClick={() => handleSort("invoice_sent")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50 transition"
+                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
                                         >
-                                            Invoice{getSortArrow("invoice_sent")}
+                                            Invoice {getSortArrow("invoice_sent")}
                                         </th>
-                                        <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">
-                                            Actions
-                                        </th>
+                                        <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-green-50">
                                     {claims.map((claim) => (
-                                        <tr
-                                            key={claim.claim_id}
-                                            className="hover:bg-green-50/40 transition-colors"
-                                        >
-                                            <td className="px-6 py-4 font-medium text-green-800">
-                                                {claim.claim_id}
-                                            </td>
+                                        <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-green-800">{claim.claim_id}</td>
+                                            <td className="px-6 py-4 text-gray-700">{claim.claimant_name || "—"}</td>
                                             <td className="px-6 py-4 text-gray-700">
-                                                {claim.claimant_name || "—"}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {(claim.claim_type
+                                                {claim.claim_type
                                                     ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
-                                                    : "Not specified")}
+                                                    : "—"}
                                             </td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {formatDate(claim.claim_start_date)}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {claim.invoice_sent}
-                                            </td>
+                                            <td className="px-6 py-4 text-gray-700">{claim.council || "—"}</td>
+                                            <td className="px-6 py-4 text-gray-700">{formatDate(claim.claim_start_date)}</td>
+                                            <td className="px-6 py-4 text-gray-700">{claim.invoice_sent || "Not Sent"}</td>
                                             <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
                                                 <Link
                                                     href={`/claim/${claim.claim_id}`}
                                                     className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
                                                 >
-                                                    View Details
+                                                    View
                                                 </Link>
-
                                                 <button
                                                     onClick={() => handleDelete(claim.claim_id)}
                                                     className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"

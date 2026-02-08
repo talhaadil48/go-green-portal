@@ -29,6 +29,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
     "PLATE",
     "LICENCE",
     "LOGBOOK",
+    "PI"
   ];
 
   const initialChecklistState = checklistItems.reduce(
@@ -333,28 +334,29 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
             <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-6 text-center">
               Checklist – Tick all that apply
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-4xl mx-auto">
+
+            <div className="grid grid-cols-6 gap-3 max-w-5xl mx-auto">
               {checklistItems.map((item) => {
                 const fieldName = `checklist_${item.toLowerCase().replace(/ /g, "_")}`;
+
                 return (
                   <label
                     key={item}
-                    className="flex items-center gap-2 text-gray-800 font-medium"
+                    className="flex items-center gap-1 text-sm text-gray-800"
                   >
                     <input
                       type="checkbox"
                       name={fieldName}
                       checked={!!formData[fieldName as keyof typeof formData]}
                       onChange={handleChange}
-                      className="h-5 w-5 text-green-600 rounded border-gray-300"
+                      className="h-4 w-4 text-green-600 rounded border-gray-300"
                     />
-                    <span>{item}</span>
+                    <span className="leading-tight"> {item === "PI" ? "P.I" : item}</span>
                   </label>
                 );
               })}
             </div>
           </div>
-
           <form onSubmit={handleSubmit} className="space-y-10">
             {/* DATE OF CLAIM */}
             <div className="text-center">
@@ -376,7 +378,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 <h3 className="text-xl font-bold text-green-800">
                   VEHICLE OWNER DETAILS
                 </h3>
-               
+
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -489,7 +491,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   onClick={handleCopyOwnerToDriver}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
                 >
-                  Copy 
+                  Copy
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -873,13 +875,31 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   <div className="text-lg font-semibold mb-3 text-gray-800">
                     Before
                   </div>
-                  <DrawingCanvas
-                    width={400}
-                    height={400}
-                    onDrawingChange={setBeforeDrawing}
-                    initialImage={beforeDrawing}
-                    isFromApi={isBeforeFromApi}
-                  />
+                  {isBeforeFromApi && beforeDrawing ? (
+                    <div className="space-y-3">
+                      <img
+                        src={beforeDrawing || "/placeholder.svg"}
+                        alt="Before drawing"
+                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-contain mx-auto"
+                      />
+                      <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsBeforeFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
+                    </div>
+                  ) : (
+                    <DrawingCanvas
+                      width={400}
+                      height={400}
+                      onDrawingChange={setBeforeDrawing}
+                      initialImage={beforeDrawing}
+                      isFromApi={isBeforeFromApi}
+                    />
+                  )}
                 </div>
 
                 {/* AFTER */}
@@ -887,13 +907,31 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   <div className="text-lg font-semibold mb-3 text-gray-800">
                     After
                   </div>
-                  <DrawingCanvas
-                    width={400}
-                    height={400}
-                    onDrawingChange={setAfterDrawing}
-                    initialImage={afterDrawing}
-                    isFromApi={isAfterFromApi}
-                  />
+                  {isAfterFromApi && afterDrawing ? (
+                    <div className="space-y-3">
+                      <img
+                        src={afterDrawing || "/placeholder.svg"}
+                        alt="After drawing"
+                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-contain mx-auto"
+                      />
+                      <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsAfterFromApi(false)}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                      >
+                        Update
+                      </button>
+                    </div>
+                  ) : (
+                    <DrawingCanvas
+                      width={400}
+                      height={400}
+                      onDrawingChange={setAfterDrawing}
+                      initialImage={afterDrawing}
+                      isFromApi={isAfterFromApi}
+                    />
+                  )}
                 </div>
               </div>
             </section>
@@ -999,6 +1037,8 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
               </div>
             </section>
 
+            {/* CIRCUMSTANCE DRAWING */}
+
             {/* CIRCUMSTANCES OF ACCIDENT */}
             <section className="bg-gradient-to-b from-white to-green-50/20 p-6 rounded-2xl border border-green-200 shadow-md mt-6">
               <h3 className="text-xl font-bold text-green-800 mb-4 border-b border-green-300 pb-2">
@@ -1011,10 +1051,11 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 onChange={handleChange}
                 rows={6}
                 placeholder="Please describe how the accident happened in detail..."
+                spellCheck={true}       // enables spell checking
+                autoCorrect="on"        // enables auto-correct on supported devices
                 className="w-full px-5 py-4 border border-gray-300 rounded-2xl resize-none focus:ring-green-500"
               />
             </section>
-
             {/* WITNESS QUESTION - Always visible unless data from API */}
             {!isWitnessFromApi && (
               <section className="bg-gradient-to-b from-white to-blue-50/20 p-6 rounded-2xl border border-blue-200 shadow-md">
@@ -1098,9 +1139,9 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-green-500 transition"
                       />
                     </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
             )}
 
             {/* EXTRA INFORMATION */}
@@ -1180,15 +1221,22 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   </label>
                   <div className="flex flex-col items-center gap-4">
                     {isSignatureFromApi && signatures.client ? (
-                      <div className="text-center">
+                      <div className="text-center space-y-3">
                         <img
                           src={signatures.client || "/placeholder.svg"}
                           alt="Client signature"
-                          className="max-h-48 border-2 border-gray-400 rounded-xl shadow-md object-contain"
+                          className="max-h-48 border-2 border-gray-400 rounded-xl shadow-md object-contain mx-auto"
                         />
-                        <p className="text-sm text-gray-500 mt-2 italic">
-                          (Saved signature – view only)
+                        <p className="text-sm text-gray-500 italic">
+                          (Saved signature from submission)
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsSignatureFromApi(false)}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                        >
+                          Update
+                        </button>
                       </div>
                     ) : (
                       <div className="w-full max-w-md">
@@ -1206,7 +1254,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                 type="submit"
                 disabled={loading}
                 className={`inline-flex items-center px-16 py-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-extrabold text-2xl rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 ${loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                  }`}
               >
                 {loading ? "Submitting..." : "Submit Claim Form"}
               </button>

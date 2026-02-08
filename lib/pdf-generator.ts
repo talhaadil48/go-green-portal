@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument } from "pdf-lib";
 
 export interface PDFFormData {
   title: string;
@@ -141,30 +141,28 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
 
     return y + 12;
   };
-
   const addCheckbox = (
     label: string,
     checked: boolean,
     x: number,
     y: number,
   ): void => {
-    // Checkbox
+    // Checkbox (smaller)
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.5);
-    pdf.rect(x, y - 3, 4, 4);
+    pdf.setLineWidth(0.4);
+    pdf.rect(x, y - 2.2, 3, 3);
 
     if (checked) {
       pdf.setFillColor(...colors.primary);
-      pdf.rect(x + 0.7, y - 2.3, 2.6, 2.6, "F");
+      pdf.rect(x + 0.5, y - 1.7, 2, 2, "F");
     }
 
-    // Label
+    // Label (slightly smaller + closer)
     pdf.setTextColor(...colors.darkText);
-    pdf.setFontSize(9);
+    pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
-    pdf.text(label, x + 7, y);
+    pdf.text(label, x + 5, y);
   };
-
   const addSignature = async (
     label: string,
     signatureData: string | null,
@@ -368,7 +366,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
   if (formData.formType === "rental-agreement") {
     try {
       // Fetch the static terms PDF from public folder
-      const termsResponse = await fetch('/terms.pdf');
+      const termsResponse = await fetch("/terms.pdf");
       if (!termsResponse.ok) {
         console.warn("Could not load /terms.pdf – skipping append");
       } else {
@@ -376,13 +374,13 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
         const termsPdfDoc = await PDFDocument.load(termsArrayBuffer);
 
         // Convert your current jsPDF document → Uint8Array
-        const mainPdfBytes = pdf.output('arraybuffer');
+        const mainPdfBytes = pdf.output("arraybuffer");
         const mainPdfDoc = await PDFDocument.load(mainPdfBytes);
 
         // Copy all pages from terms.pdf into the main document
         const copiedPages = await mainPdfDoc.copyPages(
           termsPdfDoc,
-          termsPdfDoc.getPageIndices()
+          termsPdfDoc.getPageIndices(),
         );
 
         copiedPages.forEach((page) => {
@@ -391,7 +389,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
 
         // Now generate final blob from the merged pdf-lib document
         const finalPdfBytes = await mainPdfDoc.save();
-        return new Blob([finalPdfBytes], { type: 'application/pdf' });
+        return new Blob([finalPdfBytes], { type: "application/pdf" });
       }
     } catch (err) {
       console.error("Failed to append terms.pdf:", err);
@@ -425,7 +423,7 @@ async function generatePreInspectionPDF(
     { label: "Date", value: data.date },
     { label: "Customer", value: data.customer },
     { label: "Detailer", value: data.detailer },
-    { label: "Order #", value: data.order_number },
+    { label: "Car Reg", value: data.order_number },
   ];
 
   let xPos = margin;
@@ -901,7 +899,13 @@ async function generateRentalPDF(
   pageWidth,
   helpers,
 ) {
-  const { addSectionHeader, addField, addSignature, checkNewPage, addWrappedText } = helpers;
+  const {
+    addSectionHeader,
+    addField,
+    addSignature,
+    checkNewPage,
+    addWrappedText,
+  } = helpers;
   const data = formData.data ?? {};
   const sigs = formData.signatures ?? {};
   let y = initialY;
@@ -917,7 +921,11 @@ async function generateRentalPDF(
   y += 8;
   pdf.setFontSize(8);
   pdf.setTextColor(107, 114, 128);
-  pdf.text(`Claim ID: ${formData.claimId || "—"} • Generated: ${new Date().toLocaleDateString()}`, margin, y);
+  pdf.text(
+    `Claim ID: ${formData.claimId || "—"} • Generated: ${new Date().toLocaleDateString()}`,
+    margin,
+    y,
+  );
   y += 6;
   pdf.line(margin, y, pageWidth - margin, y);
   y += 6;
@@ -933,7 +941,7 @@ async function generateRentalPDF(
   // LEFT COLUMN - Hirer Details
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
-  
+
   // Title & Name
   pdf.setTextColor(80, 80, 80);
   pdf.text("Title", margin, y);
@@ -953,7 +961,7 @@ async function generateRentalPDF(
   pdf.text("Make", margin + half + 65, y);
   pdf.setTextColor(0, 0, 0);
   pdf.text(data.hire_vehicle_make || "—", margin + half + 80, y);
-  
+
   pdf.setTextColor(80, 80, 80);
   pdf.text("Model", margin + half + 8, y + 5);
   pdf.setTextColor(0, 0, 0);
@@ -971,7 +979,10 @@ async function generateRentalPDF(
   y += 4;
   pdf.setFontSize(7.5);
   pdf.setTextColor(0, 0, 0);
-  const addrLines = pdf.splitTextToSize(data.permanent_address || "—", half - 12);
+  const addrLines = pdf.splitTextToSize(
+    data.permanent_address || "—",
+    half - 12,
+  );
   pdf.text(addrLines, margin + 2, y);
   const addrHeight = addrLines.length * 4;
 
@@ -998,40 +1009,36 @@ async function generateRentalPDF(
   y += Math.max(addrHeight, 8) + 6;
 
   // ─── 2. Additional Driver (conditional) ────────────
- 
-  
-    y = checkNewPage(y, 30);
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Driver's Details", margin, y);
-    y += 5;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(8);
 
-   
+  y = checkNewPage(y, 30);
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Driver's Details", margin, y);
+  y += 5;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Licence No", margin, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(data.new_licence_no || "—", margin + 25, y);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Date Issued", margin + col3, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(data.new_date_issued || "—", margin + col3 + 25, y);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Expiry Date", margin + col3 * 2, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(data.new_expiry_date || "—", margin + col3 * 2 + 25, y);
-    y += 5;
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Licence No", margin, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.new_licence_no || "—", margin + 25, y);
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Date Issued", margin + col3, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.new_date_issued || "—", margin + col3 + 25, y);
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Expiry Date", margin + col3 * 2, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.new_expiry_date || "—", margin + col3 * 2 + 25, y);
+  y += 5;
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("DOB", margin, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(data.new_dob || "—", margin + 25, y);
-    
-  
-    y += 8;
-  
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("DOB", margin, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.new_dob || "—", margin + 25, y);
+
+  y += 8;
+
   const hasAdditionalDriver = !!(
     data.additional_driver_name?.trim() ||
     data.licence_no?.trim() ||
@@ -1076,7 +1083,6 @@ async function generateRentalPDF(
     pdf.setTextColor(0, 0, 0);
     pdf.text(data.dob || "—", margin + 25, y);
 
-   
     pdf.setTextColor(80, 80, 80);
     pdf.text("Occupation", margin + col3 * 2, y);
     pdf.setTextColor(0, 0, 0);
@@ -1116,9 +1122,21 @@ async function generateRentalPDF(
 
   if (sigs.hirer_signature_terms) {
     const sigY = y;
-    y = await addSignature("Hirer (Terms)", sigs.hirer_signature_terms, margin, y, half - 10);
+    y = await addSignature(
+      "Hirer (Terms)",
+      sigs.hirer_signature_terms,
+      margin,
+      y,
+      half - 10,
+    );
     if (sigs.company_signature) {
-      await addSignature("Company", sigs.company_signature, margin + half, sigY, half - 10);
+      await addSignature(
+        "Company",
+        sigs.company_signature,
+        margin + half,
+        sigY,
+        half - 10,
+      );
     }
   }
   y += 6;
@@ -1161,11 +1179,21 @@ async function generateRentalPDF(
     pdf.text(data.insurance_dates || "—", margin + 40, y);
     y += 5;
 
-    pdf.text(`Covered by own insurance: ${data.own_insurance_confirm || "No"}`, margin, y);
+    pdf.text(
+      `Covered by own insurance: ${data.own_insurance_confirm || "No"}`,
+      margin,
+      y,
+    );
     y += 7;
 
     if (sigs.hirer_signature_insurance) {
-      y = await addSignature("Hirer (Insurance)", sigs.hirer_signature_insurance, margin, y, half);
+      y = await addSignature(
+        "Hirer (Insurance)",
+        sigs.hirer_signature_insurance,
+        margin,
+        y,
+        half,
+      );
     }
 
     pdf.setTextColor(80, 80, 80);
@@ -1213,14 +1241,14 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   const med1 = pdf.splitTextToSize(
     `Diabetes, fits, heart condition: ${data.medical_condition1 || "—"}`,
-    half - 12
+    half - 12,
   );
   pdf.text(med1, margin + half + 8, rightY);
   rightY += med1.length * 4 + 2;
 
   const med2 = pdf.splitTextToSize(
     `Other condition impairing driving: ${data.medical_condition2 || "—"}`,
-    half - 12
+    half - 12,
   );
   pdf.text(med2, margin + half + 8, rightY);
   rightY += med2.length * 4 + 2;
@@ -1246,7 +1274,11 @@ async function generateRentalPDF(
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
-  pdf.text(`Will any other person drive? ${data.additional_driver_auth || "—"}`, margin, y);
+  pdf.text(
+    `Will any other person drive? ${data.additional_driver_auth || "—"}`,
+    margin,
+    y,
+  );
   y += 8;
 
   // ─── VERY IMPORTANT Disclosure ─────────────────────
@@ -1260,7 +1292,8 @@ async function generateRentalPDF(
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   pdf.setTextColor(0, 0, 0);
-  const importantText = "You are reminded of the need to disclose any fact which the insurers would take into account in the assessment and acceptance of the proposal. If you have any doubt as to whether certain facts are relevant, please contact the self drive hire operator. It is an offence under the Road Traffic Acts to make a false statement or withhold any material information for the purpose of obtaining motor insurance.";
+  const importantText =
+    "You are reminded of the need to disclose any fact which the insurers would take into account in the assessment and acceptance of the proposal. If you have any doubt as to whether certain facts are relevant, please contact the self drive hire operator. It is an offence under the Road Traffic Acts to make a false statement or withhold any material information for the purpose of obtaining motor insurance.";
   const importantLines = pdf.splitTextToSize(importantText, fullWidth);
   pdf.text(importantLines, margin, y);
   y += importantLines.length * 3.5 + 5;
@@ -1276,7 +1309,8 @@ async function generateRentalPDF(
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   pdf.setTextColor(0, 0, 0);
-  const dataProtectionText = "Insurers maintain a motor insurance anti-fraud and theft register. In line with the 1984 Data Protection Act's first data protection principle, which is concerned with the obtaining of information, we wish to advise you that insurance companies exchange information with each other to detect fraudulent claims.";
+  const dataProtectionText =
+    "Insurers maintain a motor insurance anti-fraud and theft register. In line with the 1984 Data Protection Act's first data protection principle, which is concerned with the obtaining of information, we wish to advise you that insurance companies exchange information with each other to detect fraudulent claims.";
   const dpLines = pdf.splitTextToSize(dataProtectionText, fullWidth);
   pdf.text(dpLines, margin, y);
   y += dpLines.length * 3.5 + 6;
@@ -1291,7 +1325,8 @@ async function generateRentalPDF(
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
-  const declarationText = "I declare that all statements and particulars given by me in this proposal, which I have read over, are correct, and no material fact has been omitted, mis-represented or mis-stated. I am not aware of any other circumstances likely to affect the risk. I understand that I shall not allow the vehicle to be driven by any person not authorised by the underwriter to drive the vehicle during the period of hire.";
+  const declarationText =
+    "I declare that all statements and particulars given by me in this proposal, which I have read over, are correct, and no material fact has been omitted, mis-represented or mis-stated. I am not aware of any other circumstances likely to affect the risk. I understand that I shall not allow the vehicle to be driven by any person not authorised by the underwriter to drive the vehicle during the period of hire.";
   const declLines = pdf.splitTextToSize(declarationText, fullWidth);
   pdf.text(declLines, margin, y);
   y += declLines.length * 3.5 + 2;
@@ -1304,7 +1339,13 @@ async function generateRentalPDF(
   y += 5;
 
   if (sigs.declaration_signature) {
-    y = await addSignature("Hirer – Declaration", sigs.declaration_signature, margin, y, fullWidth);
+    y = await addSignature(
+      "Hirer – Declaration",
+      sigs.declaration_signature,
+      margin,
+      y,
+      fullWidth,
+    );
   }
   y += 6;
 
@@ -1355,7 +1396,10 @@ async function generateRentalPDF(
     ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
     ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
     ["CDW Per Day", `£${Number(data.cdw_per_day || 0).toFixed(2)}`],
-    ["Total Days", data.total_days !== undefined ? String(data.total_days) : "—"],
+    [
+      "Total Days",
+      data.total_days !== undefined ? String(data.total_days) : "—",
+    ],
     ["Rate per Day", `£${Number(data.rate_per_day || 0).toFixed(2)}`],
     ["Refuelling Total", `£${Number(data.refuelling_total || 0).toFixed(2)}`],
     ["Subtotal", `£${Number(data.subtotal || 0).toFixed(2)}`],
@@ -1367,7 +1411,11 @@ async function generateRentalPDF(
   pdf.setFont("helvetica", "normal");
   chargesRows.forEach((row, i) => {
     const isTotal = i === chargesRows.length - 1;
-    pdf.setFillColor(isTotal ? 34 : i % 2 === 0 ? 245 : 255, isTotal ? 197 : i % 2 === 0 ? 245 : 255, isTotal ? 94 : i % 2 === 0 ? 245 : 255);
+    pdf.setFillColor(
+      isTotal ? 34 : i % 2 === 0 ? 245 : 255,
+      isTotal ? 197 : i % 2 === 0 ? 245 : 255,
+      isTotal ? 94 : i % 2 === 0 ? 245 : 255,
+    );
     pdf.rect(margin, ty, fullWidth, 7, "F");
     pdf.setTextColor(isTotal ? 255 : 0, isTotal ? 255 : 0, isTotal ? 255 : 0);
     pdf.setFont("helvetica", isTotal ? "bold" : "normal");
@@ -1388,12 +1436,14 @@ async function generateRentalPDF(
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
-  const parkingText = "To cover administration costs a surcharge of £30 will be made for parking tickets left unpaid in addition to the amount of the fine.";
+  const parkingText =
+    "To cover administration costs a surcharge of £30 will be made for parking tickets left unpaid in addition to the amount of the fine.";
   const parkingLines = pdf.splitTextToSize(parkingText, fullWidth);
   pdf.text(parkingLines, margin, y);
   y += parkingLines.length * 3.5 + 3;
 
-  const congestionText = "The hirer accepts full responsibility to pay any congestion charge upon demand together with an administration fee of £30 and any other associated costs/charges or penalties which may arise therefrom.";
+  const congestionText =
+    "The hirer accepts full responsibility to pay any congestion charge upon demand together with an administration fee of £30 and any other associated costs/charges or penalties which may arise therefrom.";
   const congestionLines = pdf.splitTextToSize(congestionText, fullWidth);
   pdf.text(congestionLines, margin, y);
   y += congestionLines.length * 3.5 + 6;
@@ -1414,13 +1464,20 @@ async function generateRentalPDF(
   y += 4;
 
   pdf.setFontSize(7.5);
-  const liabilityText = "I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.";
+  const liabilityText =
+    "I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.";
   const liabilityLines = pdf.splitTextToSize(liabilityText, fullWidth);
   pdf.text(liabilityLines, margin, y);
   y += liabilityLines.length * 3.5 + 4;
 
   if (sigs.liability_signature) {
-    y = await addSignature("Hirer – Liability", sigs.liability_signature, margin, y, fullWidth);
+    y = await addSignature(
+      "Hirer – Liability",
+      sigs.liability_signature,
+      margin,
+      y,
+      fullWidth,
+    );
   }
 
   return y;
@@ -1458,16 +1515,19 @@ async function generateClaimPDF(
     "PLATE",
     "LICENCE",
     "LOGBOOK",
+    "PI",
   ];
   let xPos = margin;
+  const spacing = 28; // smaller spacing so 6 fit nicely
   checklistItems.forEach((item, i) => {
-    if (i > 0 && i % 5 === 0) {
+    if (i > 0 && i % 6 === 0) {
       xPos = margin;
       yPos += 8;
     }
     const fieldName = `checklist_${item.toLowerCase().replace(/ /g, "_")}`;
-    addCheckbox(item, !!data[fieldName], xPos, yPos);
-    xPos += 35;
+    const formattedLabel = item === "PI" ? "P.I" : item;
+    addCheckbox(formattedLabel, !!data[fieldName], xPos, yPos);
+    xPos += spacing;
   });
   yPos += 15;
 
@@ -1877,7 +1937,7 @@ export async function emailPDF(
   subject: string,
   formType: string,
   claimId: string,
-  title : string
+  title: string,
 ) {
   const formData = new FormData();
   formData.append("file", blob, `${title}-${claimId}.pdf`);

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
-// Configure Cloudinary (do this once — can be moved to a lib file)
+// Configure Cloudinary (should be done once — ideally in a lib/cloudinary.ts)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -11,7 +11,7 @@ cloudinary.config({
 
 export const config = {
   api: {
-    bodyParser: false, // Important: disable Next.js default body parser for multipart
+    bodyParser: false, // Required for multipart/form-data
   },
 };
 
@@ -19,102 +19,141 @@ async function uploadToCloudinary(file: File, claimId: string): Promise<string> 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const result = await new Promise<any>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
         {
           folder: `accident-claims/${claimId}`,
           public_id: `${file.name.split(".")[0]}-${Date.now()}`,
-          resource_type: "auto", // auto-detect: image, pdf, video, etc.
-          // You can add: transformation: [{ quality: "auto" }, { fetch_format: "auto" }]
+          resource_type: "auto", // image / video / raw (pdf etc.)
+          // Optional: transformation: [{ quality: "auto:good" }, { fetch_format: "auto" }]
         },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
+          if (error) {
+            reject(error);
+          } else if (result?.secure_url) {
+            resolve(result.secure_url);
+          } else {
+            reject(new Error("No secure_url returned from Cloudinary"));
+          }
+        }
       )
       .end(buffer);
   });
-
-  if (!result?.secure_url) {
-    throw new Error("Cloudinary upload failed - no secure_url returned");
-  }
-
-  return result.secure_url;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    const claimId = formData.get("claimId") as string;
-    const documentName = formData.get("documentName") as string;
-    const file = formData.get("file") as File | null;
+    const claimId = formData.get("claimId") as string | null;
+    const files = formData.getAll("files") as File[];
+    const names = formData.getAll("names") as string[]; // one name per file
 
-    if (!claimId || !documentName?.trim() || !file) {
+    if (!claimId || files.length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: claimId, documentName, file" },
-        { status: 400 },
+        { error: "Missing required fields: claimId and at least one file" },
+        { status: 400 }
       );
     }
 
-    // Upload file → Cloudinary
-    const fileUrl = await uploadToCloudinary(file, claimId);
+    if (files.length !== names.length && names.length !== 1) {
+      return NextResponse.json(
+        { error: "Number of names does not match number of files" },
+        { status: 400 }
+      );
+    }
 
-    // Fetch current documents (to merge / avoid overwrite of unrelated keys)
+    // Fetch current documents map from your backend
     let currentDocs: Record<string, string> = {};
 
     try {
       const getRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
+        {
+          headers: {
+            // Add auth header if your backend requires it
+            // Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (getRes.ok) {
         const data = await getRes.json();
         currentDocs = data.documents || {};
       }
-      // 404 → just start with empty
-    } catch (e) {
-      console.warn("Could not fetch existing docs, starting fresh", e);
+      // 404 or error → we start with empty object
+    } catch (err) {
+      console.warn("Could not fetch existing documents → starting fresh", err);
     }
 
-    // Merge: overwrite only this document name
-    const updatedDocs = {
-      ...currentDocs,
-      [documentName.trim()]: fileUrl,
-    };
+    // Upload files and assign names
+    const uploadedResults: { name: string; url: string }[] = [];
 
-    // PUT to your FastAPI endpoint
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      // Use provided name or fallback to original filename
+      let desiredName = (names[i] || file.name).trim();
+      if (!desiredName) {
+        desiredName = file.name;
+      }
+
+      // Sanitize name a bit (remove bad chars, but keep extension)
+      desiredName = desiredName.replace(/[^a-zA-Z0-9._-\s]/g, "_");
+
+      const url = await uploadToCloudinary(file, claimId);
+
+      // Handle name collision (very important when replacing / multiple uploads)
+      let finalKey = desiredName;
+      let counter = 1;
+      const [base, ext] = desiredName.includes(".")
+        ? [desiredName.slice(0, desiredName.lastIndexOf(".")), desiredName.slice(desiredName.lastIndexOf("."))]
+        : [desiredName, ""];
+
+      while (currentDocs[finalKey]) {
+        finalKey = `${base}-${counter}${ext}`;
+        counter++;
+      }
+
+      currentDocs[finalKey] = url;
+      uploadedResults.push({ name: finalKey, url });
+    }
+
+    // Save updated documents map back to your backend (PUT / PATCH)
     const putRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documents: updatedDocs }),
-      },
+        headers: {
+          "Content-Type": "application/json",
+          // Add auth header if needed
+          // Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ documents: currentDocs }),
+      }
     );
 
     if (!putRes.ok) {
       const errorText = await putRes.text();
-      throw new Error(`Backend PUT failed: ${putRes.status} - ${errorText}`);
+      throw new Error(`Backend PUT failed: ${putRes.status} – ${errorText}`);
     }
 
     const backendResult = await putRes.json();
 
     return NextResponse.json({
       success: true,
-      documentName,
-      url: fileUrl,
+      uploaded: uploadedResults,
       allDocuments: backendResult.documents,
-      message: "Document uploaded and saved successfully",
+      message: `Successfully uploaded ${files.length} file${files.length === 1 ? "" : "s"}`,
     });
   } catch (error: any) {
-    console.error("Upload error:", error);
+    console.error("Upload route error:", error);
     return NextResponse.json(
       {
-        error: error.message || "Failed to upload document",
+        error: error.message || "Failed to process upload",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
