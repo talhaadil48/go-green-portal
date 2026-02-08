@@ -117,6 +117,13 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50/30 pb-16 pt-10 px-4 sm:px-6 lg:px-8">
+         <style jsx>{`
+        input,
+        textarea,
+        [contenteditable="true"] {
+          text-transform: none;
+        }
+      `}</style>
       <div className="max-w-6xl mx-auto space-y-10">
 
         {/* Header */}

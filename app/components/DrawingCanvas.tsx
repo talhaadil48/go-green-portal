@@ -113,7 +113,7 @@ export default function DrawingCanvas({
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.strokeStyle = "#991b1b";
+    ctx.strokeStyle = "black";
     ctx.lineWidth = 4;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";

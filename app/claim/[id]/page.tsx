@@ -35,17 +35,10 @@ interface ClaimData {
   claim_id: string;
   claimant_name: string | null;
   claim_type: string | null;
-  // Add more fields your backend actually returns, e.g.:
-  // customer_type?: string;
-  // created_at?: string;
-  // status?: string;
-  // etc.
   [key: string]: any;
 }
 
-// Context to share unsaved changes state between parent and children
-const ReactContext = React;
-export const UnsavedChangesContext = ReactContext.createContext<{
+export const UnsavedChangesContext = React.createContext<{
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: (value: boolean) => void;
 } | null>(null);
@@ -62,7 +55,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [pendingTab, setPendingTab] = useState<TabKey | null>(null);
   const [showDialog, setShowDialog] = useState(false);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"; // fallback for dev
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const handleTabChange = (tabKey: TabKey) => {
     if (hasUnsavedChanges) {
@@ -87,30 +80,38 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     setPendingTab(null);
   };
 
+  const refreshPage = () => {
+    // Option 1: Full page reload (most reliable when data comes from server)
+    window.location.reload();
+
+    // Option 2: Soft refresh – only re-fetch claim data (uncomment if preferred)
+    // setLoading(true);
+    // setError(null);
+    // fetchClaim();
+  };
+
+  const fetchClaim = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await api.get(`/api/claims/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
+      setClaimData(res.data);
+    } catch (err: any) {
+      console.error("Failed to fetch claim:", err);
+      setError(
+        err.response?.data?.detail ||
+        "Could not load claim details. Please try again later."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!claimId) return;
-
-    const fetchClaim = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await api.get(`/api/claims/${claimId}`, {
-          headers: { requiresAuth: true },
-        });
-
-        setClaimData(res.data);
-      } catch (err: any) {
-        console.error("Failed to fetch claim:", err);
-        setError(
-          err.response?.data?.detail ||
-          "Could not load claim details. Please try again later."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchClaim();
   }, [claimId]);
 
@@ -128,14 +129,20 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
-      {/* Header */}
-
       {/* Customer Info Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-25">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
-          <h2 className="text-lg font-bold text-green-800 mb-4">
-            Claim / Customer Details
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-green-800">
+              Claim / Customer Details
+            </h2>
+            <button
+              onClick={refreshPage} // define this function to reload claim data
+              className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+            >
+              Refresh
+            </button>
+          </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
@@ -164,31 +171,27 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   {getCustomerTypeLabel(claimData.customer_type || claimData.claim_type)}
                 </p>
               </div>
-
-              {/* You can easily add more fields here when backend returns them */}
-              {/* <div>
-                <p className="text-gray-500">Claim Type</p>
-                <p className="font-medium text-gray-900 mt-1">{claimData.claim_type || "—"}</p>
-              </div> */}
             </div>
           ) : (
             <p className="text-gray-600">No claim data available.</p>
           )}
         </div>
       </section>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Refresh Button + Tabs */}
+
+
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl mb-8 overflow-x-auto">
+        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
               className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
-                  ? "bg-green-600 text-white shadow-lg"
-                  : "text-gray-600 hover:bg-white/50"
+                ? "bg-green-600 text-white shadow-lg"
+                : "text-gray-600 hover:bg-white/50"
                 }`}
             >
               {tab.label}

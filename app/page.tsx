@@ -80,7 +80,15 @@ export default function LoginPage() {
   }
 
   return (
+    
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-950 to-black flex items-center justify-center p-4 md:p-6 lg:p-8">
+       <style jsx>{`
+        input,
+        textarea,
+        [contenteditable="true"] {
+          text-transform: none;
+        }
+      `}</style>
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-0 overflow-hidden rounded-2xl shadow-2xl border border-green-800/30 bg-black/40 backdrop-blur-xl">
 
         {/* LEFT - BRANDING (hidden on mobile) */}
