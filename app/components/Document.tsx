@@ -11,7 +11,7 @@ interface DocumentsMap {
   [key: string]: string;
 }
 
-export default function DocumentManager({ claimId }: DocumentManagerProps) {
+export default function DocumentManager({  claimId }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<DocumentsMap>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -346,3 +346,4 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     </div>
   );
 }
+
