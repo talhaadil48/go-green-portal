@@ -176,45 +176,47 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
         <form onSubmit={handleUpload} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {isMultiple ? "File Names (edit below)" : "Document Name / Category"}
-              </label>
+            {selectedFiles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isMultiple ? "File Names (edit below)" : "Document Name / Category"}
+                </label>
 
-              {!isMultiple && (
-                <>
-                  <input
-                    type="text"
-                    value={singleDocName}
-                    onChange={(e) => setSingleDocName(e.target.value)}
-                    placeholder="e.g. Police Report, Front Damage, Invoice"
-                    className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Use this name to replace existing document (if same name)
-                  </p>
-                </>
-              )}
+                {!isMultiple && (
+                  <>
+                    <input
+                      type="text"
+                      value={singleDocName}
+                      onChange={(e) => setSingleDocName(e.target.value)}
+                      placeholder="e.g. Police Report, Front Damage, Invoice"
+                      className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Use this name to replace existing document (if same name)
+                    </p>
+                  </>
+                )}
 
-              {isMultiple && selectedFiles.length > 0 && (
-                <div className="space-y-3 mt-2">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex flex-col">
-                      <label className="text-xs text-gray-600 mb-1 truncate">
-                        {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                      </label>
-                      <input
-                        type="text"
-                        value={fileNames[index] || ""}
-                        onChange={(e) => updateFileName(index, e.target.value)}
-                        placeholder={`Suggested: ${file.name}`}
-                        className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80 text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                {isMultiple && (
+                  <div className="space-y-3 mt-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex flex-col">
+                        <label className="text-xs text-gray-600 mb-1 truncate">
+                          {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                        </label>
+                        <input
+                          type="text"
+                          value={fileNames[index] || ""}
+                          onChange={(e) => updateFileName(index, e.target.value)}
+                          placeholder={`Suggested: ${file.name}`}
+                          className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80 text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -275,12 +277,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
             <button
               type="submit"
               disabled={uploading || selectedFiles.length === 0}
-              className={`
-                px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600
-                hover:from-green-700 hover:to-emerald-700 text-white font-semibold
-                rounded-full shadow-lg transform hover:scale-105 transition-all
-                disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2
-              `}
+              className={`px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2`}
             >
               {uploading ? (
                 <>
