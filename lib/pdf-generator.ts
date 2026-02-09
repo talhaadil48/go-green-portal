@@ -84,8 +84,8 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     pdf.addImage(
       "/logo.jpeg",
       "JPEG",
-      10, // x
-      10, // y
+      4, // x
+      7, // y
       80, // width
       15, // height
     );
