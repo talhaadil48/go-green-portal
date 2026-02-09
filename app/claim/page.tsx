@@ -11,7 +11,11 @@ interface Claim {
     claim_start_date: string | null;
     invoice_sent: string | null;
     council: string | null;
+    invoice_id: string | null;
+    info: string | null;
+    invoice_datetime: string | null;
 }
+
 
 type SortColumn =
     | "claim_id"
@@ -69,6 +73,8 @@ export default function ClaimsPage() {
             });
             setAllClaims(res.data);
             setClaims(res.data);
+
+
         } catch (err: any) {
             console.error(err);
             setError("Failed to load claims. Please try again.");
@@ -231,6 +237,8 @@ export default function ClaimsPage() {
             return dateStr;
         }
     };
+
+
 
     const clearFilters = () => {
         setSearchTerm("");
@@ -512,7 +520,20 @@ export default function ClaimsPage() {
                                             </td>
                                             <td className="px-6 py-4 text-gray-700">{claim.council || "—"}</td>
                                             <td className="px-6 py-4 text-gray-700">{formatDate(claim.claim_start_date)}</td>
-                                            <td className="px-6 py-4 text-gray-700">{claim.invoice_sent || "Not Sent"}</td>
+                                            <td className="px-6 py-4 text-gray-700">
+                                                {claim.invoice_datetime ? (
+                                                    <>
+                                                        {new Date(claim.invoice_datetime).toLocaleDateString("en-GB", {
+                                                            day: "2-digit",
+                                                            month: "short",
+                                                            year: "numeric",
+                                                        })}<br />
+                                                        {claim.info || "No Info"}
+                                                    </>
+                                                ) : (
+                                                    "Not Sent"
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
                                                 <Link
                                                     href={`/claim/${claim.claim_id}`}

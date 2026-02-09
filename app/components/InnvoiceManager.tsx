@@ -6,6 +6,15 @@ import { generatePDF, PDFFormData } from "@/lib/pdf-generator";
 import { JSX } from "react/jsx-runtime";
 import api from "@/lib/axios";
 
+
+interface Invoice {
+    id: number;
+    invoice_number: string;
+    invoice_datetime: string;
+    info: string;
+}
+
+
 interface InvoiceManagerProps {
     claimId: string;
 }
@@ -24,6 +33,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const [email, setEmail] = useState("");
     const [subject, setSubject] = useState(`Documents for Claim ${claimId}`);
     const [message, setMessage] = useState("");
+    const [info, setInfo] = useState("");
     const [isSending, setIsSending] = useState(false);
     const [status, setStatus] = useState<
         { type: "success" | "error" | "info" | "warning"; text: string } | null
@@ -33,6 +43,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     >(null);
     const [documentsData, setDocumentsData] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(true);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [invoicesLoading, setInvoicesLoading] = useState(false);
 
     // Fetch all form data – allow missing forms (treat as empty)
     useEffect(() => {
@@ -93,6 +105,38 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
     }, [claimId]);
 
+    // Fetch invoices for this claim
+    useEffect(() => {
+        const fetchInvoices = async () => {
+            setInvoicesLoading(true);
+            try {
+                const response = await api.get(`/api/invoice/${claimId}`, {
+                    headers: { requiresAuth: true },
+                });
+
+                if (response.data.success) {
+                    // Transform array-of-arrays → array-of-objects
+                    const rawData = response.data.data || [];
+                    const formattedInvoices = rawData.map((row: any[]) => ({
+                        id: row[0],                    // 1
+                        invoice_number: row[1] || "—", // "PC-44"
+                        invoice_datetime: row[2],      // "2026-02-09T12:53:18.445405"
+                        info: row[3] || "",            // "da"  (notes / description)
+                    }));
+
+                    setInvoices(formattedInvoices);
+                }
+            } catch (error) {
+                console.error("Error fetching invoices:", error);
+            } finally {
+                setInvoicesLoading(false);
+            }
+        };
+
+        if (claimId) {
+            fetchInvoices();
+        }
+    }, [claimId]);
     const documents: DocumentOption[] = [
         {
             id: "claim",
@@ -343,16 +387,16 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     // Handle pre-inspection forms from array
                     const inspectionId = docId.replace("pre-inspection-", "");
                     let formDataObj = {};
-                    
+
                     if (Array.isArray(documentsData["pre-inspection"])) {
-                        const form = documentsData["pre-inspection"].find((f: any) => 
+                        const form = documentsData["pre-inspection"].find((f: any) =>
                             String(f.inspection_id) === inspectionId
                         );
                         if (form) {
                             formDataObj = form;
                         }
                     }
-                    
+
                     const pdfData: PDFFormData = {
                         title: doc.name,
                         formType: "pre-inspection",
@@ -427,26 +471,62 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             const sendData = await sendResponse.json();
 
             if (sendResponse.ok && sendData.success) {
-                setStatus({
-                    type: "success",
-                    text: `All ${uploadedDocs.length} documents uploaded and links sent successfully!`,
-                });
+                // Now create invoice if info is provided
+                if (info.trim()) {
+                    try {
+                        setStatus({ type: "info", text: "Creating invoice..." });
+                        const invoiceResponse = await api.post(`/api/invoice`, {
+                            claim_id: claimId,
+                            info: info,
+                        }, {
+                            headers: { requiresAuth: true },
+                        });
 
-                // Optionally mark invoice as sent
-                try {
-                    const markResponse = await api.post(
-                        `/api/claims/mark-invoice-sent/${claimId}`,
-                        null, // no body
-                        { headers: { requiresAuth: true } }
-                    );
-                    console.log("Invoice update:", markResponse.data);
-                } catch (err: any) {
-                    console.error("Failed to mark invoice as sent:", err);
+                        if (invoiceResponse.data.success) {
+                            setStatus({
+                                type: "success",
+                                text: `All ${uploadedDocs.length} documents sent and invoice created successfully!`,
+                            });
+
+                            // Refresh invoices list
+                            const refreshResponse = await api.get(`/api/invoice/${claimId}`, {
+                                headers: { requiresAuth: true },
+                            });
+                            if (refreshResponse.data.success) {
+                                // Transform array-of-arrays → array-of-objects (same as initial fetch)
+                                const rawData = refreshResponse.data.data || [];
+                                const formattedInvoices = rawData.map((row: any[]) => ({
+                                    id: row[0],                    // 1
+                                    invoice_number: row[1] || "—", // "PC-44"
+                                    invoice_datetime: row[2],      // "2026-02-09T12:53:18.445405"
+                                    info: row[3] || "",            // "da"  (notes / description)
+                                }));
+                                setInvoices(formattedInvoices);
+                            }
+                        } else {
+                            setStatus({
+                                type: "warning",
+                                text: `Documents sent but invoice creation failed: ${invoiceResponse.data.message}`,
+                            });
+                        }
+                    } catch (error) {
+                        console.error("Invoice creation error:", error);
+                        setStatus({
+                            type: "warning",
+                            text: `Documents sent but invoice creation failed.`,
+                        });
+                    }
+                } else {
+                    setStatus({
+                        type: "success",
+                        text: `All ${uploadedDocs.length} documents uploaded and links sent successfully!`,
+                    });
                 }
 
                 setSelectedDocs([]);
                 setEmail("");
                 setMessage("");
+                setInfo("");
             } else {
                 setStatus({
                     type: "error",
@@ -481,6 +561,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
     return (
         <div className="space-y-8">
+            <style jsx>{`
+        input,
+        textarea,
+        [contenteditable="true"] {
+          text-transform: none;
+        }
+      `}</style>
             {/* Header */}
             <div className="text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl shadow-lg shadow-emerald-500/30 mb-4">
@@ -505,6 +592,108 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     Select the documents you want to send (blank forms are allowed)
                 </p>
             </div>
+            <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <svg
+                        className="w-5 h-5 text-teal-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                    </svg>
+                    Invoice History
+                </h3>
+
+                {invoicesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                            <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-2" />
+                            <p className="text-gray-600 text-sm">Loading invoices...</p>
+                        </div>
+                    </div>
+                ) : invoices.length > 0 ? (
+                    <div className="space-y-4">
+                        {invoices.map((invoice, index) => {
+                            const invoiceDate = new Date(invoice.invoice_datetime);
+                            const formattedDate = invoiceDate.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            });
+                            const formattedTime = invoiceDate.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                            });
+
+                            return (
+                                <div key={invoice.id} className="flex gap-4">
+                                    {/* Timeline dot and line */}
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-3 h-3 rounded-full bg-teal-500 mt-2" />
+                                        {index < invoices.length - 1 && (
+                                            <div className="w-0.5 h-16 bg-gray-300 mt-2" />
+                                        )}
+                                    </div>
+
+                                    {/* Invoice card */}
+                                    <div className="flex-1 pb-4">
+                                        <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 rounded-2xl p-4">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div>
+                                                    <p className="font-semibold text-gray-900">
+                                                        Invoice  
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        {formattedDate} at {formattedTime}
+                                                    </p>
+                                                </div>
+                                               
+                                            </div>
+
+                                            {invoice.info && invoice.info.trim() !== "" && (
+                                                <div className="mt-3 pt-3 border-t border-teal-200">
+                                                    <p className="text-md font-medium text-gray-700 whitespace-pre-wrap break-words">
+                                                        {invoice.info}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="py-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-3">
+                            <svg
+                                className="w-8 h-8 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={1.5}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                            </svg>
+                        </div>
+                        <p className="text-gray-600 font-medium mb-1">No invoices yet</p>
+                        <p className="text-gray-500 text-sm">
+                            Add invoice information and send documents to create the first invoice
+                        </p>
+                    </div>
+                )}
+            </div>
+
 
             {/* Document Selection */}
             <div className="bg-gradient-to-br from-gray-50 to-emerald-50/30 rounded-3xl p-6 border border-gray-200">
@@ -609,7 +798,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                 <div>
                                                     <div className="font-medium text-gray-900">
                                                         {doc.name}
-                                                       
+
                                                     </div>
                                                     <div className="text-sm text-gray-500 md:hidden line-clamp-1">
                                                         {doc.description}
@@ -716,6 +905,19 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             onChange={(e) => setMessage(e.target.value)}
                             rows={3}
                             placeholder="Add a personal message to include with the documents..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                            Invoice Status
+                        </label>
+                        <textarea
+                            value={info}
+                            onChange={(e) => setInfo(e.target.value)}
+                            rows={3}
+                            placeholder="Add invoice details, notes, or additional information..."
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none"
                         />
                     </div>
@@ -860,6 +1062,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     )}
                 </button>
             </div>
+
+
         </div>
     );
 }
