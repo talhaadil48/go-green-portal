@@ -29,6 +29,7 @@ type SortDirection = "asc" | "desc" | null;
 
 const COUNCIL_OPTIONS = [
     { value: "", label: "All Councils" },
+     {value : "None" , label : "None"},
     { value: "Wolverhampton", label: "Wolverhampton" },
     { value: "East Staffordshire", label: "East Staffordshire" },
     { value: "South Derbyshire", label: "South Derbyshire" },
@@ -318,7 +319,6 @@ export default function ClaimsPage() {
                                 onChange={handleChange}
                                 className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
                             >
-                                <option value="">None / Not applicable</option>
                                 {COUNCIL_OPTIONS.slice(1).map((opt) => (
                                     <option key={opt.value} value={opt.value}>
                                         {opt.label}

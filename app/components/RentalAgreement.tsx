@@ -1411,7 +1411,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             {/* Hire Vehicle */}
 
             {/* Conditional: Ask about change of vehicle (only if state is null) */}
-            {showChangeVehicle === null && (
+            
               <section className="space-y-6 mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
                   <label className="text-sm font-medium text-gray-700">
@@ -1441,7 +1441,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </div>
                 </div>
               </section>
-            )}
+            
 
             {/* Change of Hire Vehicle - Show only if selected or API data exists */}
             {showChangeVehicle && (
