@@ -28,6 +28,20 @@ const colors = {
   darkText: [17, 24, 39] as [number, number, number],
 };
 
+// Format date as "day month year" (e.g., "18 February 2026")
+function formatDate(dateInput: string | number | Date | undefined | null): string {
+  if (!dateInput) return "—";
+  
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return String(dateInput);
+  
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export async function generatePDF(formData: PDFFormData): Promise<Blob> {
   const pdf = new jsPDF({
     orientation: "portrait",
@@ -290,7 +304,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
   pdf.setTextColor(...colors.gray);
   pdf.setFontSize(8);
   pdf.text(
-    `Generated: ${new Date().toLocaleString("en-GB")}`,
+    `Generated: ${formatDate(new Date())}`,
     pageWidth - margin,
     yPos,
     { align: "right" },
@@ -420,7 +434,7 @@ async function generatePreInspectionPDF(
   yPos = checkNewPage(yPos, 30);
 
   const basicFields = [
-    { label: "Date", value: data.date },
+    { label: "Date", value: formatDate(data.date) },
     { label: "Customer", value: data.customer },
     { label: "Detailer", value: data.detailer },
     { label: "Car Reg", value: data.order_number },
@@ -671,7 +685,7 @@ async function generateCancellationPDF(
   addField("Address", data.address, margin, yPos, colWidth);
   addField("Postcode", data.postcode, margin + colWidth, yPos, colWidth);
   yPos += 15;
-  addField("Cancellation Date", data.cancellation_date, margin, yPos, colWidth);
+  addField("Cancellation Date", formatDate(data.cancellation_date), margin, yPos, colWidth);
   yPos += 25;
 
   // Signature
@@ -732,17 +746,17 @@ async function generateStoragePDF(
   // Recovery & Storage Details
   yPos = checkNewPage(yPos, 50);
   yPos = addSectionHeader("RECOVERY & STORAGE DETAILS", yPos);
-  addField("Date of Recovery", data.date_of_recovery, margin, yPos, colWidth);
+  addField("Date of Recovery", formatDate(data.date_of_recovery), margin, yPos, colWidth);
   addField(
     "Storage Start",
-    data.storage_start_date,
+    formatDate(data.storage_start_date),
     margin + colWidth,
     yPos,
     colWidth,
   );
   addField(
     "Storage End",
-    data.storage_end_date,
+    formatDate(data.storage_end_date),
     margin + colWidth * 2,
     yPos,
     colWidth,
@@ -918,6 +932,10 @@ async function generateRentalPDF(
   pdf.setFontSize(16);
   pdf.setTextColor(22, 101, 52);
   pdf.text("RENTAL AGREEMENT", margin, y);
+
+  // Save the starting Y for right-side block
+  const headerStartY = y;
+
   y += 8;
   pdf.setFontSize(8);
   pdf.setTextColor(107, 114, 128);
@@ -926,10 +944,34 @@ async function generateRentalPDF(
     margin,
     y,
   );
+
+  y += 6;
+  pdf.text(`Invoice ID: ${formData.claimId || "—"}`, margin, y);
+
+  // 👉 RIGHT SIDE ADDRESS (only if claimId starts with "S")
+  if (formData.claimId && formData.claimId.startsWith("S")) {
+    const rightX = pageWidth - margin;
+    let rightY = headerStartY;
+
+    pdf.setFontSize(7);
+    pdf.setTextColor(0, 0, 0);
+
+    const addressLines = [
+      "Sovereign Automotive",
+      "1st Floor, The Kirkgate",
+      "19 - 33 Church Street, Epsom, Surrey",
+      "KT17 APF"
+    ];
+
+    addressLines.forEach((line) => {
+      pdf.text(line, rightX, rightY, { align: "right" });
+      rightY += 5;
+    });
+  }
+
   y += 6;
   pdf.line(margin, y, pageWidth - margin, y);
   y += 6;
-
   // ─── 1. Hirer's Details + 9. Hire Vehicle (MERGED SIDE BY SIDE) ───────────
   pdf.setFontSize(11);
   pdf.setFont("helvetica", "bold");
@@ -991,11 +1033,11 @@ async function generateRentalPDF(
   pdf.setTextColor(80, 80, 80);
   pdf.text("Date Out", margin + half + 8, y - 4);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.hire_vehicle_date_out || "—", margin + half + 30, y - 4);
+  pdf.text(formatDate(data.hire_vehicle_date_out), margin + half + 30, y - 4);
   pdf.setTextColor(80, 80, 80);
   pdf.text("Date In", margin + half + 65, y - 4);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.hire_vehicle_date_in || "—", margin + half + 80, y - 4);
+  pdf.text(formatDate(data.hire_vehicle_date_in), margin + half + 80, y - 4);
 
   pdf.setTextColor(80, 80, 80);
   pdf.text("Fuel Out", margin + half + 8, y + 1);
@@ -1025,17 +1067,17 @@ async function generateRentalPDF(
   pdf.setTextColor(80, 80, 80);
   pdf.text("Date Issued", margin + col3, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.new_date_issued || "—", margin + col3 + 25, y);
+  pdf.text(formatDate(data.new_date_issued), margin + col3 + 25, y);
   pdf.setTextColor(80, 80, 80);
   pdf.text("Expiry Date", margin + col3 * 2, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.new_expiry_date || "—", margin + col3 * 2 + 25, y);
+  pdf.text(formatDate(data.new_expiry_date), margin + col3 * 2 + 25, y);
   y += 5;
 
   pdf.setTextColor(80, 80, 80);
   pdf.text("DOB", margin, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.new_dob || "—", margin + 25, y);
+  pdf.text(formatDate(data.new_dob), margin + 25, y);
 
   y += 8;
 
@@ -1071,17 +1113,17 @@ async function generateRentalPDF(
     pdf.setTextColor(80, 80, 80);
     pdf.text("Date Issued", margin + col3, y);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(data.date_issued || "—", margin + col3 + 25, y);
+    pdf.text(formatDate(data.date_issued), margin + col3 + 25, y);
     pdf.setTextColor(80, 80, 80);
     pdf.text("Expiry Date", margin + col3 * 2, y);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(data.expiry_date || "—", margin + col3 * 2 + 25, y);
+    pdf.text(formatDate(data.expiry_date), margin + col3 * 2 + 25, y);
     y += 5;
 
     pdf.setTextColor(80, 80, 80);
     pdf.text("DOB", margin, y);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(data.dob || "—", margin + 25, y);
+    pdf.text(formatDate(data.dob), margin + 25, y);
 
     pdf.setTextColor(80, 80, 80);
     pdf.text("Occupation", margin + col3 * 2, y);
@@ -1199,7 +1241,7 @@ async function generateRentalPDF(
     pdf.setTextColor(80, 80, 80);
     pdf.text("Date", margin, y);
     pdf.setTextColor(0, 0, 0);
-    pdf.text(data.insurance_date || "—", margin + 15, y);
+    pdf.text(formatDate(data.insurance_date), margin + 15, y);
     pdf.setTextColor(80, 80, 80);
     pdf.text("Time", margin + 50, y);
     pdf.setTextColor(0, 0, 0);
@@ -1335,7 +1377,7 @@ async function generateRentalPDF(
   pdf.setTextColor(80, 80, 80);
   pdf.text("Date", pageWidth - margin - 40, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.declaration_date || "—", pageWidth - margin - 25, y);
+  pdf.text(formatDate(data.declaration_date), pageWidth - margin - 25, y);
   y += 5;
 
   if (sigs.declaration_signature) {
@@ -1532,7 +1574,7 @@ async function generateClaimPDF(
   yPos += 15;
 
   // Date of Claim
-  addField("Date of Claim", data.date_of_claim, margin, yPos, colWidth);
+  addField("Date of Claim", formatDate(data.date_of_claim), margin, yPos, colWidth);
   yPos += 20;
 
   // Vehicle Owner Details
@@ -1557,7 +1599,7 @@ async function generateClaimPDF(
     colWidth,
   );
   yPos += 15;
-  addField("Date of Birth", data.owner_dob, margin, yPos, colWidth);
+  addField("Date of Birth", formatDate(data.owner_dob), margin, yPos, colWidth);
   addField(
     "NI Number",
     data.owner_ni_number,
@@ -1596,7 +1638,7 @@ async function generateClaimPDF(
     colWidth,
   );
   yPos += 15;
-  addField("Date of Birth", data.driver_dob, margin, yPos, colWidth);
+  addField("Date of Birth", formatDate(data.driver_dob), margin, yPos, colWidth);
   addField(
     "NI Number",
     data.driver_ni_number,
@@ -1671,7 +1713,7 @@ async function generateClaimPDF(
     colWidth,
   );
   yPos += 15;
-  addField("Date of Birth", data.third_party_dob, margin, yPos, colWidth);
+  addField("Date of Birth", formatDate(data.third_party_dob), margin, yPos, colWidth);
   addField(
     "NI Number",
     data.third_party_ni_number,
@@ -1722,7 +1764,7 @@ async function generateClaimPDF(
   // Accident Details
   yPos = checkNewPage(yPos, 50);
   yPos = addSectionHeader("ACCIDENT DETAILS", yPos);
-  addField("Date", data.accident_date, margin, yPos, colWidth);
+  addField("Date", formatDate(data.accident_date), margin, yPos, colWidth);
   addField("Time", data.accident_time, margin + colWidth, yPos, colWidth);
   addField(
     "Location",
