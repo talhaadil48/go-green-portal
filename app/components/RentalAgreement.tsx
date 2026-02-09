@@ -383,8 +383,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       "admin_fee",
       "delivery_charge",
       "cdw_per_day",
-      "days_out",
-      "days_in",
+      
       "total_days",
       "rate_per_day",
       "refuelling_total",
