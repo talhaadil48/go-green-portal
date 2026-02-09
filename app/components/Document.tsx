@@ -8,7 +8,7 @@ interface DocumentManagerProps {
 }
 
 interface DocumentsMap {
-  [key: string]: string;
+  [key: string]:  string;
 }
 
 export default function DocumentManager({  claimId }: DocumentManagerProps) {
