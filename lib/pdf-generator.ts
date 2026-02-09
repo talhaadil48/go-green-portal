@@ -18,11 +18,11 @@ export interface PDFFormData {
 
 // Sexy color palette
 const colors = {
-  primary: [16, 185, 129] as [number, number, number], // Emerald green
-  primaryDark: [5, 150, 105] as [number, number, number],
+  primary: [4, 120, 87] as [number, number, number], // Deep emerald
+  primaryDark: [6, 95, 70] as [number, number, number], // Dark emerald
   secondary: [31, 41, 55] as [number, number, number], // Dark gray
-  accent: [251, 191, 36] as [number, number, number], // Amber
-  light: [236, 253, 245] as [number, number, number], // Light green
+  accent: [234, 179, 8] as [number, number, number], // Soft amber
+  light: [209, 250, 229] as [number, number, number], // Mint tint
   white: [255, 255, 255] as [number, number, number],
   gray: [107, 114, 128] as [number, number, number],
   darkText: [17, 24, 39] as [number, number, number],
@@ -81,7 +81,14 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     pdf.setTextColor(...colors.white);
     pdf.setFontSize(20);
     pdf.setFont("helvetica", "bold");
-    pdf.text("GO GREEN CAR HIRE", 10, 20); // left-aligned, small margin
+    pdf.addImage(
+      "/logo.jpeg",
+      "JPEG",
+      10, // x
+      10, // y
+      80, // width
+      15, // height
+    );
 
     // Right side: Address & Website
     pdf.setFontSize(8);
@@ -307,13 +314,14 @@ Website: www.gogreenhire.co.uk`;
   // Generate header
   yPos = addGradientHeader();
 
-  // Generation timestamp
   pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(8);
-  pdf.text(`Generated: ${formatDate(new Date())}`, pageWidth - margin, yPos, {
-    align: "right",
-  });
-  yPos += 5;
+  pdf.setFontSize(6.5); // smaller, subtle
+  pdf.text(
+    `Generated: ${formatDate(new Date())}`,
+    margin, // left side
+    yPos,
+  );
+  yPos += 4;
 
   // Generate content based on form type
   switch (formData.formType) {
@@ -970,7 +978,7 @@ async function generateRentalPDF(
     pdf.setTextColor(0, 0, 0);
 
     const addressLines = [
-      "Sovereign Automotive, 1st Floor, The Kirkgate",
+      "To : Sovereign Automotive, 1st Floor, The Kirkgate",
       "19 - 33 Church Street, Epsom, Surrey",
       "KT17 APF",
     ];
@@ -1470,56 +1478,56 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
 
- const hasChangeVehicle = !!(
-  data.change_vehicle_reg?.trim() ||
-  data.change_vehicle_make?.trim() ||
-  data.change_vehicle_model?.trim() ||
-  data.change_vehicle_group?.trim()
-);
+  const hasChangeVehicle = !!(
+    data.change_vehicle_reg?.trim() ||
+    data.change_vehicle_make?.trim() ||
+    data.change_vehicle_model?.trim() ||
+    data.change_vehicle_group?.trim()
+  );
 
-y = checkNewPage(y, 15);
+  y = checkNewPage(y, 15);
 
-// ---- Section 11 Heading (ALWAYS)
-pdf.setFontSize(8);
-pdf.setFont("helvetica", "bold");
-pdf.setTextColor(0, 0, 0);
-pdf.text("11. Change of Hire Vehicle", margin, y);
-y += 4;
-
-if (!hasChangeVehicle) {
-  // ---- No Change Text
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(120, 120, 120);
-  pdf.text("No change of hire vehicle", margin, y);
-  y += 6;
-} else {
-  // ---- Vehicle Change Details
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(6.5);
-
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Reg", margin, y);
+  // ---- Section 11 Heading (ALWAYS)
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.change_vehicle_reg || "—", margin + 20, y);
+  pdf.text("11. Change of Hire Vehicle", margin, y);
+  y += 4;
 
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Make", margin + col4, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.change_vehicle_make || "—", margin + col4 + 20, y);
+  if (!hasChangeVehicle) {
+    // ---- No Change Text
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text("No change of hire vehicle", margin, y);
+    y += 6;
+  } else {
+    // ---- Vehicle Change Details
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
 
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Model", margin + col4 * 2, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.change_vehicle_model || "—", margin + col4 * 2 + 20, y);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Reg", margin, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.change_vehicle_reg || "—", margin + 20, y);
 
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Group", margin + col4 * 3, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.change_vehicle_group || "—", margin + col4 * 3 + 20, y);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Make", margin + col4, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.change_vehicle_make || "—", margin + col4 + 20, y);
 
-  y += 5;
-}
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Model", margin + col4 * 2, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.change_vehicle_model || "—", margin + col4 * 2 + 20, y);
+
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Group", margin + col4 * 3, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(data.change_vehicle_group || "—", margin + col4 * 3 + 20, y);
+
+    y += 5;
+  }
 
   // ─── 11. Charges Summary ───────────────────────────
   y = checkNewPage(y, 35);
