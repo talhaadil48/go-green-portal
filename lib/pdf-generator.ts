@@ -55,7 +55,19 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 15;
   let yPos = margin;
-
+  function addWrappedText(
+    text: string,
+    x: number,
+    y: number,
+    maxW: number,
+    fontSize = 10,
+  ): number {
+    pdf.setFontSize(fontSize);
+    const lines = pdf.splitTextToSize(text, maxW);
+    pdf.text(lines, x, y);
+    return y + lines.length * (fontSize * 0.3528 + 2); // approx line height
+  }
+ 
   // Helper functions
   const addGradientHeader = () => {
     const headerHeight = 35; // smaller height
@@ -93,13 +105,24 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     // Right side: Address & Website
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
+
     const rightText = `Derby Turn, Building 1, Derby Road
 BURTON UPON TRENT Staffordshire DE141RX
 Website: www.gogreenhire.co.uk`;
+
     const rightX = pageWidth - 10; // right margin
     const lines = rightText.split("\n");
+
+    // Draw address & website
     lines.forEach((line, index) => {
       pdf.text(line, rightX, 12 + index * 4, { align: "right" });
+    });
+
+    // Add generated date below the address
+    const generatedDate = new Date();
+    const formattedDate = generatedDate.toLocaleDateString("en-GB"); // e.g., 10/02/2026
+    pdf.text(`Generated: ${formattedDate}`, rightX, 12 + lines.length * 4 + 2, {
+      align: "right",
     });
 
     // Document title (optional: centered below header)
@@ -113,34 +136,22 @@ Website: www.gogreenhire.co.uk`;
   };
 
   const addSectionHeader = (title: string, y: number): number => {
-    // Section background
+    // Background (very thin)
     pdf.setFillColor(...colors.light);
-    pdf.roundedRect(margin, y, pageWidth - margin * 2, 10, 2, 2, "F");
+    pdf.roundedRect(margin, y, pageWidth - margin * 2, 6, 1.5, 1.5, "F"); // shorter height, smaller radius
 
-    // Left accent bar
+    // Left accent (thin)
     pdf.setFillColor(...colors.primary);
-    pdf.rect(margin, y, 3, 10, "F");
+    pdf.rect(margin, y, 2, 6, "F");
 
-    // Section title
+    // Title (tiny)
     pdf.setTextColor(...colors.primaryDark);
-    pdf.setFontSize(12);
+    pdf.setFontSize(7); // smaller font
     pdf.setFont("helvetica", "bold");
-    pdf.text(title, margin + 8, y + 7);
+    pdf.text(title, margin + 5, y + 4.5); // adjusted vertical position
 
-    return y + 15;
+    return y + 8; // very tight spacing
   };
-  function addWrappedText(
-    text: string,
-    x: number,
-    y: number,
-    maxW: number,
-    fontSize = 10,
-  ): number {
-    pdf.setFontSize(fontSize);
-    const lines = pdf.splitTextToSize(text, maxW);
-    pdf.text(lines, x, y);
-    return y + lines.length * (fontSize * 0.3528 + 2); // approx line height
-  }
   const addField = (
     label: string,
     value: string | number | boolean,
@@ -148,49 +159,51 @@ Website: www.gogreenhire.co.uk`;
     y: number,
     width: number,
   ): number => {
-    // Label
+    // Label (tiny, very close to value)
     pdf.setTextColor(...colors.gray);
-    pdf.setFontSize(8);
+    pdf.setFontSize(6);
     pdf.setFont("helvetica", "normal");
-    pdf.text(label, x, y);
+    pdf.text(label, x, y + 0.5); // moved up slightly
 
-    // Value with underline effect
+    // Value (closer to label)
     pdf.setTextColor(...colors.darkText);
-    pdf.setFontSize(10);
+    pdf.setFontSize(7);
     pdf.setFont("helvetica", "bold");
     const displayValue =
       value === true ? "Yes" : value === false ? "No" : String(value || "—");
-    pdf.text(displayValue, x, y + 5);
+    pdf.text(displayValue, x, y + 4); // closer to label
 
-    // Subtle underline
+    // Very thin underline
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.3);
-    pdf.line(x, y + 6.5, x + width - 5, y + 6.5);
+    pdf.setLineWidth(0.25);
+    pdf.line(x, y + 5.2, x + width - 4, y + 5.2); // adjusted for new value position
 
-    return y + 12;
+    return y + 7; // reduced vertical spacing for compact layout
   };
+
   const addCheckbox = (
     label: string,
     checked: boolean,
     x: number,
     y: number,
   ): void => {
-    // Checkbox (smaller)
+    // Tiny checkbox
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.4);
-    pdf.rect(x, y - 2.2, 3, 3);
+    pdf.setLineWidth(0.35);
+    pdf.rect(x, y - 1.8, 2.8, 2.8);
 
     if (checked) {
       pdf.setFillColor(...colors.primary);
-      pdf.rect(x + 0.5, y - 1.7, 2, 2, "F");
+      pdf.rect(x + 0.4, y - 1.4, 2, 2, "F");
     }
 
-    // Label (slightly smaller + closer)
+    // Label
     pdf.setTextColor(...colors.darkText);
-    pdf.setFontSize(8);
+    pdf.setFontSize(6.5);
     pdf.setFont("helvetica", "normal");
-    pdf.text(label, x + 5, y);
+    pdf.text(label, x + 4.2, y);
   };
+
   const addSignature = async (
     label: string,
     signatureData: string | null,
@@ -200,29 +213,26 @@ Website: www.gogreenhire.co.uk`;
   ): Promise<number> => {
     // Label
     pdf.setTextColor(...colors.gray);
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(label, x, y);
+    pdf.setFontSize(6);
+    pdf.text(label, x, y + 1);
 
-    // Signature box
+    // Signature area — smaller height
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.5);
+    pdf.setLineWidth(0.4);
     pdf.setFillColor(...colors.white);
-    pdf.roundedRect(x, y + 2, width, 25, 2, 2, "FD");
+    pdf.roundedRect(x, y + 2.5, width, 18, 2, 2, "FD");
 
     if (signatureData) {
       try {
-        pdf.addImage(signatureData, "PNG", x + 2, y + 4, width - 4, 21);
+        pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
       } catch (e) {
         pdf.setTextColor(...colors.gray);
-        pdf.setFontSize(10);
-        pdf.text("[Signature on file]", x + width / 2, y + 15, {
-          align: "center",
-        });
+        pdf.setFontSize(7);
+        pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
       }
     }
 
-    return y + 32;
+    return y + 23; // ← much smaller
   };
 
   const addImage = async (
@@ -231,45 +241,50 @@ Website: www.gogreenhire.co.uk`;
     x: number,
     y: number,
     width: number,
-    height: number,
+    height: number = 28, // ← you can still control this, but default smaller
   ): Promise<number> => {
     // Label
     pdf.setTextColor(...colors.gray);
-    pdf.setFontSize(9);
+    pdf.setFontSize(6.5);
     pdf.setFont("helvetica", "bold");
-    pdf.text(label, x, y);
+    pdf.text(label, x, y + 1);
 
-    // Image box with border
+    // Image container
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.5);
+    pdf.setLineWidth(0.4);
     pdf.setFillColor(249, 250, 251);
-    pdf.roundedRect(x, y + 3, width, height, 3, 3, "FD");
+    pdf.roundedRect(x, y + 2.5, width, height, 2, 2, "FD");
 
     if (imageData) {
       try {
-        // Determine image format from data URL
         const format = imageData.includes("image/png") ? "PNG" : "JPEG";
-        pdf.addImage(imageData, format, x + 2, y + 5, width - 4, height - 4);
+        pdf.addImage(
+          imageData,
+          format,
+          x + 1.5,
+          y + 3.5,
+          width - 3,
+          height - 5,
+        );
       } catch (e) {
         pdf.setTextColor(...colors.gray);
-        pdf.setFontSize(10);
+        pdf.setFontSize(7);
         pdf.setFont("helvetica", "italic");
-        pdf.text("[Image on file]", x + width / 2, y + height / 2 + 3, {
+        pdf.text("[Image]", x + width / 2, y + height / 2 + 2, {
           align: "center",
         });
       }
     } else {
       pdf.setTextColor(...colors.gray);
-      pdf.setFontSize(10);
+      pdf.setFontSize(7);
       pdf.setFont("helvetica", "italic");
-      pdf.text("[No image provided]", x + width / 2, y + height / 2 + 3, {
+      pdf.text("No image", x + width / 2, y + height / 2 + 2, {
         align: "center",
       });
     }
 
-    return y + height + 8;
+    return y + height + 6; // ← very compact
   };
-
   const addFooter = (pageNum: number) => {
     const footerY = pageHeight - 15;
 
@@ -313,15 +328,6 @@ Website: www.gogreenhire.co.uk`;
 
   // Generate header
   yPos = addGradientHeader();
-
-  pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(6.5); // smaller, subtle
-  pdf.text(
-    `Generated: ${formatDate(new Date())}`,
-    margin, // left side
-    yPos,
-  );
-  yPos += 4;
 
   // Generate content based on form type
   switch (formData.formType) {
@@ -427,7 +433,6 @@ Website: www.gogreenhire.co.uk`;
   return pdf.output("blob");
 }
 
-// Pre-Inspection PDF Generator
 async function generatePreInspectionPDF(
   pdf: jsPDF,
   formData: PDFFormData,
@@ -441,7 +446,9 @@ async function generatePreInspectionPDF(
   const data = formData.data;
   const colWidth = (pageWidth - margin * 2) / 4;
 
+  // ───────────────────────────────────────────────
   // Basic Info Section
+  // ───────────────────────────────────────────────
   yPos = addSectionHeader("VEHICLE & CUSTOMER INFORMATION", yPos);
   yPos = checkNewPage(yPos, 30);
 
@@ -457,7 +464,7 @@ async function generatePreInspectionPDF(
     addField(field.label, field.value, xPos, yPos, colWidth);
     xPos += colWidth;
   });
-  yPos += 15;
+  yPos += 10;
 
   // Vehicle Info
   xPos = margin;
@@ -470,9 +477,11 @@ async function generatePreInspectionPDF(
     addField(field.label, field.value, xPos, yPos, colWidth);
     xPos += colWidth;
   });
-  yPos += 20;
+  yPos += 10;
 
-  // Checklist Items
+  // ───────────────────────────────────────────────
+  // CONDITION CHECKLIST ── TWO COLUMNS
+  // ───────────────────────────────────────────────
   yPos = checkNewPage(yPos, 20);
   yPos = addSectionHeader("CONDITION CHECKLIST", yPos);
 
@@ -515,42 +524,78 @@ async function generatePreInspectionPDF(
     Poor: [239, 68, 68],
   };
 
-  // Create a table for checklist
+  // Layout settings
   const tableWidth = pageWidth - margin * 2;
-  const col1 = tableWidth * 0.5;
-  const col2 = (tableWidth * 0.5) / 3;
+  const leftWidth = tableWidth * 0.48; // slightly less than half
+  const rightWidth = tableWidth * 0.48;
+  const gap = tableWidth * 0.04;
+  const col1 = leftWidth * 0.55; // item text width
+  const col2 = (leftWidth - col1) / 3; // ~15% each for Good/Mod/Poor
 
-  // Table header
+  // ── Header ───────────────────────────────────────
   pdf.setFillColor(...colors.primaryDark);
   pdf.rect(margin, yPos, tableWidth, 8, "F");
   pdf.setTextColor(...colors.white);
   pdf.setFontSize(9);
   pdf.setFont("helvetica", "bold");
+
+  // Left header
   pdf.text("Item", margin + 3, yPos + 5.5);
   pdf.text("Good", margin + col1 + 5, yPos + 5.5);
   pdf.text("Moderate", margin + col1 + col2 + 5, yPos + 5.5);
   pdf.text("Poor", margin + col1 + col2 * 2 + 5, yPos + 5.5);
+
+  // Right header
+  pdf.text("Item", margin + leftWidth + gap + 3, yPos + 5.5);
+  pdf.text("Good", margin + leftWidth + gap + col1 + 5, yPos + 5.5);
+  pdf.text("Moderate", margin + leftWidth + gap + col1 + col2 + 5, yPos + 5.5);
+  pdf.text("Poor", margin + leftWidth + gap + col1 + col2 * 2 + 5, yPos + 5.5);
+
   yPos += 10;
 
-  checklistItems.forEach((item, i) => {
+  // ── Rows (15 left + 15 right) ────────────────────
+  for (let i = 0; i < 15; i++) {
     yPos = checkNewPage(yPos, 8);
 
-    const condition = data[`condition_${i + 1}`];
     const rowColor: [number, number, number] =
       i % 2 === 0 ? [255, 255, 255] : [249, 250, 251];
-
     pdf.setFillColor(...rowColor);
     pdf.rect(margin, yPos - 1, tableWidth, 7, "F");
 
     pdf.setTextColor(...colors.darkText);
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`${i + 1}. ${item}`, margin + 3, yPos + 4);
 
-    // Condition indicators
+    // Left column (items 0–14)
+    const leftItem = checklistItems[i];
+    const leftCondition = data[`condition_${i + 1}`];
+    pdf.text(`${i + 1}. ${leftItem}`, margin + 3, yPos + 4);
+
     ["Good", "Moderate", "Poor"].forEach((cond, j) => {
       const xOffset = margin + col1 + col2 * j + 8;
-      if (condition === cond) {
+      if (leftCondition === cond) {
+        pdf.setFillColor(...conditionColors[cond]);
+        pdf.circle(xOffset, yPos + 3, 2, "F");
+      } else {
+        pdf.setDrawColor(...colors.gray);
+        pdf.setLineWidth(0.3);
+        pdf.circle(xOffset, yPos + 3, 2, "S");
+      }
+    });
+
+    // Right column (items 15–29)
+    const rightIdx = i + 15;
+    const rightItem = checklistItems[rightIdx];
+    const rightCondition = data[`condition_${rightIdx + 1}`];
+    pdf.text(
+      `${rightIdx + 1}. ${rightItem}`,
+      margin + leftWidth + gap + 3,
+      yPos + 4,
+    );
+
+    ["Good", "Moderate", "Poor"].forEach((cond, j) => {
+      const xOffset = margin + leftWidth + gap + col1 + col2 * j + 8;
+      if (rightCondition === cond) {
         pdf.setFillColor(...conditionColors[cond]);
         pdf.circle(xOffset, yPos + 3, 2, "F");
       } else {
@@ -561,64 +606,86 @@ async function generatePreInspectionPDF(
     });
 
     yPos += 7;
-  });
+  }
 
-  yPos += 10;
+  yPos += 3; // extra breathing room after checklist
 
+  // ───────────────────────────────────────────────
   // Notes & Recommendations
-  yPos = checkNewPage(yPos, 40);
+  // ───────────────────────────────────────────────
+  // --- Notes & Recommendations (Compact) ---
   yPos = addSectionHeader("NOTES & RECOMMENDATIONS", yPos);
 
   const notesWidth = (pageWidth - margin * 2 - 5) / 2;
 
-  // Notes box
+  // --- Notes box ---
   pdf.setFillColor(249, 250, 251);
-  pdf.roundedRect(margin, yPos, notesWidth, 30, 2, 2, "F");
+  pdf.roundedRect(margin, yPos, notesWidth, 20, 1.5, 1.5, "F"); // smaller height, smaller radius
   pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(8);
-  pdf.text("Notes:", margin + 3, yPos + 5);
-  pdf.setTextColor(...colors.darkText);
-  pdf.setFontSize(9);
-  const notesLines = pdf.splitTextToSize(data.notes || "—", notesWidth - 6);
-  pdf.text(notesLines, margin + 3, yPos + 10);
+  pdf.setFontSize(6); // very small
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Notes:", margin + 2, yPos + 4);
 
-  // Recommendations box
-  pdf.setFillColor(249, 250, 251);
-  pdf.roundedRect(margin + notesWidth + 5, yPos, notesWidth, 30, 2, 2, "F");
-  pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(8);
-  pdf.text("Recommendations:", margin + notesWidth + 8, yPos + 5);
   pdf.setTextColor(...colors.darkText);
-  pdf.setFontSize(9);
+  pdf.setFontSize(7); // tiny text
+  pdf.setFont("helvetica", "normal");
+  const notesLines = pdf.splitTextToSize(data.notes || "—", notesWidth - 4);
+  notesLines.forEach((line, idx) => {
+    pdf.text(line, margin + 2, yPos + 7 + idx * 4); // tight line spacing
+  });
+
+  // --- Recommendations box ---
+  pdf.setFillColor(249, 250, 251);
+  pdf.roundedRect(margin + notesWidth + 5, yPos, notesWidth, 20, 1.5, 1.5, "F");
+  pdf.setTextColor(...colors.gray);
+  pdf.setFontSize(6);
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Recommendations:", margin + notesWidth + 7, yPos + 4);
+
+  pdf.setTextColor(...colors.darkText);
+  pdf.setFontSize(7);
+  pdf.setFont("helvetica", "normal");
   const recLines = pdf.splitTextToSize(
     data.recommendations || "—",
-    notesWidth - 6,
+    notesWidth - 4,
   );
-  pdf.text(recLines, margin + notesWidth + 8, yPos + 10);
+  recLines.forEach((line, idx) => {
+    pdf.text(line, margin + notesWidth + 7, yPos + 7 + idx * 4);
+  });
 
-  yPos += 40;
+  yPos += 22; // minimal vertical spacing after the section
 
+  // ───────────────────────────────────────────────
   // Vehicle Image (if exists)
+  // ───────────────────────────────────────────────
   if (formData.images?.annotated_vehicle_image) {
-    yPos = checkNewPage(yPos, 100);
-    yPos = addSectionHeader("VEHICLE CONDITION IMAGE", yPos);
-    const imageWidth = pageWidth - margin * 2;
-    const imageHeight = 80;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7); // very small heading
+    pdf.setTextColor(...colors.darkText);
+    addSectionHeader("VEHICLE IMAGE", yPos);
+    yPos += 6; // tiny spacing after heading
+
+    // Image
+    const imageWidth = pageWidth - margin * 2 - 100;
+    const imageHeight = 30; // reduce height from 80 → 40
     yPos = await addImage(
-      "Annotated Vehicle Image",
+      "",
       formData.images.annotated_vehicle_image,
       margin,
       yPos,
       imageWidth,
       imageHeight,
     );
+
+    yPos += 2; // minimal spacing after image
   }
 
+  // ───────────────────────────────────────────────
   // Signatures
-  yPos = checkNewPage(yPos, 45);
+  // ───────────────────────────────────────────────
   yPos = addSectionHeader("SIGNATURES", yPos);
-
   const sigWidth = (pageWidth - margin * 2 - 10) / 2;
+
   yPos = await addSignature(
     "Customer Signature",
     formData.signatures?.customer || null,
@@ -626,11 +693,12 @@ async function generatePreInspectionPDF(
     yPos,
     sigWidth,
   );
+
   await addSignature(
     "Detailer Signature",
     formData.signatures?.detailer || null,
     margin + sigWidth + 10,
-    yPos - 32,
+    yPos - 23, // align with customer signature
     sigWidth,
   );
 
@@ -736,7 +804,7 @@ async function generateStoragePDF(
   yPos = addSectionHeader("CLIENT DETAILS", yPos);
   addField("Name", data.name, margin, yPos, colWidth);
   addField("Postcode", data.postcode, margin + colWidth, yPos, colWidth);
-  yPos += 15;
+  yPos += 12;
   addField("Address Line 1", data.address1, margin, yPos, colWidth * 1.5);
   addField(
     "Address Line 2",
@@ -745,7 +813,7 @@ async function generateStoragePDF(
     yPos,
     colWidth * 1.5,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Vehicle Information
   yPos = checkNewPage(yPos, 30);
@@ -759,7 +827,7 @@ async function generateStoragePDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Recovery & Storage Details
   yPos = checkNewPage(yPos, 50);
@@ -785,7 +853,7 @@ async function generateStoragePDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Number of Days", data.number_of_days, margin, yPos, colWidth);
   addField(
     "Charges Per Day",
@@ -801,13 +869,13 @@ async function generateStoragePDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 14;
 
-  // Invoice Summary
-  yPos = checkNewPage(yPos, 60);
+  // Invoice Summary - Compact Style
+  yPos = checkNewPage(yPos, 40);
   yPos = addSectionHeader("INVOICE SUMMARY", yPos);
 
-  // Invoice table
+  // Table data
   const tableData = [
     ["Description", "Amount"],
     ["Recovery Charge", `£${data.recovery_charge || "0.00"}`],
@@ -816,77 +884,106 @@ async function generateStoragePDF(
     ["VAT (20%)", `£${data.vat_amount || "0.00"}`],
   ];
 
-  let tableY = yPos;
+  const tableYStart = yPos;
   const tableWidth = pageWidth - margin * 2;
+  const rowHeight = 6; // smaller row height
 
   tableData.forEach((row, i) => {
     const isHeader = i === 0;
+
+    // Minimal background for header
     const bgColor: [number, number, number] = isHeader
       ? colors.primaryDark
-      : i % 2 === 0
-        ? [249, 250, 251]
-        : [255, 255, 255];
+      : [255, 255, 255]; // no alternate shading for compact
 
     pdf.setFillColor(...bgColor);
-    pdf.rect(margin, tableY, tableWidth, 8, "F");
+    pdf.rect(margin, tableYStart + i * rowHeight, tableWidth, rowHeight, "F");
 
-    pdf.setTextColor(...(isHeader ? colors.white : colors.darkText));
-    pdf.setFontSize(9);
+    // Subtle border
+    pdf.setDrawColor(200);
+    pdf.rect(margin, tableYStart + i * rowHeight, tableWidth, rowHeight);
+
+    // Tiny text
+    pdf.setFontSize(7);
     pdf.setFont("helvetica", isHeader ? "bold" : "normal");
-    pdf.text(row[0], margin + 5, tableY + 5.5);
-    pdf.text(row[1], pageWidth - margin - 5, tableY + 5.5, { align: "right" });
+    pdf.setTextColor(...(isHeader ? colors.white : colors.darkText));
 
-    tableY += 8;
+    pdf.text(row[0], margin + 3, tableYStart + i * rowHeight + 4); // left
+    pdf.text(row[1], pageWidth - margin - 3, tableYStart + i * rowHeight + 4, {
+      align: "right",
+    }); // right
   });
 
   // Total row
+  const totalY = tableYStart + tableData.length * rowHeight;
   pdf.setFillColor(...colors.primary);
-  pdf.rect(margin, tableY, tableWidth, 10, "F");
+  pdf.rect(margin, totalY, tableWidth, rowHeight, "F");
   pdf.setTextColor(...colors.white);
-  pdf.setFontSize(11);
+  pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
-  pdf.text("INVOICE TOTAL", margin + 5, tableY + 7);
+  pdf.text("INVOICE TOTAL", margin + 3, totalY + 4);
   pdf.text(
     `£${data.invoice_total || "0.00"}`,
-    pageWidth - margin - 5,
-    tableY + 7,
+    pageWidth - margin - 3,
+    totalY + 4,
     { align: "right" },
   );
 
-  yPos = tableY + 20;
-
+  yPos = totalY + rowHeight + 2; // very tight spacing
   // Deferred Payment & Cancellation Terms
-  yPos = checkNewPage(yPos, 80); // make sure enough space
+  // --- Deferred Payment & Cancellation Terms (existing code) ---
   yPos = addSectionHeader("DEFERRED PAYMENT & CANCELLATION TERMS", yPos);
 
   // Terms content
   const termsText = `
-I understand the recovery and storage costs are on a deferred payment basis and will be due and owing from me on completion of storage and that invoices are payable by me to Go Green Car Hire Ltd in no more than one instalment beginning from the date of this agreement within a period of no more than 51 weeks beginning from the date of this agreement.
-
-It is my contractual obligation to pay the outstanding charges as provided by the deferred payment provision.
-
-I further understand that if I fail to co-operate in the pursuit of my claim for damages or appoint other solicitors to act on my behalf, then I understand and agree that the account for recovery and storage will be immediately due and payable by me to Go Green Car Hire Ltd.
-
-This contract constitutes all terms and conditions under this agreement.
-
-You have the right to cancel this agreement within 14 days starting from the date signed on this agreement. Written cancellation notice must be sent within 14 days either by post or email to the address stated above. I understand that any charges incurred will be liable to immediate payment by me.
+• I understand the recovery and storage costs are on a deferred payment basis and will be due and owing from me on completion of storage and that invoices are payable by me to Go Green Car Hire Ltd in no more than one instalment beginning from the date of this agreement within a period of no more than 51 weeks beginning from the date of this agreement.
+• It is my contractual obligation to pay the outstanding charges as provided by the deferred payment provision.
+• I further understand that if I fail to co-operate in the pursuit of my claim for damages or appoint other solicitors to act on my behalf, then I understand and agree that the account for recovery and storage will be immediately due and payable by me to Go Green Car Hire Ltd.
+• This contract constitutes all terms and conditions under this agreement.
+• You have the right to cancel this agreement within 14 days starting from the date signed on this agreement. Written cancellation notice must be sent within 14 days either by post or email to the address stated above. I understand that any charges incurred will be liable to immediate payment by me.
 `;
 
-  // Split into lines for PDF
+  // Split into lines that fit the page width
   const termsLines = pdf.splitTextToSize(termsText, pageWidth - margin * 2);
+
+  // Set small font for terms
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(9);
+  pdf.setFontSize(8);
   pdf.setTextColor(...colors.darkText);
 
+  // Print terms lines
   termsLines.forEach((line) => {
     pdf.text(line, margin, yPos);
-    yPos += 5; // line height
+    yPos += 4.5; // tight spacing
   });
 
-  yPos += 10; // extra spacing before signatures
+  yPos += 1; // extra spacing before address
 
+  // --- Small heading for Storage Location ---
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7); // very small
+  pdf.setTextColor(...colors.darkText);
+  pdf.text("Storage Location:", margin, yPos);
+  yPos += 4; // small spacing
+
+  // Storage address lines
+  const storageText = [
+    "LITTLE BURTON EAST",
+    "Burton-on-Trent, Staffordshire",
+    "DE14 1PS",
+  ];
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7);
+  pdf.setTextColor(...colors.darkText);
+
+  storageText.forEach((line) => {
+    pdf.text(line, margin + 2, yPos); // slight indent
+    yPos += 4; // tight line spacing
+  });
+
+  yPos += 6; // spacing after address
   // Signatures
-  yPos = checkNewPage(yPos, 45);
   yPos = addSectionHeader("SIGNATURES", yPos);
 
   const sigWidth = (pageWidth - margin * 2 - 10) / 2;
@@ -901,34 +998,15 @@ You have the right to cancel this agreement within 14 days starting from the dat
     "Owner Signature",
     formData.signatures?.owner_signature || null,
     margin + sigWidth + 10,
-    yPos - 32,
+    yPos - 23,
     sigWidth,
   );
-  yPos = checkNewPage(yPos, 40);
-  yPos = addSectionHeader("STORAGE LOCATION", yPos);
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(...colors.darkText);
-
-  const storageText = [
-    "LITTLE BURTON EAST",
-    "Burton-on-Trent, Staffordshire",
-    "DE14 1PS",
-  ];
-
-  storageText.forEach((line, i) => {
-    const lineY = yPos + i * 7;
-    pdf.text(line, margin + 5, lineY, { align: "left" });
-  });
-
-  yPos += storageText.length * 7 + 12; // line spacing + extra gap after section
-
   return yPos;
 }
 
 // Compact Rental Agreement PDF Generator
 // Compact Rental Agreement PDF Generator
+
 async function generateRentalPDF(
   pdf,
   formData,
@@ -1637,7 +1715,7 @@ async function generateRentalPDF(
   return y;
 }
 
-// Accident Claim Form PDF Generator
+
 async function generateClaimPDF(
   pdf: jsPDF,
   formData: PDFFormData,
@@ -1659,6 +1737,7 @@ async function generateClaimPDF(
 
   // Checklist
   yPos = addSectionHeader("CHECKLIST", yPos);
+  yPos += 2;
   const checklistItems = [
     "V.D",
     "DVLA",
@@ -1684,7 +1763,7 @@ async function generateClaimPDF(
     addCheckbox(formattedLabel, !!data[fieldName], xPos, yPos);
     xPos += spacing;
   });
-  yPos += 15;
+  yPos += 4;
 
   // Date of Claim
   addField(
@@ -1694,7 +1773,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 12;
 
   // Vehicle Owner Details
   yPos = checkNewPage(yPos, 60);
@@ -1708,7 +1787,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Address", data.owner_address, margin, yPos, colWidth * 2);
   addField(
     "Postcode",
@@ -1717,7 +1796,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Date of Birth", formatDate(data.owner_dob), margin, yPos, colWidth);
   addField(
     "NI Number",
@@ -1733,7 +1812,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Driver Details
   yPos = checkNewPage(yPos, 80);
@@ -1747,7 +1826,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Address", data.driver_address, margin, yPos, colWidth * 2);
   addField(
     "Postcode",
@@ -1756,7 +1835,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField(
     "Date of Birth",
     formatDate(data.driver_dob),
@@ -1778,7 +1857,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Client Vehicle Details
   yPos = checkNewPage(yPos, 40);
@@ -1798,7 +1877,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Policy No", data.client_policy_no, margin, yPos, colWidth);
   addField(
     "Cover Type",
@@ -1814,10 +1893,9 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Third Party Details
-  yPos = checkNewPage(yPos, 100);
   yPos = addSectionHeader("THIRD PARTY DETAILS", yPos);
   addField("Name", data.third_party_name, margin, yPos, colWidth);
   addField("Email", data.third_party_email, margin + colWidth, yPos, colWidth);
@@ -1828,7 +1906,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Address", data.third_party_address, margin, yPos, colWidth * 2);
   addField(
     "Postcode",
@@ -1837,7 +1915,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField(
     "Date of Birth",
     formatDate(data.third_party_dob),
@@ -1859,7 +1937,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField(
     "Vehicle Make",
     data.third_party_vehicle_make,
@@ -1881,7 +1959,7 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 12;
   addField("Policy No", data.third_party_policy_no, margin, yPos, colWidth);
   addField(
     "Policy Holder",
@@ -1890,11 +1968,13 @@ async function generateClaimPDF(
     yPos,
     colWidth * 2,
   );
-  yPos += 20;
+  yPos += 14;
 
-  // Accident Details
-  yPos = checkNewPage(yPos, 50);
+  // Accident Details - compact
+  yPos = checkNewPage(yPos, 30);
   yPos = addSectionHeader("ACCIDENT DETAILS", yPos);
+
+  // Date, Time, Location (compact fields)
   addField("Date", formatDate(data.accident_date), margin, yPos, colWidth);
   addField("Time", data.accident_time, margin + colWidth, yPos, colWidth);
   addField(
@@ -1904,24 +1984,33 @@ async function generateClaimPDF(
     yPos,
     colWidth,
   );
-  yPos += 15;
+  yPos += 10;
 
-  pdf.setFillColor(249, 250, 251);
-  pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 25, 2, 2, "F");
+  // Description label (tiny)
   pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(8);
-  pdf.text("Description:", margin + 3, yPos + 5);
+  pdf.setFontSize(7);
+  pdf.setFont("helvetica", "normal");
+  pdf.text("Description:", margin, yPos);
+  yPos += 3; // very tight spacing
+
+  // Description value (ultra-compact)
   pdf.setTextColor(...colors.darkText);
-  pdf.setFontSize(9);
+  pdf.setFontSize(7);
+  pdf.setFont("helvetica", "normal");
+
   const descLines = pdf.splitTextToSize(
     data.accident_description || "—",
-    pageWidth - margin * 2 - 10,
+    pageWidth - margin * 2,
   );
-  pdf.text(descLines, margin + 3, yPos + 12);
-  yPos += 32;
+  descLines.forEach((line) => {
+    yPos = checkNewPage(yPos, 8);
+    pdf.text(line, margin, yPos);
+    yPos += 4; // tightest line spacing
+  });
+
+  yPos += 4; // minimal spacing after description
 
   // Road & Weather Conditions
-  yPos = checkNewPage(yPos, 40);
   yPos = addSectionHeader("ROAD & WEATHER CONDITIONS", yPos);
   addField(
     "Road Conditions",
@@ -1937,10 +2026,9 @@ async function generateClaimPDF(
     yPos,
     colWidth * 1.5,
   );
-  yPos += 20;
+  yPos += 14;
 
   // Fault & Opinions
-  yPos = checkNewPage(yPos, 40);
   yPos = addSectionHeader("FAULT OPINION & DETAILS", yPos);
   addField("Fault Opinion", data.fault_opinion, margin, yPos, colWidth * 1.5);
   addField(
@@ -1950,76 +2038,91 @@ async function generateClaimPDF(
     yPos,
     colWidth * 1.5,
   );
-  yPos += 20;
+  yPos += 14;
 
-  // Witness 1
-  if (data.witness1_name) {
-    yPos = checkNewPage(yPos, 30);
-    yPos = addSectionHeader("WITNESS 1", yPos);
-    addField("Name", data.witness1_name, margin, yPos, colWidth);
-    addField(
-      "Address",
-      data.witness1_address,
-      margin + colWidth,
-      yPos,
-      colWidth * 2,
-    );
-    yPos += 15;
-    addField("Postcode", data.witness1_postcode, margin, yPos, colWidth);
-    addField(
-      "Telephone",
-      data.witness1_telephone,
-      margin + colWidth,
-      yPos,
-      colWidth * 2,
-    );
-    yPos += 20;
-  }
+  // --- Witnesses Section ---
+  const hasWitness1 = !!data.witness1_name;
+  const hasWitness2 = !!data.witness2_name;
 
-  // Witness 2
-  if (data.witness2_name) {
-    yPos = checkNewPage(yPos, 30);
-    yPos = addSectionHeader("WITNESS 2", yPos);
-    addField("Name", data.witness2_name, margin, yPos, colWidth);
-    addField(
-      "Address",
-      data.witness2_address,
-      margin + colWidth,
-      yPos,
-      colWidth * 2,
-    );
-    yPos += 15;
-    addField("Postcode", data.witness2_postcode, margin, yPos, colWidth);
-    addField(
-      "Telephone",
-      data.witness2_telephone,
-      margin + colWidth,
-      yPos,
-      colWidth * 2,
-    );
-    yPos += 20;
+  yPos = addSectionHeader("WITNESSES", yPos);
+
+  if (hasWitness1 || hasWitness2) {
+    const colWidthHalf = (pageWidth - margin * 2) / 2; // half page for each witness
+    const startX1 = margin; // left column
+    const startX2 = margin + colWidthHalf; // right column
+
+    // --- Names ---
+    if (hasWitness1)
+      addField("Name", data.witness1_name, startX1, yPos, colWidthHalf);
+    if (hasWitness2)
+      addField("Name", data.witness2_name, startX2, yPos, colWidthHalf);
+    yPos += 12;
+
+    // --- Addresses ---
+    if (hasWitness1)
+      addField("Address", data.witness1_address, startX1, yPos, colWidthHalf);
+    if (hasWitness2)
+      addField("Address", data.witness2_address, startX2, yPos, colWidthHalf);
+    yPos += 12;
+
+    // --- Postcode & Telephone ---
+    if (hasWitness1)
+      addField(
+        "Postcode",
+        data.witness1_postcode,
+        startX1,
+        yPos,
+        colWidthHalf / 2,
+      );
+    if (hasWitness2)
+      addField(
+        "Postcode",
+        data.witness2_postcode,
+        startX2,
+        yPos,
+        colWidthHalf / 2,
+      );
+
+    if (hasWitness1)
+      addField(
+        "Telephone",
+        data.witness1_telephone,
+        startX1 + colWidthHalf / 2,
+        yPos,
+        colWidthHalf / 2,
+      );
+    if (hasWitness2)
+      addField(
+        "Telephone",
+        data.witness2_telephone,
+        startX2 + colWidthHalf / 2,
+        yPos,
+        colWidthHalf / 2,
+      );
+
+    yPos += 14; // final spacing
+  } else {
+    // No witnesses, just leave the heading
+    yPos += 8;
   }
 
   // Loss of Earnings
-  if (data.loss_of_earnings) {
-    yPos = checkNewPage(yPos, 20);
-    yPos = addSectionHeader("LOSS OF EARNINGS", yPos);
-    addField(
-      "Loss of Earnings Claimed",
-      data.loss_of_earnings,
-      margin,
-      yPos,
-      colWidth,
-    );
-    addField(
-      "Employer Details",
-      data.employer_details,
-      margin + colWidth,
-      yPos,
-      colWidth * 2,
-    );
-    yPos += 20;
-  }
+  yPos = addSectionHeader("LOSS OF EARNINGS", yPos);
+  addField(
+    "Loss of Earnings Claimed",
+    data.loss_of_earnings,
+    margin,
+    yPos,
+    colWidth,
+  );
+  addField(
+    "Employer Details",
+    data.employer_details,
+    margin + colWidth,
+    yPos,
+    colWidth * 2,
+  );
+  yPos += 14;
 
   // Direction Drawings
   const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
@@ -2029,7 +2132,6 @@ async function generateClaimPDF(
     formData.images?.direction_before_drawing ||
     formData.images?.direction_after_drawing
   ) {
-    yPos = checkNewPage(yPos, 75);
     yPos = addSectionHeader("DIRECTION OF TRAVEL", yPos);
 
     const beforeY = yPos;
@@ -2066,7 +2168,6 @@ async function generateClaimPDF(
   }
 
   // Declaration Section
-  yPos = checkNewPage(yPos, 40);
   yPos = addSectionHeader("DECLARATION", yPos);
   addField(
     "Declared By",
@@ -2075,12 +2176,11 @@ async function generateClaimPDF(
     yPos,
     pageWidth - margin * 2,
   );
-  yPos += 15;
+  yPos += 10;
   addField("Declaration Date", data.declaration_date, margin, yPos, colWidth);
-  yPos += 20;
+  yPos += 10;
 
   // Signature
-  yPos = checkNewPage(yPos, 45);
   yPos = addSectionHeader("SIGNATURE", yPos);
   yPos = await addSignature(
     "Client Signature",
