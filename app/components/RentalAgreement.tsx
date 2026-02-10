@@ -586,16 +586,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
-                      <input
-                        type="text"
-                        name="hire_vehicle_group"
-                        value={formData.hire_vehicle_group}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
-                    </div>
+                   
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
@@ -871,74 +862,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Signature of Hirer:
-                  </label>
-
-                  {isHirerTermsFromApi && signatures.hirer_signature_terms ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
-                      <img
-                        src={signatures.hirer_signature_terms || "/placeholder.svg"}
-                        alt="Hirer signature (terms)"
-                        className="max-h-40 mx-auto object-contain"
-                      />
-                      <p className="text-sm text-green-700 font-medium">
-                        Signature saved ✓ (from record)
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsHirerTermsFromApi(false)}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
-                      >
-                        Update
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <Signature
-                        ref={hirerTermsRef}
-                        onSign={handleSignature("hirer_signature_terms")}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Signed by (for and on behalf of Go Green Car Hire Ltd.):
-                  </label>
-
-                  {isCompanyFromApi && signatures.company_signature ? (
-                    <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
-                      <img
-                        src={signatures.company_signature || "/placeholder.svg"}
-                        alt="Company signature"
-                        className="max-h-40 mx-auto object-contain"
-                      />
-                      <p className="text-sm text-green-700 font-medium">
-                        Signature saved ✓ (from record)
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsCompanyFromApi(false)}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
-                      >
-                        Update
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-4">
-                      <Signature
-                        ref={companyRef}
-                        onSign={handleSignature("company_signature")}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
+             
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

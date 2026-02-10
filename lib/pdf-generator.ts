@@ -1109,9 +1109,7 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   pdf.text(data.hire_vehicle_model || "—", margin + half + 30, y + 3.5);
   pdf.setTextColor(80, 80, 80);
-  pdf.text("Group", margin + half + 65, y + 3.5);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.hire_vehicle_group || "—", margin + half + 80, y + 3.5);
+ 
 
   y += 9;
 
