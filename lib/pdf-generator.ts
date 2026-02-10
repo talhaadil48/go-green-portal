@@ -396,7 +396,7 @@ Website: www.gogreenhire.co.uk`;
   if (formData.formType === "rental-agreement") {
     try {
       // Fetch the static terms PDF from public folder
-      const termsResponse = await fetch("/terms.pdf");
+      const termsResponse = await fetch("/t.pdf");
       if (!termsResponse.ok) {
         console.warn("Could not load /terms.pdf – skipping append");
       } else {
@@ -651,39 +651,29 @@ async function generatePreInspectionPDF(
     pdf.text(line, margin + notesWidth + 7, yPos + 7 + idx * 4);
   });
 
-  yPos += 22; // minimal vertical spacing after the section
+  yPos += 40;
 
-  // ───────────────────────────────────────────────
   // Vehicle Image (if exists)
-  // ───────────────────────────────────────────────
   if (formData.images?.annotated_vehicle_image) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7); // very small heading
-    pdf.setTextColor(...colors.darkText);
-    addSectionHeader("VEHICLE IMAGE", yPos);
-    yPos += 6; // tiny spacing after heading
-
-    // Image
-    const imageWidth = pageWidth - margin * 2 - 100;
-    const imageHeight = 30; // reduce height from 80 → 40
+    yPos = checkNewPage(yPos, 100);
+    yPos = addSectionHeader("VEHICLE CONDITION IMAGE", yPos);
+    const imageWidth = pageWidth - margin * 2;
+    const imageHeight = 80;
     yPos = await addImage(
-      "",
+      "Annotated Vehicle Image",
       formData.images.annotated_vehicle_image,
       margin,
       yPos,
       imageWidth,
       imageHeight,
     );
-
-    yPos += 2; // minimal spacing after image
   }
 
-  // ───────────────────────────────────────────────
   // Signatures
-  // ───────────────────────────────────────────────
+  yPos = checkNewPage(yPos, 45);
   yPos = addSectionHeader("SIGNATURES", yPos);
-  const sigWidth = (pageWidth - margin * 2 - 10) / 2;
 
+  const sigWidth = (pageWidth - margin * 2 - 10) / 2;
   yPos = await addSignature(
     "Customer Signature",
     formData.signatures?.customer || null,
@@ -691,12 +681,11 @@ async function generatePreInspectionPDF(
     yPos,
     sigWidth,
   );
-
   await addSignature(
     "Detailer Signature",
     formData.signatures?.detailer || null,
     margin + sigWidth + 10,
-    yPos - 23, // align with customer signature
+    yPos - 23,
     sigWidth,
   );
 
