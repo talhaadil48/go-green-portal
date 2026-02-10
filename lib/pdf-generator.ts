@@ -1270,26 +1270,31 @@ async function generateRentalPDF(
   y += 3.5;
 
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Daily Rate", margin, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.daily_rate || "—", margin + 30, y);
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Policy Excess", margin + half, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.policy_excess || "—", margin + half + 30, y);
-  y += 3.5;
+pdf.setFontSize(6.5);
 
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Deposit", margin, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.deposit || "—", margin + 30, y);
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Refuelling Charge", margin + half, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.refuelling_charge || "—", margin + half + 30, y);
-  y += 5;
+// Row 1
+pdf.setTextColor(80, 80, 80);
+pdf.text("Daily Rate", margin, y);
+pdf.setTextColor(0, 0, 0);
+pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 30, y);
+
+pdf.setTextColor(80, 80, 80);
+pdf.text("Policy Excess", margin + half, y);
+pdf.setTextColor(0, 0, 0);
+pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + half + 30, y);
+y += 3.5;
+
+// Row 2
+pdf.setTextColor(80, 80, 80);
+pdf.text("Deposit", margin, y);
+pdf.setTextColor(0, 0, 0);
+pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + 30, y);
+
+pdf.setTextColor(80, 80, 80);
+pdf.text("Refuelling Charge", margin + half, y);
+pdf.setTextColor(0, 0, 0);
+pdf.text(data.refuelling_charge ? `£${data.refuelling_charge}` : "—", margin + half + 30, y);
+y += 5;
 
   if (sigs.hirer_signature_terms) {
     const sigY = y;
