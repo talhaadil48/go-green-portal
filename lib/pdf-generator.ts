@@ -67,7 +67,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     pdf.text(lines, x, y);
     return y + lines.length * (fontSize * 0.3528 + 2); // approx line height
   }
- 
+
   // Helper functions
   const addGradientHeader = () => {
     const headerHeight = 35; // smaller height
@@ -119,11 +119,6 @@ Website: www.gogreenhire.co.uk`;
     });
 
     // Add generated date below the address
-    const generatedDate = new Date();
-    const formattedDate = generatedDate.toLocaleDateString("en-GB"); // e.g., 10/02/2026
-    pdf.text(`Generated: ${formattedDate}`, rightX, 12 + lines.length * 4 + 2, {
-      align: "right",
-    });
 
     // Document title (optional: centered below header)
     pdf.setFontSize(16);
@@ -320,12 +315,15 @@ Website: www.gogreenhire.co.uk`;
   const checkNewPage = (currentY: number, neededSpace: number): number => {
     if (currentY + neededSpace > pageHeight - 25) {
       pdf.addPage();
-      yPos = margin;
-      return margin;
+
+      // 🔥 ALWAYS draw header on new page
+      let newY = addGradientHeader();
+      newY += 4;
+
+      return newY;
     }
     return currentY;
   };
-
   // Generate header
   yPos = addGradientHeader();
 
@@ -1046,6 +1044,13 @@ async function generateRentalPDF(
 
   y += 4;
   pdf.text(`Invoice ID: ${formData.claimId || "—"}`, margin, y);
+  const generatedDate = new Date();
+  const formattedDate = generatedDate.toLocaleDateString("en-GB");
+  y += 4;
+
+  pdf.text(`Generated: ${formattedDate}`, margin, y);
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(107, 114, 128);
 
   // 👉 RIGHT SIDE ADDRESS (only if claimId starts with "S")
   if (formData.claimId && formData.claimId.startsWith("S")) {
@@ -1109,7 +1114,6 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   pdf.text(data.hire_vehicle_model || "—", margin + half + 30, y + 3.5);
   pdf.setTextColor(80, 80, 80);
- 
 
   y += 9;
 
@@ -1149,7 +1153,7 @@ async function generateRentalPDF(
   y += Math.max(addrHeight, 6) + 4;
 
   // ─── Separator ────────────────────────────────────────
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1185,7 +1189,7 @@ async function generateRentalPDF(
 
   y += 5;
 
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1256,7 +1260,7 @@ async function generateRentalPDF(
   }
 
   // ---- Divider Line (Always)
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1270,31 +1274,39 @@ async function generateRentalPDF(
   y += 3.5;
 
   pdf.setFont("helvetica", "normal");
-pdf.setFontSize(6.5);
+  pdf.setFontSize(6.5);
 
-// Row 1
-pdf.setTextColor(80, 80, 80);
-pdf.text("Daily Rate", margin, y);
-pdf.setTextColor(0, 0, 0);
-pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 30, y);
+  // Row 1
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Daily Rate", margin, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 30, y);
 
-pdf.setTextColor(80, 80, 80);
-pdf.text("Policy Excess", margin + half, y);
-pdf.setTextColor(0, 0, 0);
-pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + half + 30, y);
-y += 3.5;
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Policy Excess", margin + half, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(
+    data.policy_excess ? `£${data.policy_excess}` : "—",
+    margin + half + 30,
+    y,
+  );
+  y += 3.5;
 
-// Row 2
-pdf.setTextColor(80, 80, 80);
-pdf.text("Deposit", margin, y);
-pdf.setTextColor(0, 0, 0);
-pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + 30, y);
+  // Row 2
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Deposit", margin, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + 30, y);
 
-pdf.setTextColor(80, 80, 80);
-pdf.text("Refuelling Charge", margin + half, y);
-pdf.setTextColor(0, 0, 0);
-pdf.text(data.refuelling_charge ? `£${data.refuelling_charge}` : "—", margin + half + 30, y);
-y += 5;
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Refuelling Charge", margin + half, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(
+    data.refuelling_charge ? `£${data.refuelling_charge}` : "—",
+    margin + half + 30,
+    y,
+  );
+  y += 5;
 
   if (sigs.hirer_signature_terms) {
     const sigY = y;
@@ -1317,7 +1329,7 @@ y += 5;
   }
   y += 4;
 
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1404,7 +1416,7 @@ y += 5;
   }
 
   // ---- Divider (ALWAYS)
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1467,7 +1479,7 @@ y += 5;
 
   y = Math.max(y, rightY) + 4;
 
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1554,7 +1566,7 @@ y += 5;
   }
   y += 4;
 
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1610,14 +1622,16 @@ y += 5;
     y += 5;
   }
 
-  // ─── 11. Charges Summary ───────────────────────────
+  // ─── 12. Charges Summary ───────────────────────────
   y = checkNewPage(y, 35);
+
   pdf.setFontSize(8);
   pdf.setTextColor(0, 0, 0);
   pdf.setFont("helvetica", "bold");
   pdf.text("12. Charges Summary", margin, y);
   y += 3.5;
 
+  // Charges data
   const chargesRows = [
     ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
     ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
@@ -1633,26 +1647,49 @@ y += 5;
     ["TOTAL COST", `£${Number(data.total_cost || 0).toFixed(2)}`],
   ];
 
+  // Table
   let ty = y;
   pdf.setFont("helvetica", "normal");
+
   chargesRows.forEach((row, i) => {
     const isTotal = i === chargesRows.length - 1;
-    pdf.setFillColor(
-      isTotal ? 34 : i % 2 === 0 ? 245 : 255,
-      isTotal ? 197 : i % 2 === 0 ? 245 : 255,
-      isTotal ? 94 : i % 2 === 0 ? 245 : 255,
-    );
-    pdf.rect(margin, ty, fullWidth, 5, "F");
+    const rowHeight = isTotal ? 6.5 : 5;
+
+    // Background colors
+    if (isTotal) {
+      // TOTAL COST highlight
+      pdf.setFillColor(34, 197, 94);
+    } else if (i % 2 === 0) {
+      // darker light gray
+      pdf.setFillColor(235, 235, 235);
+    } else {
+      // white
+      pdf.setFillColor(255, 255, 255);
+    }
+
+    // Row background
+    pdf.rect(margin, ty, fullWidth, rowHeight, "F");
+
+    // Text styles
     pdf.setTextColor(isTotal ? 255 : 0, isTotal ? 255 : 0, isTotal ? 255 : 0);
     pdf.setFont("helvetica", isTotal ? "bold" : "normal");
-    pdf.setFontSize(isTotal ? 7 : 6.5);
-    pdf.text(row[0], margin + 4, ty + 3.5);
-    pdf.text(row[1], pageWidth - margin - 4, ty + 3.5, { align: "right" });
-    ty += 5;
+    pdf.setFontSize(isTotal ? 8.5 : 6.5);
+
+    // Left label
+    pdf.text(row[0], margin + 4, ty + rowHeight / 2 + 1.5);
+
+    // Right value
+    pdf.text(row[1], pageWidth - margin - 4, ty + rowHeight / 2 + 1.5, {
+      align: "right",
+    });
+
+    ty += rowHeight;
   });
+
   y = ty + 4;
 
-  pdf.setDrawColor(220, 220, 220);
+  // Bottom divider
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1700,7 +1737,7 @@ y += 5;
   pdf.text(liabilityLines, margin, y);
   y += liabilityLines.length * 2.5 + 3;
 
-  pdf.setDrawColor(220, 220, 220);
+  pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
@@ -1717,7 +1754,6 @@ y += 5;
 
   return y;
 }
-
 
 async function generateClaimPDF(
   pdf: jsPDF,
