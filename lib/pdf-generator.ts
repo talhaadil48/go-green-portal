@@ -219,7 +219,19 @@ Website: www.gogreenhire.co.uk`;
 
     if (signatureData) {
       try {
-        pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
+        // Fetch the image from remote URL
+        const response = await fetch(signatureData, { mode: "cors" });
+        const blob = await response.blob();
+
+        // Convert blob to base64
+        const reader = new FileReader();
+        reader.onloadend = function () {
+          const base64data = reader.result as string; // "data:image/png;base64,..."
+
+          // Add the image to PDF
+          pdf.addImage(base64data, "PNG", x + 1.5, y + 4, width - 3, 15);
+        };
+        reader.readAsDataURL(blob);
       } catch (e) {
         console.log(e);
         pdf.setTextColor(...colors.gray);
