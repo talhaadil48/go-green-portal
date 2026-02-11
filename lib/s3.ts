@@ -1,5 +1,8 @@
 // lib/s3.ts
 import AWS from "aws-sdk";
+import { v4 as uuidv4 } from "uuid";
+
+// Generate key (folder + unique filename)
 
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID, 
@@ -11,11 +14,10 @@ export async function uploadToS3(file: File, claimId: string): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Generate key (folder + filename)
-  const timestamp = Date.now();
-  const fileName = `${file.name.split(".")[0]}-${timestamp}.${file.name.split(".").pop()}`;
-  const key = `accident-claims/${claimId}/${fileName}`;
-
+ const fileExtension = file.name.split(".").pop();
+const uniqueId = uuidv4(); // generates a unique ID
+const fileName = `${file.name.split(".")[0]}-${uniqueId}.${fileExtension}`;
+const key = `accident-claims/${claimId}/${fileName}`;
   const params = {
     Bucket: process.env.AWS_S3_BUCKET_NAME!,
     Key: key,
