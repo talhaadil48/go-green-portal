@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "aws-sdk": "^2.1693.0",
     "axios": "^1.13.4",
     "cloudinary": "^2.9.0",
     "framer-motion": "^12.29.2",
