@@ -221,6 +221,7 @@ Website: www.gogreenhire.co.uk`;
       try {
         pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
       } catch (e) {
+        console.log(e)
         pdf.setTextColor(...colors.gray);
         pdf.setFontSize(7);
         pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
