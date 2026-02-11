@@ -12,14 +12,31 @@ export async function POST(req: NextRequest) {
   try {
     const fullData = await req.json();
 
-    const uploadFieldToS3 = async (dataUrl: string | null, fieldName: string) => {
-      if (!dataUrl) return "";
+    const uploadFieldToS3 = async (
+      dataUrl: string | null,
+      fieldName: string,
+    ) => {
+      if (!dataUrl || dataUrl === "") {
+        return "";
+      }
+
+      // ✅ If already an S3 URL → don't touch it
+      if (dataUrl.startsWith("http")) {
+        return dataUrl;
+      }
+
+      // ✅ Only upload if it's base64
+      if (!dataUrl.startsWith("data:")) {
+        return dataUrl;
+      }
 
       try {
         const buffer = base64ToBuffer(dataUrl);
 
         // Create a fake File object for uploadToS3
-        const file = new File([buffer], `${fieldName}.png`, { type: "image/png" });
+        const file = new File([buffer], `${fieldName}.png`, {
+          type: "image/png",
+        });
 
         // Use some ID from the data or a default
         const claimId = fullData.id || "general";
@@ -36,7 +53,7 @@ export async function POST(req: NextRequest) {
     if (fullData.cancellation_signature) {
       fullData.cancellation_signature = await uploadFieldToS3(
         fullData.cancellation_signature,
-        "cancellation_signature"
+        "cancellation_signature",
       );
     }
 
@@ -60,20 +77,26 @@ export async function POST(req: NextRequest) {
     if (!externalResponse.ok) {
       const errorText = await externalResponse.text();
       console.error("External API error:", externalResponse.status, errorText);
-      throw new Error(`External backend failed: ${externalResponse.status} - ${errorText}`);
+      throw new Error(
+        `External backend failed: ${externalResponse.status} - ${errorText}`,
+      );
     }
 
     const externalResult = await externalResponse.json();
 
     return NextResponse.json(
-      { success: true, message: "Cancellation notice submitted", data: externalResult },
-      { status: 200 }
+      {
+        success: true,
+        message: "Cancellation notice submitted",
+        data: externalResult,
+      },
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error in /api/submit-cancellation-notice:", error);
     return NextResponse.json(
       { success: false, message: "Server error during submission" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

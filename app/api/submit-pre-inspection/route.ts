@@ -12,14 +12,31 @@ export async function POST(req: NextRequest) {
     const fullData = await req.json();
 
     // Helper to upload a single field to S3
-    const uploadFieldToS3 = async (dataUrl: string | null, fieldName: string) => {
-      if (!dataUrl) return "";
+    const uploadFieldToS3 = async (
+      dataUrl: string | null,
+      fieldName: string,
+    ) => {
+      if (!dataUrl || dataUrl === "") {
+        return "";
+      }
+
+      // ✅ If already an S3 URL → don't touch it
+      if (dataUrl.startsWith("http")) {
+        return dataUrl;
+      }
+
+      // ✅ Only upload if it's base64
+      if (!dataUrl.startsWith("data:")) {
+        return dataUrl;
+      }
 
       try {
         const buffer = base64ToBuffer(dataUrl);
 
         // Create a File object for uploadToS3
-        const file = new File([buffer], `${fieldName}.png`, { type: "image/png" });
+        const file = new File([buffer], `${fieldName}.png`, {
+          type: "image/png",
+        });
 
         // Use ID from fullData or fallback
         const claimId = fullData.id || "general";
@@ -34,16 +51,28 @@ export async function POST(req: NextRequest) {
 
     // Upload images to S3
     if (fullData.customer_signature) {
-      fullData.customer_signature = await uploadFieldToS3(fullData.customer_signature, "customer_signature");
+      fullData.customer_signature = await uploadFieldToS3(
+        fullData.customer_signature,
+        "customer_signature",
+      );
     }
     if (fullData.detailer_signature) {
-      fullData.detailer_signature = await uploadFieldToS3(fullData.detailer_signature, "detailer_signature");
+      fullData.detailer_signature = await uploadFieldToS3(
+        fullData.detailer_signature,
+        "detailer_signature",
+      );
     }
     if (fullData.annotated_vehicle_image) {
-      fullData.annotated_vehicle_image = await uploadFieldToS3(fullData.annotated_vehicle_image, "annotated_vehicle_image");
+      fullData.annotated_vehicle_image = await uploadFieldToS3(
+        fullData.annotated_vehicle_image,
+        "annotated_vehicle_image",
+      );
     }
     if (fullData.base_vehicle_image) {
-      fullData.base_vehicle_image = await uploadFieldToS3(fullData.base_vehicle_image, "base_vehicle_image");
+      fullData.base_vehicle_image = await uploadFieldToS3(
+        fullData.base_vehicle_image,
+        "base_vehicle_image",
+      );
     }
 
     // Normalize date fields
@@ -64,7 +93,9 @@ export async function POST(req: NextRequest) {
     if (!externalResponse.ok) {
       const errorText = await externalResponse.text();
       console.error("External API error:", externalResponse.status, errorText);
-      throw new Error(`External backend failed: ${externalResponse.status} - ${errorText}`);
+      throw new Error(
+        `External backend failed: ${externalResponse.status} - ${errorText}`,
+      );
     }
 
     const externalResult = await externalResponse.json();
@@ -75,13 +106,17 @@ export async function POST(req: NextRequest) {
         message: "Pre-inspection checklist submitted successfully",
         data: externalResult, // optional: backend response
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error: any) {
     console.error("Error in /api/submit-pre-inspection:", error);
     return NextResponse.json(
-      { success: false, message: "Server error during submission", error: error.message },
-      { status: 500 }
+      {
+        success: false,
+        message: "Server error during submission",
+        error: error.message,
+      },
+      { status: 500 },
     );
   }
 }

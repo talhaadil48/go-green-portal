@@ -11,14 +11,31 @@ export async function POST(req: NextRequest) {
   try {
     const fullData = await req.json();
 
-    const uploadFieldToS3 = async (dataUrl: string | null, fieldName: string) => {
-      if (!dataUrl) return "";
+    const uploadFieldToS3 = async (
+      dataUrl: string | null,
+      fieldName: string,
+    ) => {
+      if (!dataUrl || dataUrl === "") {
+        return "";
+      }
+
+      // ✅ If already an S3 URL → don't touch it
+      if (dataUrl.startsWith("http")) {
+        return dataUrl;
+      }
+
+      // ✅ Only upload if it's base64
+      if (!dataUrl.startsWith("data:")) {
+        return dataUrl;
+      }
 
       try {
         const buffer = base64ToBuffer(dataUrl);
 
         // Create a fake File object for uploadToS3
-        const file = new File([buffer], `${fieldName}.png`, { type: "image/png" });
+        const file = new File([buffer], `${fieldName}.png`, {
+          type: "image/png",
+        });
 
         // Use claim ID or default
         const claimId = fullData.claim_id || "general";
@@ -33,16 +50,28 @@ export async function POST(req: NextRequest) {
 
     // Upload images to S3
     if (fullData.client_signature) {
-      fullData.client_signature = await uploadFieldToS3(fullData.client_signature, "client_signature");
+      fullData.client_signature = await uploadFieldToS3(
+        fullData.client_signature,
+        "client_signature",
+      );
     }
     if (fullData.circumstance_drawing) {
-      fullData.circumstance_drawing = await uploadFieldToS3(fullData.circumstance_drawing, "circumstance_drawing");
+      fullData.circumstance_drawing = await uploadFieldToS3(
+        fullData.circumstance_drawing,
+        "circumstance_drawing",
+      );
     }
     if (fullData.direction_before_drawing) {
-      fullData.direction_before_drawing = await uploadFieldToS3(fullData.direction_before_drawing, "direction_before_drawing");
+      fullData.direction_before_drawing = await uploadFieldToS3(
+        fullData.direction_before_drawing,
+        "direction_before_drawing",
+      );
     }
     if (fullData.direction_after_drawing) {
-      fullData.direction_after_drawing = await uploadFieldToS3(fullData.direction_after_drawing, "direction_after_drawing");
+      fullData.direction_after_drawing = await uploadFieldToS3(
+        fullData.direction_after_drawing,
+        "direction_after_drawing",
+      );
     }
 
     // Normalize date fields
@@ -75,7 +104,9 @@ export async function POST(req: NextRequest) {
     if (!externalResponse.ok) {
       const errorText = await externalResponse.text();
       console.error("External API error:", externalResponse.status, errorText);
-      throw new Error(`External backend failed: ${externalResponse.status} - ${errorText}`);
+      throw new Error(
+        `External backend failed: ${externalResponse.status} - ${errorText}`,
+      );
     }
 
     const externalResult = await externalResponse.json();
@@ -87,13 +118,13 @@ export async function POST(req: NextRequest) {
         claim_id: externalResult.claim_id || null,
         data: externalResult,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error: any) {
     console.error("Error processing submission:", error);
     return NextResponse.json(
       { success: false, message: "Submission failed", error: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
