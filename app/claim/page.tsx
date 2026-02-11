@@ -512,7 +512,7 @@ export default function ClaimsPage() {
                                     {claims.map((claim) => (
                                         <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
                                             <td className="px-6 py-4 font-medium text-green-800">{claim.claim_id}</td>
-                                            <td className="px-6 py-4 text-gray-700">{claim.claimant_name || "—"}</td>
+                                            <td className="px-6 py-4 text-gray-700">{(claim.claimant_name || "—").toUpperCase()}</td>
                                             <td className="px-6 py-4 text-gray-700">
                                                 {claim.claim_type
                                                     ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)

@@ -221,7 +221,7 @@ Website: www.gogreenhire.co.uk`;
       try {
         pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
       } catch (e) {
-        console.log(e)
+        console.log(e);
         pdf.setTextColor(...colors.gray);
         pdf.setFontSize(7);
         pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
@@ -685,7 +685,7 @@ async function generatePreInspectionPDF(
   await addSignature(
     "Detailer Signature",
     formData.signatures?.detailer || null,
-    margin + sigWidth + 10 ,
+    margin + sigWidth + 10,
     yPos - 23,
     sigWidth,
   );
@@ -1734,7 +1734,7 @@ async function generateRentalPDF(
 
   if (sigs.liability_signature) {
     y = await addSignature(
-      "Hirer – Liability",
+      "Liability Signature",
       sigs.liability_signature,
       margin,
       y,
