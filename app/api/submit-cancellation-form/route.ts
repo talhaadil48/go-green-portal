@@ -1,51 +1,58 @@
+// app/api/submit-cancellation-notice/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import cloudinary from "cloudinary";
+import { uploadToS3 } from "@/lib/s3";
 
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+function base64ToBuffer(base64: string) {
+  // Remove the "data:image/png;base64," part if present
+  const base64Data = base64.replace(/^data:.*;base64,/, "");
+  return Buffer.from(base64Data, "base64");
+}
 
 export async function POST(req: NextRequest) {
   try {
     const fullData = await req.json();
 
-    // Upload signature if present
-    if (fullData.cancellation_signature) {
+    const uploadFieldToS3 = async (dataUrl: string | null, fieldName: string) => {
+      if (!dataUrl) return "";
+
       try {
-        const result = await cloudinary.v2.uploader.upload(
-          fullData.cancellation_signature,
-          {
-            folder: "cancellation-notices",
-            public_id: `cancellation-signature-${Date.now()}`,
-            resource_type: "image",
-          },
-        );
-        fullData.cancellation_signature = result.secure_url;
-      } catch (uploadErr) {
-        console.error("Cloudinary upload failed:", uploadErr);
-        // We continue anyway – signature URL will remain data URL or empty
+        const buffer = base64ToBuffer(dataUrl);
+
+        // Create a fake File object for uploadToS3
+        const file = new File([buffer], `${fieldName}.png`, { type: "image/png" });
+
+        // Use some ID from the data or a default
+        const claimId = fullData.id || "general";
+
+        const s3Url = await uploadToS3(file, claimId);
+        return s3Url;
+      } catch (err) {
+        console.error(`S3 upload failed for ${fieldName}:`, err);
+        return ""; // continue even if upload fails
       }
+    };
+
+    // Upload cancellation signature if present
+    if (fullData.cancellation_signature) {
+      fullData.cancellation_signature = await uploadFieldToS3(
+        fullData.cancellation_signature,
+        "cancellation_signature"
+      );
     }
 
+    // Handle empty date fields
     const DATE_FIELDS = ["cancellation_date"];
     DATE_FIELDS.forEach((field) => {
-      if (fullData[field] === "") {
-        fullData[field] = null;
-      }
+      if (fullData[field] === "") fullData[field] = null;
     });
 
-    // === NEW: Forward to your external backend ===
-    const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/cancellation-forms`; // adjust path if needed
+    // Forward to external backend
+    const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/cancellation-forms`;
 
     const externalResponse = await fetch(EXTERNAL_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // Optional: forward authorization if your backend needs it
-        // 'Authorization': req.headers.get('authorization') || '',
       },
       body: JSON.stringify(fullData),
     });
@@ -53,24 +60,20 @@ export async function POST(req: NextRequest) {
     if (!externalResponse.ok) {
       const errorText = await externalResponse.text();
       console.error("External API error:", externalResponse.status, errorText);
-      throw new Error(
-        `External backend failed: ${externalResponse.status} - ${errorText}`,
-      );
+      throw new Error(`External backend failed: ${externalResponse.status} - ${errorText}`);
     }
 
     const externalResult = await externalResponse.json();
 
-    // Optional: log the final processed JSON (you already had this)
- 
     return NextResponse.json(
-      { success: true, message: "Cancellation notice submitted" },
-      { status: 200 },
+      { success: true, message: "Cancellation notice submitted", data: externalResult },
+      { status: 200 }
     );
   } catch (error) {
     console.error("Error in /api/submit-cancellation-notice:", error);
     return NextResponse.json(
       { success: false, message: "Server error during submission" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

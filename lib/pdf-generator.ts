@@ -673,7 +673,7 @@ async function generatePreInspectionPDF(
   yPos = checkNewPage(yPos, 45);
   yPos = addSectionHeader("SIGNATURES", yPos);
 
-  const sigWidth = (pageWidth - margin * 2 - 10) / 2;
+  const sigWidth = ((pageWidth - margin * 2 - 10) / 2) * 0.7;
   yPos = await addSignature(
     "Customer Signature",
     formData.signatures?.customer || null,
@@ -684,7 +684,7 @@ async function generatePreInspectionPDF(
   await addSignature(
     "Detailer Signature",
     formData.signatures?.detailer || null,
-    margin + sigWidth + 10,
+    margin + sigWidth + 10 ,
     yPos - 23,
     sigWidth,
   );
@@ -710,7 +710,7 @@ async function generateCancellationPDF(
   pdf.setFillColor(249, 250, 251);
   pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 35, 2, 2, "F");
   pdf.setTextColor(...colors.darkText);
-  pdf.setFontSize(10);
+  pdf.setFontSize(8);
   pdf.text(
     [
       "Derby Turn, Building 1",
@@ -768,7 +768,7 @@ async function generateCancellationPDF(
     formData.signatures?.cancellation_signature || null,
     margin,
     yPos,
-    pageWidth - margin * 2,
+    (pageWidth - margin * 2) * 0.3,
   );
 
   return yPos;
@@ -1388,7 +1388,7 @@ async function generateRentalPDF(
         sigs.hirer_signature_insurance,
         margin,
         y,
-        half,
+        half * 0.7,
       );
     }
 
@@ -1550,7 +1550,7 @@ async function generateRentalPDF(
       sigs.declaration_signature,
       margin,
       y,
-      fullWidth,
+      fullWidth * 0.3,
     );
   }
   y += 4;
@@ -1737,7 +1737,7 @@ async function generateRentalPDF(
       sigs.liability_signature,
       margin,
       y,
-      fullWidth,
+      fullWidth * 0.3,
     );
   }
 
@@ -2003,14 +2003,23 @@ async function generateClaimPDF(
   yPos = addSectionHeader("ACCIDENT DETAILS", yPos);
 
   // Date, Time, Location (compact fields)
-  addField("Date", formatDate(data.accident_date), margin, yPos, colWidth);
-  addField("Time", data.accident_time, margin + colWidth, yPos, colWidth);
+  const dateTimeWidth = colWidth / 2; // half width for Date and Time
+  const locationWidth = colWidth * 2; // double width for Location
+
+  addField("Date", formatDate(data.accident_date), margin, yPos, dateTimeWidth);
+  addField(
+    "Time",
+    data.accident_time,
+    margin + dateTimeWidth,
+    yPos,
+    dateTimeWidth,
+  );
   addField(
     "Location",
     data.accident_location,
-    margin + colWidth * 2,
+    margin + dateTimeWidth * 2, // start after Date + Time
     yPos,
-    colWidth,
+    locationWidth,
   );
   yPos += 10;
 
@@ -2210,12 +2219,14 @@ async function generateClaimPDF(
 
   // Signature
   yPos = addSectionHeader("SIGNATURE", yPos);
+  const signatureWidth = (pageWidth - margin * 2) * 0.3; // 40% of full width
+
   yPos = await addSignature(
     "Client Signature",
     formData.signatures?.client || null,
     margin,
     yPos,
-    pageWidth - margin * 2,
+    signatureWidth,
   );
 
   return yPos;
