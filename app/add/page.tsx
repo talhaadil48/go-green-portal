@@ -49,6 +49,7 @@ export default function Page() {
       <button onClick={generatePDF}>
         Generate PDF
       </button>
+      <img src="https://gogreen11.s3.amazonaws.com/accident-claims/00000/client_signature-88bf2ae1-ec5c-4629-8eae-01a23d9cc294.png" alt="Signature" className="h-100 w-100" />
     </div>
   );
 }
