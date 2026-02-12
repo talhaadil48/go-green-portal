@@ -6,7 +6,7 @@ export default function Page() {
   const generatePDF = async () => {
     try {
       const imageUrl =
-        "https://gogreen11.s3.amazonaws.com/accident-claims/00000/client_signature-88bf2ae1-ec5c-4629-8eae-01a23d9cc294.png";
+        "https://gogreenstorage111.s3.amazonaws.com/accident-claims/00000/client_signature-2374b942-0ea6-4b4f-b8bb-33b53455125c.png";
 
       // 1️⃣ Fetch image
       const response = await fetch(imageUrl);
@@ -49,7 +49,7 @@ export default function Page() {
       <button onClick={generatePDF}>
         Generate PDF
       </button>
-      <img src="https://gogreen11.s3.amazonaws.com/accident-claims/00000/client_signature-88bf2ae1-ec5c-4629-8eae-01a23d9cc294.png" alt="Signature" className="h-100 w-100" />
+      <img src="https://gogreenstorage111.s3.amazonaws.com/accident-claims/00000/client_signature-2374b942-0ea6-4b4f-b8bb-33b53455125c.png" alt="Signature" className="h-100 w-100" />
     </div>
   );
 }
