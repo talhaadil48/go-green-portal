@@ -5,11 +5,11 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token')?.value
   const pathname = request.nextUrl.pathname
 
-  // Only landing page is public
-  const isPublicPath = pathname === '/'
+  // Only protect /claim* and /recent* routes
+  const isProtectedPath = pathname.startsWith('/claim') || pathname.startsWith('/recent')
 
-  // If not logged in and trying to access any page other than landing → redirect to landing
-  if (!accessToken && !isPublicPath) {
+  // If trying to access protected route without accessToken → redirect to landing
+  if (isProtectedPath && !accessToken) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
@@ -19,12 +19,9 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * - api routes
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico
+     * Only run middleware for /claim* and /recent* routes
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/claim/:path*',
+    '/recent/:path*',
   ],
 }

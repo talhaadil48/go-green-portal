@@ -448,7 +448,10 @@ export default function ClaimsPage() {
                     </div>
                 </div>
 
-
+                {/* Claims Counter */}
+                <div className="mb-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
+                    Showing <span className="font-bold text-green-800">{claims.length}</span> of <span className="font-bold text-green-800">{allClaims.length}</span> claims
+                </div>
 
                 {/* Table */}
                 {loading ? (
