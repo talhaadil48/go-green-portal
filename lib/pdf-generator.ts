@@ -200,49 +200,38 @@ Website: www.gogreenhire.co.uk`;
   };
 
   const addSignature = async (
-    label: string,
-    signatureData: string | null,
-    x: number,
-    y: number,
-    width: number,
-  ): Promise<number> => {
-    // Label
-    pdf.setTextColor(...colors.gray);
-    pdf.setFontSize(6);
-    pdf.text(label, x, y + 1);
+  label: string,
+  signatureData: string | null,
+  x: number,
+  y: number,
+  width: number,
+): Promise<number> => {
 
-    // Signature area — smaller height
-    pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.4);
-    pdf.setFillColor(...colors.white);
-    pdf.roundedRect(x, y + 2.5, width, 18, 2, 2, "FD");
+  // Label
+  pdf.setTextColor(...colors.gray);
+  pdf.setFontSize(6);
+  pdf.text(label, x, y + 1);
 
-    if (signatureData) {
-      try {
-        // Fetch the image from remote URL
-        const response = await fetch(signatureData, { mode: "cors" });
-        const blob = await response.blob();
+  // Signature box
+  pdf.setDrawColor(...colors.primary);
+  pdf.setLineWidth(0.4);
+  pdf.setFillColor(...colors.white);
+  pdf.roundedRect(x, y + 2.5, width, 18, 2, 2, "FD");
 
-        // Convert blob to base64
-        const reader = new FileReader();
-        reader.onloadend = function () {
-          const base64data = reader.result as string; // "data:image/png;base64,..."
-
-          // Add the image to PDF
-          pdf.addImage(base64data, "PNG", x + 1.5, y + 4, width - 3, 15);
-        };
-        reader.readAsDataURL(blob);
-      } catch (e) {
-        console.log(e);
-        pdf.setTextColor(...colors.gray);
-        pdf.setFontSize(7);
-        pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
-      }
+  if (signatureData) {
+    try {
+      // Directly pass URL
+      pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
+    } catch (e) {
+      console.log(e);
+      pdf.setTextColor(...colors.gray);
+      pdf.setFontSize(7);
+      pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
     }
+  }
 
-    return y + 23; // ← much smaller
-  };
-
+  return y + 23;
+};
   const addImage = async (
     label: string,
     imageData: string | null,
