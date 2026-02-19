@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { useRouter } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
 
 
@@ -45,6 +46,7 @@ export default function ClaimsPage() {
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
     // Sorting
     const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -498,7 +500,7 @@ export default function ClaimsPage() {
                             </thead>
                             <tbody className="divide-y divide-green-50">
                                 {claims.map((claim) => (
-                                    <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                    <tr key={claim.claim_id} className="hover:bg-green-200/50 transition-colors">
                                         <td className="px-3 py-1 font-medium text-green-800">{claim.claim_id}</td>
                                         <td className="px-3 py-1 text-gray-700">{(claim.claimant_name || "—").toUpperCase()}</td>
                                         <td className="px-3 py-1 text-gray-700">
