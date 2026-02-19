@@ -3,6 +3,8 @@
 import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
+import { Eye, Trash2 } from "lucide-react";
+
 
 interface Claim {
     claim_id: string;
@@ -29,7 +31,7 @@ type SortDirection = "asc" | "desc" | null;
 
 const COUNCIL_OPTIONS = [
     { value: "", label: "All Councils" },
-     {value : "None" , label : "None"},
+    { value: "None", label: "None" },
     { value: "Wolverhampton", label: "Wolverhampton" },
     { value: "East Staffordshire", label: "East Staffordshire" },
     { value: "South Derbyshire", label: "South Derbyshire" },
@@ -467,96 +469,62 @@ export default function ClaimsPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-green-100">
-                                <thead className="bg-green-50/70">
-                                    <tr>
-                                        <th
-                                            onClick={() => handleSort("claim_id")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Claim ID {getSortArrow("claim_id")}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort("claimant_name")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Claimant {getSortArrow("claimant_name")}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort("claim_type")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Type {getSortArrow("claim_type")}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort("council")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Council {getSortArrow("council")}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort("claim_start_date")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Start Date {getSortArrow("claim_start_date")}
-                                        </th>
-                                        <th
-                                            onClick={() => handleSort("invoice_sent")}
-                                            className="px-6 py-4 text-left text-sm font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
-                                        >
-                                            Invoice {getSortArrow("invoice_sent")}
-                                        </th>
-                                        <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">Actions</th>
+
+                <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-green-100 text-sm">
+                            <thead className="bg-green-50/70">
+                                <tr>
+                                    <th onClick={() => handleSort("claim_id")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Claim ID {getSortArrow("claim_id")}
+                                    </th>
+                                    <th onClick={() => handleSort("claimant_name")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Claimant {getSortArrow("claimant_name")}
+                                    </th>
+                                    <th onClick={() => handleSort("claim_type")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Type {getSortArrow("claim_type")}
+                                    </th>
+                                    <th onClick={() => handleSort("council")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Council {getSortArrow("council")}
+                                    </th>
+                                    <th onClick={() => handleSort("claim_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Start Date {getSortArrow("claim_start_date")}
+                                    </th>
+                                    <th onClick={() => handleSort("invoice_sent")} className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50">
+                                        Invoice {getSortArrow("invoice_sent")}
+                                    </th>
+                                    <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-green-50">
+                                {claims.map((claim) => (
+                                    <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                        <td className="px-3 py-1 font-medium text-green-800">{claim.claim_id}</td>
+                                        <td className="px-3 py-1 text-gray-700">{(claim.claimant_name || "—").toUpperCase()}</td>
+                                        <td className="px-3 py-1 text-gray-700">
+                                            {claim.claim_type ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1) : "—"}
+                                        </td>
+                                        <td className="px-3 py-1 text-gray-700">{claim.council || "—"}</td>
+                                        <td className="px-3 py-1 text-gray-700 whitespace-nowrap">{formatDate(claim.claim_start_date)}</td>
+                                        <td className="px-3 py-1 text-gray-700 whitespace-nowrap">
+                                            {claim.invoice_datetime
+                                                ? `${new Date(claim.invoice_datetime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} ${claim.info || "No Info"}`
+                                                : "Not Sent"}
+                                        </td>
+                                        <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
+                                            <button onClick={() => router.push(`/claim/${claim.claim_id}`)} className="p-1 text-green-600 hover:text-green-800 transition rounded">
+                                                <Eye size={16} />
+                                            </button>
+                                            <button onClick={() => handleDelete(claim.claim_id)} className="p-1 text-red-600 hover:text-red-800 transition rounded">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-green-50">
-                                    {claims.map((claim) => (
-                                        <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
-                                            <td className="px-6 py-4 font-medium text-green-800">{claim.claim_id}</td>
-                                            <td className="px-6 py-4 text-gray-700">{(claim.claimant_name || "—").toUpperCase()}</td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {claim.claim_type
-                                                    ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
-                                                    : "—"}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-700">{claim.council || "—"}</td>
-                                            <td className="px-6 py-4 text-gray-700">{formatDate(claim.claim_start_date)}</td>
-                                            <td className="px-6 py-4 text-gray-700">
-                                                {claim.invoice_datetime ? (
-                                                    <>
-                                                        {new Date(claim.invoice_datetime).toLocaleDateString("en-GB", {
-                                                            day: "2-digit",
-                                                            month: "short",
-                                                            year: "numeric",
-                                                        })}<br />
-                                                        {claim.info || "No Info"}
-                                                    </>
-                                                ) : (
-                                                    "Not Sent"
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
-                                                <Link
-                                                    href={`/claim/${claim.claim_id}`}
-                                                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition"
-                                                >
-                                                    View
-                                                </Link>
-                                                <button
-                                                    onClick={() => handleDelete(claim.claim_id)}
-                                                    className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
-                                                >
-                                                    Delete
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
+                </div>
                 )}
             </main>
         </div>
