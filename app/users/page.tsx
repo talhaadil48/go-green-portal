@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
-import { Eye, EyeOff, Trash2, UserPlus, Loader2 } from 'lucide-react'; // ← install lucide-react
+import { Eye, EyeOff, Trash2, UserPlus, Loader2, Key } from 'lucide-react';
 
 interface User {
   id: number;
@@ -15,12 +15,19 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isFetching, setIsFetching] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);           // for create form
+  const [showChangePassword, setShowChangePassword] = useState(false); // for change form
 
+  // Create user form
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   });
+
+  // Change password state
+  const [changingPasswordFor, setChangingPasswordFor] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +54,7 @@ export default function AdminUsersPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setError(null); // clear error on type
+    setError(null);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -63,19 +70,14 @@ export default function AdminUsersPage() {
     try {
       setIsSubmitting(true);
       const body = {
-         
-          username: trimmedUsername,
-          password: formData.password,
-          role: 'moderator',
-        
-      }
-      console.log('Creating user with data:', body);
-      
-      await api.post(
-        '/api/register',
-        body,
-        { headers: { requiresAuth: true } }
-      );
+        username: trimmedUsername,
+        password: formData.password,
+        role: 'moderator',
+      };
+
+      await api.post('/api/register', body, {
+        headers: { requiresAuth: true },
+      });
 
       setFormData({ username: '', password: '' });
       fetchUsers();
@@ -104,6 +106,61 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ────────────────────────────────────────────────
+  //           CHANGE PASSWORD HANDLERS
+  // ────────────────────────────────────────────────
+
+  const startChangePassword = (user: User) => {
+    setChangingPasswordFor(user.id);
+    setNewPassword('');
+    setPasswordError(null);
+    setShowChangePassword(false);
+  };
+
+  const cancelChangePassword = () => {
+    setChangingPasswordFor(null);
+    setNewPassword('');
+    setPasswordError(null);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent, userId: number) => {
+    e.preventDefault();
+    setPasswordError(null);
+
+    if (!newPassword) {
+      setPasswordError('Please enter a new password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      await api.put(
+        '/api/change-password',
+        {
+          username: users.find(u => u.id === userId)?.username,
+          new_password: newPassword,
+        },
+        { headers: { requiresAuth: true } }
+      );
+
+      alert('Password changed successfully!');
+      cancelChangePassword();
+    } catch (err: any) {
+      console.error('Password change failed:', err);
+      setPasswordError(
+        err.response?.data?.detail || 'Failed to change password'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isFetching) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
@@ -117,22 +174,22 @@ export default function AdminUsersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50/30 pb-16 pt-10 px-4 sm:px-6 lg:px-8">
-         <style jsx>{`
+      <style jsx>{`
         input,
         textarea,
         [contenteditable="true"] {
           text-transform: none;
         }
       `}</style>
-      <div className="max-w-6xl mx-auto space-y-10">
 
+      <div className="max-w-6xl mx-auto space-y-10">
         {/* Header */}
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
             Moderator Management
           </h1>
           <p className="mt-3 text-lg text-gray-600">
-            Add, view and remove moderator accounts
+            Add, view, remove and manage moderator accounts
           </p>
         </div>
 
@@ -153,7 +210,6 @@ export default function AdminUsersPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-              {/* Username */}
               <div className="relative">
                 <input
                   type="text"
@@ -174,7 +230,6 @@ export default function AdminUsersPage() {
                 </label>
               </div>
 
-              {/* Password with toggle */}
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -238,9 +293,6 @@ export default function AdminUsersPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Username
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -257,9 +309,6 @@ export default function AdminUsersPage() {
                       key={user.id}
                       className="hover:bg-emerald-50/40 transition-colors duration-150"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.id}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {user.username}
                       </td>
@@ -269,13 +318,75 @@ export default function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          onClick={() => handleDeleteUser(user.id, user.username)}
-                          className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 font-medium transition"
-                        >
-                          <Trash2 size={16} />
-                          Delete
-                        </button>
+                        {changingPasswordFor === user.id ? (
+                          <form
+                            onSubmit={(e) => handleChangePassword(e, user.id)}
+                            className="flex items-center gap-3 justify-end flex-wrap"
+                          >
+                            <div className="relative min-w-[220px]">
+                              <input
+                                type={showChangePassword ? 'text' : 'password'}
+                                value={newPassword}
+                                onChange={(e) => {
+                                  setNewPassword(e.target.value);
+                                  setPasswordError(null);
+                                }}
+                                placeholder="New password"
+                                className="w-full px-4 py-2.5 pr-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm transition"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowChangePassword(!showChangePassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                              >
+                                {showChangePassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition disabled:opacity-60 flex items-center gap-1.5"
+                              >
+                                {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelChangePassword}
+                                className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 transition"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+
+                            {passwordError && (
+                              <div className="w-full text-right text-red-600 text-xs mt-1.5">
+                                {passwordError}
+                              </div>
+                            )}
+                          </form>
+                        ) : (
+                          <div className="flex items-center justify-end gap-5">
+                            <button
+                              onClick={() => startChangePassword(user)}
+                              className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-medium transition"
+                            >
+                              <Key size={16} />
+                              Change Password
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteUser(user.id, user.username)}
+                              className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 font-medium transition"
+                            >
+                              <Trash2 size={16} />
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
