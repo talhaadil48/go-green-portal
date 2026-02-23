@@ -2198,7 +2198,7 @@ async function generateClaimPDF(
 
   // Direction Drawings
   const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
-  const drawingHeight = 55;
+  const drawingHeight = 36;
 
   if (
     formData.images?.direction_before_drawing ||
