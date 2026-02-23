@@ -157,7 +157,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
               <div>
                 <p className="text-gray-500">Claim ID / Customer ID</p>
-                <p className="font-medium text-gray-900 mt-1">{claimData.claim_id || "—"}</p>
+                <p className="font-medium text-gray-900 mt-1">{claimData.claim_id?.toUpperCase() || "—"}</p>
               </div>
 
               <div>

@@ -1031,10 +1031,10 @@ async function generateRentalPDF(
 
   pdf.setFontSize(6.5);
   pdf.setTextColor(107, 114, 128);
-  pdf.text(`Claim ID: ${formData.claimId || "—"}`, margin, y);
+  pdf.text(`Claim ID: ${formData.claimId?.toUpperCase() || "—"}`, margin, y);
 
   y += 4;
-  pdf.text(`Invoice ID: ${formData.claimId || "—"}`, margin, y);
+  pdf.text(`Invoice ID: ${formData.claimId?.toUpperCase() || "—"}`, margin, y);
   const generatedDate = new Date();
   const formattedDate = generatedDate.toLocaleDateString("en-GB");
   y += 4;
