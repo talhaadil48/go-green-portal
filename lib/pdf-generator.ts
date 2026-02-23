@@ -5,11 +5,11 @@ export interface PDFFormData {
   title: string;
   subtitle?: string;
   formType:
-    | "pre-inspection"
-    | "cancellation"
-    | "storage-recovery"
-    | "rental-agreement"
-    | "claim";
+  | "pre-inspection"
+  | "cancellation"
+  | "storage-recovery"
+  | "rental-agreement"
+  | "claim";
   claimId: string;
   data: Record<string, any>;
   signatures?: Record<string, string | null>;
@@ -198,89 +198,122 @@ Website: www.gogreenhire.co.uk`;
     pdf.setFont("helvetica", "normal");
     pdf.text(label, x + 4.2, y);
   };
+  const fetchBase64 = async (url: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/image-to-base64?url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      return data.base64 || null;
+    } catch (err) {
+      console.error("Failed to fetch image base64:", err);
+      return null;
+    }
+  };
 
   const addSignature = async (
-  label: string,
-  signatureData: string | null,
-  x: number,
-  y: number,
-  width: number,
-): Promise<number> => {
-
-  // Label
-  pdf.setTextColor(...colors.gray);
-  pdf.setFontSize(6);
-  pdf.text(label, x, y + 1);
-
-  // Signature box
-  pdf.setDrawColor(...colors.primary);
-  pdf.setLineWidth(0.4);
-  pdf.setFillColor(...colors.white);
-  pdf.roundedRect(x, y + 2.5, width, 18, 2, 2, "FD");
-
-  if (signatureData) {
-    try {
-      // Directly pass URL
-      pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
-    } catch (e) {
-      console.log(e);
-      pdf.setTextColor(...colors.gray);
-      pdf.setFontSize(7);
-      pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
-    }
-  }
-
-  return y + 23;
-};
-  const addImage = async (
     label: string,
-    imageData: string | null,
+    signatureUrl: string | null,
     x: number,
     y: number,
     width: number,
-    height: number = 28, // ← you can still control this, but default smaller
   ): Promise<number> => {
-    // Label
+
+    pdf.setTextColor(...colors.gray);
+    pdf.setFontSize(6);
+    pdf.text(label, x, y + 1);
+
+    pdf.setDrawColor(...colors.primary);
+    pdf.setLineWidth(0.4);
+    pdf.setFillColor(...colors.white);
+    pdf.roundedRect(x, y + 2.5, width, 18, 2, 2, "FD");
+
+    if (signatureUrl) {
+      const signatureData = await fetchBase64(signatureUrl);
+      if (signatureData) {
+        try {
+          pdf.addImage(signatureData, "PNG", x + 1.5, y + 4, width - 3, 15);
+        } catch {
+          pdf.setTextColor(...colors.gray);
+          pdf.setFontSize(7);
+          pdf.text("[Signature]", x + width / 2, y + 11, { align: "center" });
+        }
+      }
+    }
+
+    return y + 23;
+  };
+
+  const fetchAndCompress = async (
+    url: string,
+    maxWidth = 800,
+    quality = 0.7
+  ): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/image-to-base64?url=${encodeURIComponent(url)}`);
+      const { base64 } = await res.json();
+      if (!base64) return null;
+
+      return await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxWidth / img.width);
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = base64;
+      });
+    } catch (err) {
+      console.error("Image fetch/compress failed:", err);
+      return null;
+    }
+  };
+
+  const addImage = async (
+    label: string,
+    imageUrl: string | null,
+    x: number,
+    y: number,
+    width: number,
+    height: number = 28
+  ): Promise<number> => {
     pdf.setTextColor(...colors.gray);
     pdf.setFontSize(6.5);
     pdf.setFont("helvetica", "bold");
     pdf.text(label, x, y + 1);
 
-    // Image container
     pdf.setDrawColor(...colors.primary);
     pdf.setLineWidth(0.4);
     pdf.setFillColor(249, 250, 251);
     pdf.roundedRect(x, y + 2.5, width, height, 2, 2, "FD");
 
-    if (imageData) {
-      try {
-        const format = imageData.includes("image/png") ? "PNG" : "JPEG";
-        pdf.addImage(
-          imageData,
-          format,
-          x + 1.5,
-          y + 3.5,
-          width - 3,
-          height - 5,
-        );
-      } catch (e) {
+    if (imageUrl) {
+      const imageData = await fetchAndCompress(imageUrl, 800, 0.7);
+      if (imageData) {
+        try {
+          pdf.addImage(imageData, "JPEG", x + 1.5, y + 3.5, width - 3, height - 5);
+        } catch {
+          pdf.setTextColor(...colors.gray);
+          pdf.setFontSize(7);
+          pdf.setFont("helvetica", "italic");
+          pdf.text("[Image]", x + width / 2, y + height / 2 + 2, { align: "center" });
+        }
+      } else {
         pdf.setTextColor(...colors.gray);
         pdf.setFontSize(7);
         pdf.setFont("helvetica", "italic");
-        pdf.text("[Image]", x + width / 2, y + height / 2 + 2, {
-          align: "center",
-        });
+        pdf.text("No image", x + width / 2, y + height / 2 + 2, { align: "center" });
       }
     } else {
       pdf.setTextColor(...colors.gray);
       pdf.setFontSize(7);
       pdf.setFont("helvetica", "italic");
-      pdf.text("No image", x + width / 2, y + height / 2 + 2, {
-        align: "center",
-      });
+      pdf.text("No image", x + width / 2, y + height / 2 + 2, { align: "center" });
     }
 
-    return y + height + 6; // ← very compact
+    return y + height + 6;
   };
   const addFooter = (pageNum: number) => {
     const footerY = pageHeight - 15;

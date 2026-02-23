@@ -7,12 +7,12 @@ export default function SignaturePage() {
   const [signatureSrc, setSignatureSrc] = useState("/placeholder.svg");
 
   // Your S3 URL
-  const signatureUrl = "https://gogreen11.s3.amazonaws.com/accident-claims/general/hirer_signature_insurance-c0ca05bb-9986-4b0d-a7ef-be9f2afe0903.png";
+  const signatureUrl = "https://gogreen11.s3.amazonaws.com/accident-claims/tc119/direction_before_drawing-5a46965a-91d6-42cb-96f5-28f7f2940690.png";
 
   useEffect(() => {
     async function checkSignature() {
       try {
-        const res = await fetch(signatureUrl, { method: "HEAD" }); // check if file exists
+        const res = await fetch(signatureUrl); // check if file exists
         if (res.ok) {
           setSignatureSrc(signatureUrl);
         } else {
