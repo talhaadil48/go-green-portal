@@ -96,11 +96,12 @@ export default function ClaimsPage() {
     useEffect(() => {
         let filtered = [...allClaims];
 
-        // Search by claimant name
+        // Search by claimant name or claim_id
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter((claim) =>
-                claim.claimant_name?.toLowerCase().includes(term)
+                claim.claimant_name?.toLowerCase().includes(term) ||
+                claim.claim_id.toLowerCase().includes(term)
             );
         }
 
@@ -134,10 +135,31 @@ export default function ClaimsPage() {
                 let aVal: any = a[sortColumn] ?? "";
                 let bVal: any = b[sortColumn] ?? "";
 
-                // Special handling for dates
-                if (sortColumn === "claim_start_date") {
-                    aVal = aVal ? new Date(aVal).getTime() : -Infinity;
-                    bVal = bVal ? new Date(bVal).getTime() : -Infinity;
+                // Special handling for claim_id: sort by prefix letters then number
+                if (sortColumn === "claim_id") {
+                    const getParts = (id: string) => {
+                        const prefixMatch = id.match(/^[A-Za-z]+/);
+                        const numMatch = id.match(/\d+$/);
+                        return {
+                            prefix: prefixMatch ? prefixMatch[0].toLowerCase() : "",
+                            num: numMatch ? parseInt(numMatch[0]) : 0,
+                        };
+                    };
+                    const aParts = getParts(a.claim_id);
+                    const bParts = getParts(b.claim_id);
+                    let cmp = aParts.prefix.localeCompare(bParts.prefix);
+                    if (cmp === 0) {
+                        cmp = aParts.num - bParts.num;
+                    }
+                    return sortDirection === "asc" ? cmp : -cmp;
+                }
+
+                // Special handling for dates (claim_start_date and invoice_sent)
+                if (sortColumn === "claim_start_date" || sortColumn === "invoice_sent") {
+                    const field = sortColumn === "claim_start_date" ? "claim_start_date" : "invoice_datetime";
+                    const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
+                    aVal = a[field] ? new Date(a[field]).getTime() : sentinel;
+                    bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
                 }
 
                 // String comparison (case-insensitive)
@@ -146,10 +168,9 @@ export default function ClaimsPage() {
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
 
-                // Numeric fallback
-                return sortDirection === "asc"
-                    ? (aVal > bVal ? 1 : aVal < bVal ? -1 : 0)
-                    : (aVal < bVal ? 1 : aVal > bVal ? -1 : 0);
+                // Numeric comparison
+                const comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                return sortDirection === "asc" ? comparison : -comparison;
             });
         }
 
@@ -179,7 +200,7 @@ export default function ClaimsPage() {
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: name === "claim_id" ? value.toUpperCase() : value }));
     };
 
     const handleSubmit = async (e: FormEvent) => {
