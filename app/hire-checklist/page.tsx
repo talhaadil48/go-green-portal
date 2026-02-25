@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, FormEvent, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import Signature from "../components/Signature";
 import ImageDrawEditor, { ImageDrawEditorRef } from "../components/ImageEditor";
 import PDFShareButton from "../components/PDFShareButton";
@@ -29,16 +28,29 @@ interface ChecklistForm {
 }
 
 export default function HireVehicleChecklist() {
-    const searchParams = useSearchParams();
+    // ────────────────────────────────────────────────
+    //  Replace useSearchParams with manual parsing
+    // ────────────────────────────────────────────────
+    const [longClaimId, setLongClaimId] = useState<string>("");
+    const [carIdStr, setCarIdStr] = useState<string>("");
+    const [claimantIdStr, setClaimantIdStr] = useState<string>("");
 
-    const long_claim_id = searchParams.get("long_claim_id") || "";
-    const car_id_str = searchParams.get("car_id") || "";
-    const claimant_id_str = searchParams.get("claimant_id") || "";
+    useEffect(() => {
+        const search = new URLSearchParams(window.location.search);
 
-    const carId = parseInt(car_id_str, 10);
-    const claimantId = parseInt(claimant_id_str, 10);
+        const long = search.get("long_claim_id") || "";
+        const car = search.get("car_id") || "";
+        const claimant = search.get("claimant_id") || "";
 
-    const isValid = !!long_claim_id && !isNaN(carId) && !isNaN(claimantId);
+        setLongClaimId(long);
+        setCarIdStr(car);
+        setClaimantIdStr(claimant);
+    }, []);
+
+    const carId = parseInt(carIdStr, 10);
+    const claimantId = parseInt(claimantIdStr, 10);
+
+    const isValid = !!longClaimId && !isNaN(carId) && !isNaN(claimantId);
 
     const [formData, setFormData] = useState<Record<string, string>>({});
     const [signatures, setSignatures] = useState<Record<string, string | null>>({
@@ -115,11 +127,12 @@ export default function HireVehicleChecklist() {
     useEffect(() => {
         if (isValid) {
             fetchChecklist();
-        } else {
+        } else if (longClaimId || carIdStr || claimantIdStr) {
+            // only show error after we actually tried to read params
             setIsFetching(false);
             setError("Missing required parameters: long_claim_id, car_id, claimant_id");
         }
-    }, [long_claim_id, car_id_str, claimant_id_str]);
+    }, [longClaimId, carIdStr, claimantIdStr, isValid]);
 
     const fetchChecklist = async () => {
         setIsFetching(true);
@@ -127,23 +140,20 @@ export default function HireVehicleChecklist() {
 
         try {
             const res = await api.get(
-                `/api/hire-checklists/${encodeURIComponent(long_claim_id)}/${carId}/${claimantId}`,
+                `/api/hire-checklists/${encodeURIComponent(longClaimId)}/${carId}/${claimantId}`,
                 { headers: { requiresAuth: true } }
             );
 
             const data = res.data;
 
-            // Expecting either one object or null/empty → we take the first one or treat as new
             if (data && typeof data === "object" && !Array.isArray(data)) {
                 loadForm(data as ChecklistForm);
                 setHasExistingRecord(true);
             } else if (Array.isArray(data) && data.length > 0) {
-                // If backend still returns array → we just take the latest one
                 const latest = data[data.length - 1];
                 loadForm(latest);
                 setHasExistingRecord(true);
             } else {
-                // No existing record → new form
                 resetForm();
                 setHasExistingRecord(false);
             }
@@ -221,7 +231,7 @@ export default function HireVehicleChecklist() {
 
         const payload = {
             ...formData,
-            long_claim_id,
+            long_claim_id: longClaimId,
             car_id: carId,
             claimant_id: claimantId,
             customer_signature: signatures.customer || null,
@@ -257,7 +267,7 @@ export default function HireVehicleChecklist() {
         );
     }
 
-    if (!isValid) {
+    if (!isValid && (longClaimId || carIdStr || claimantIdStr)) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-green-50">
                 <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-md">
@@ -287,7 +297,7 @@ export default function HireVehicleChecklist() {
                             formData={{
                                 title: "Hired Vehicle Checklist",
                                 formType: "pre-inspection",
-                                claimId: long_claim_id,
+                                claimId: longClaimId,
                                 data: formData,
                                 signatures: signatures,
                                 images: {
@@ -296,8 +306,6 @@ export default function HireVehicleChecklist() {
                             }}
                         />
                     </div>
-
-                   
 
                     <form onSubmit={handleSubmit} className="space-y-10">
                         {/* Basic Info */}
