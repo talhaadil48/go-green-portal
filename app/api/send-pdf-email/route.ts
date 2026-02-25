@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
     const file     = formData.get('file') as File | null;
     const email    = formData.get('email') as string;
     const subject  = (formData.get('subject') as string) || 'New Document Submission';
-    const formType = (formData.get('formType') as string) || 'document';
+    let formType = (formData.get('formType') as string) || 'document';
     const claimId  = (formData.get('claimId') as string) || 'unknown';
+    if (formType === "pre-inspection") {
+      formType = "Hire Checklist";
+    }
 
     if (!file || !email) {
       return NextResponse.json({ success: false, message: 'Missing required fields: file and email' }, { status: 400 });
@@ -59,8 +62,8 @@ export async function POST(request: NextRequest) {
       replyTo: email,
       subject: `${subject} – ${formType} #${claimId}`,
       text: `A new ${formType} document has been submitted.\n\n` +
-            `From: ${email}\nClaim ID: ${claimId}\nFile: ${fileName}\n` +
-            `Size: ${sizeInKB} KB (${sizeInMB} MB)`,
+            `Claim ID: ${claimId}\nFile: ${fileName}\n`,
+           
       attachments: [
         {
           filename: fileName,

@@ -84,6 +84,13 @@ export default function PDFShareButton({ formData, className = "" }: PDFShareBut
 
     return (
         <div className={`relative ${className}`}>
+            <style jsx>{`
+        input,
+        textarea,
+        [contenteditable="true"] {
+          text-transform: none;
+        }
+      `}</style>
             {/* Share Button */}
             <button
                 type="button"
@@ -247,8 +254,8 @@ export default function PDFShareButton({ formData, className = "" }: PDFShareBut
                                 {message && (
                                     <div
                                         className={`p-3 rounded-xl flex items-center gap-2 ${message.type === "success"
-                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                : "bg-red-50 text-red-700 border border-red-200"
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                            : "bg-red-50 text-red-700 border border-red-200"
                                             }`}
                                     >
                                         {message.type === "success" ? (
