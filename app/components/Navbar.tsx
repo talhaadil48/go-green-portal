@@ -65,7 +65,7 @@ export default function Navbar() {
                   href="/cars"
                   className="text-green-100 hover:text-white transition-colors duration-300 relative group"
                 >
-                  Cars
+                  Vehicles
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-green-400 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link

@@ -1,15 +1,14 @@
 // lib/pdf-generator.ts
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-// Important: make sure to import the logo (Vite/React → ?url, Next.js → import, plain node → fs.readFileSync, etc.)
-// For most modern setups with bundler (Vite / webpack / etc.):
+
 interface LongClaimPDFData {
   claimId: string;
   period: { starting_date: string | null; ending_date: string | null };
   claimCars: any[];                    // from /long-claim/.../cars
   claimantsByCar: Record<number, any[]>; // from /car/.../claimants
   totalDelivery: number;
-  bill: number;
+  bill: number;                        // ← assumed to be the FINAL total (incl. VAT)
 }
 
 const colors = {
@@ -20,6 +19,8 @@ const colors = {
   lightBg: [249, 250, 251] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
 };
+
+const VEHICLE_RATE = 53; // £53 per vehicle — change if needed
 
 export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promise<Buffer> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -47,21 +48,19 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
       reader.readAsDataURL(img);
     });
 
-    // Adjust these values to fit your logo nicely
     const logoWidth = 45;
-    const logoHeight = 18;           // keep aspect ratio in mind
+    const logoHeight = 18;
     const logoX = margin;
     const logoY = 4;
 
     doc.addImage(imgData, "JPEG", logoX, logoY, logoWidth, logoHeight);
   } catch (err) {
     console.warn("Could not load logo", err);
-    // fallback: just skip or draw placeholder rectangle
     doc.setFillColor(...colors.white);
     doc.rect(margin, 4, 28, 18, "F");
   }
 
-  // Company info right-aligned (moved a bit left to give logo space)
+  // Company info right-aligned
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...colors.white);
@@ -78,12 +77,11 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     y += 3;
   });
 
-  // INVOICE title
+  // INVOICE title + Claim ID
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.text("INVOICE", pageWidth / 2, 19, { align: "center" });
 
-  // Claim ID
   doc.setFontSize(9.5);
   doc.text(`Claim ${data.claimId}`, pageWidth / 2, 24, { align: "center" });
 
@@ -123,7 +121,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   doc.setTextColor(...colors.darkText);
   doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 65, headerHeight + 20);
 
-  // ─── Tighter / smaller Excel-style table ────────────────────────────────────
+  // ─── Table ───────────────────────────────────────────────────────────────────
   const tableStartY = headerHeight + 28;
 
   const body: any[] = [];
@@ -144,7 +142,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
           cl.location || "—",
           cl.miles != null ? `${cl.miles}` : "—",
           `£${Number(cl.delivery_charges || 0).toFixed(2)}`,
-          idx === 0 ? `£${data.bill.toFixed(2)}` : "",
+          idx === 0 ? `£${data.bill.toFixed(2)}` : "", // ← kept for now (will be replaced below)
         ]);
       });
     }
@@ -152,12 +150,12 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [["Car", "Model", "Reg", "Claimant", "Dates", "Location", "Miles", "Delivery £"]],
+    head: [["Vehicle", "Model", "Reg", "Claimant", "Dates", "Location", "Miles", "Delivery £"]],
     body,
     theme: "grid",
     styles: {
-      fontSize: 6.5,          // ← smaller font
-      cellPadding: 1.2,       // ← much tighter padding
+      fontSize: 6.5,
+      cellPadding: 1.2,
       lineColor: [215, 215, 215],
       lineWidth: 0.2,
       overflow: "linebreak",
@@ -165,7 +163,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     headStyles: {
       fillColor: colors.primary,
       textColor: colors.white,
-      fontSize: 7.2,          // slightly smaller header too
+      fontSize: 7.2,
       fontStyle: "bold",
       cellPadding: 1.6,
     },
@@ -190,26 +188,66 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
         data.cell.styles.textColor = colors.primaryDark;
       }
     },
-    rowPageBreak: "avoid",   // try to keep claimant groups together
+    rowPageBreak: "avoid",
   });
 
-  // Final total line (in case table is short)
-  const finalY = (doc as any).lastAutoTable.finalY + 9;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...colors.primaryDark);
-  doc.text("Total Amount", pageWidth - 50, finalY);
-  doc.text(`£${data.bill.toFixed(2)}`, pageWidth - 10, finalY, { align: "right" });
+  // ─── Compact Billing Summary ────────────────────────────────────────────────
+  const tableEndY = (doc as any).lastAutoTable.finalY;
 
-  // Tiny footer
-  doc.setFontSize(6.2);
-  doc.setTextColor(...colors.gray);
-  doc.text(
-    `Generated ${new Date().toLocaleString("en-GB")} • Go Green Hire`,
-    pageWidth / 2,
-    doc.internal.pageSize.height - 6,
-    { align: "center" }
-  );
+  // Calculate breakdown (assuming bill = final total incl. VAT)
+  const vehicleCount = data.claimCars.length;
+  const vehicleCharges = vehicleCount * VEHICLE_RATE;
+  const deliveryTotal = data.totalDelivery;               // already provided
+  const subTotal = vehicleCharges + deliveryTotal;
+  const vatAmount = subTotal * 0.20;
+  const grandTotal = subTotal + vatAmount;
+
+  // You can decide which one to show as "Total Amount"
+  // Option A: use calculated grandTotal
+  // Option B: keep using data.bill (if it's guaranteed correct)
+  const displayTotal = data.bill; // ← using input bill for now
+  const billY = tableEndY + 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);  // smaller font
+  doc.setTextColor(...colors.darkText);
+
+  const rightColX = pageWidth - margin;
+  const labelX = pageWidth - 68;
+  const rowSpacing = 4; // less space between rows
+
+  // Row 1
+  doc.text("Vehicles:", labelX, billY);
+  doc.text(`${vehicleCount} × £${VEHICLE_RATE.toFixed(0)}`, rightColX, billY, { align: "right" });
+
+  // Row 2
+  doc.text("Vehicle charges:", labelX, billY + rowSpacing);
+  doc.text(`£${vehicleCharges.toFixed(2)}`, rightColX, billY + rowSpacing, { align: "right" });
+
+  // Row 3
+  doc.text("Delivery charges:", labelX, billY + rowSpacing * 2);
+  doc.text(`£${deliveryTotal.toFixed(2)}`, rightColX, billY + rowSpacing * 2, { align: "right" });
+
+  // Subtotal line
+  doc.setDrawColor(...colors.gray);
+  doc.setLineWidth(0.3);
+  doc.line(labelX - 2, billY + rowSpacing * 2.5, rightColX + 2, billY + rowSpacing * 2.5);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Subtotal:", labelX, billY + rowSpacing * 3.5); // increased a bit from 3 to 3.2
+  doc.text(`£${subTotal.toFixed(2)}`, rightColX, billY + rowSpacing * 3.2, { align: "right" });
+
+  // VAT
+  doc.setFont("helvetica", "normal");
+  doc.text("VAT (20%):", labelX, billY + rowSpacing * 4.5);
+  doc.text(`£${vatAmount.toFixed(2)}`, rightColX, billY + rowSpacing * 4, { align: "right" });
+
+  // Grand Total
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...colors.primaryDark);
+  doc.text("Total Amount", labelX, billY + rowSpacing * 5.5); // reduced from 5.5 to 5
+  doc.text(`£${grandTotal.toFixed(2)}`, rightColX, billY + rowSpacing * 5, { align: "right" });// Tiny footer
+
 
   return doc.output("arraybuffer") as any;
 }

@@ -423,6 +423,7 @@ export default function LongClaimDetailPage() {
         .reduce((sum, cl) => sum + (cl.delivery_charges || 0), 0);
 
     const bill = totalDeliveryCharges + 53 * claimCars.length;
+    const total = bill + bill * 0.2; // add 20%
 
     if (loading) {
         return (
@@ -478,7 +479,7 @@ export default function LongClaimDetailPage() {
                                 <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
                                     Total Bill
                                 </p>
-                                <p className="text-lg font-extrabold text-emerald-700">£{bill.toFixed(2)}</p>
+                                <p className="text-lg font-extrabold text-emerald-700">£{total.toFixed(2)}</p>
                             </div>
 
                             <button
@@ -517,13 +518,13 @@ export default function LongClaimDetailPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                             <Car size={20} className="text-emerald-600" />
-                            Cars ({claimCars.length})
+                            Vehicles ({claimCars.length})
                         </h2>
                         <button
                             onClick={() => setShowCarSelector((v) => !v)}
                             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium"
                         >
-                            <Plus size={14} /> Add Car
+                            <Plus size={14} /> Add Vehicle
                         </button>
                     </div>
 
@@ -535,10 +536,10 @@ export default function LongClaimDetailPage() {
                             >
                                 ✕
                             </button>
-                            <h3 className="text-sm font-semibold text-slate-600 mb-3">Add car to claim</h3>
+                            <h3 className="text-sm font-semibold text-slate-600 mb-3">Add vehicle to claim</h3>
 
                             {carsNotInClaim.length === 0 ? (
-                                <p className="text-slate-400 text-center py-3 text-sm">No more cars available</p>
+                                <p className="text-slate-400 text-center py-3 text-sm">No more vehicles available</p>
                             ) : (
                                 <div className="max-h-60 overflow-y-auto">
                                     <table className="w-full text-sm">
@@ -580,7 +581,7 @@ export default function LongClaimDetailPage() {
 
                     {claimCars.length === 0 ? (
                         <div className="bg-white border border-dashed border-slate-300 rounded-xl p-8 text-center text-slate-400 text-sm">
-                            No cars in this claim yet
+                            No vehicles in this claim yet
                         </div>
                     ) : (
                         <div className="space-y-3">

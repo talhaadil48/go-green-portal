@@ -151,10 +151,10 @@ export default function CarsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10 gap-4">
           <div>
             <h1 className="text-4xl font-extrabold text-slate-800 tracking-tight">
-              Car Management
+               Vehicle Management
             </h1>
             <p className="mt-1 text-slate-500 text-base">
-              {cars.length} car{cars.length !== 1 ? "s" : ""} in the fleet
+              {cars.length} {cars.length !== 1 ? "vehicles" : "vehicle"} in the fleet
             </p>
           </div>
           <div className="flex gap-3">
@@ -171,7 +171,7 @@ export default function CarsPage() {
               className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition text-sm font-semibold shadow"
             >
               <Plus size={16} />
-              Add Car
+              Add Vehicles
             </button>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function CarsPage() {
         {/* Add Car Form */}
         {showForm && (
           <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-lg p-6">
-            <h2 className="text-lg font-bold text-slate-800 mb-5">Add New Car</h2>
+            <h2 className="text-lg font-bold text-slate-800 mb-5">Add New Vehicle</h2>
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
@@ -241,7 +241,7 @@ export default function CarsPage() {
                       Creating...
                     </>
                   ) : (
-                    "Create Car"
+                    "Create Vehicle"
                   )}
                 </button>
               </div>
