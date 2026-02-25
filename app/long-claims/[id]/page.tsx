@@ -277,17 +277,30 @@ export default function LongClaimDetailPage() {
         });
         setShowNewClaimantModal(true);
     };
-
     const handleNewClaimantSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!newClaimantCarId) return;
+
+        // Validate numeric fields before submitting
+        const milesNum = Number(newClaimantForm.miles);
+        const deliveryNum = Number(newClaimantForm.delivery_charges);
+
+        if (newClaimantForm.miles && isNaN(milesNum)) {
+            alert("Miles must be a number.");
+            return;
+        }
+
+        if (newClaimantForm.delivery_charges && isNaN(deliveryNum)) {
+            alert("Delivery charges must be a number.");
+            return;
+        }
 
         setSavingNewClaimant(true);
         try {
             const payload = {
                 ...newClaimantForm,
-                miles: newClaimantForm.miles ? Number(newClaimantForm.miles) : null,
-                delivery_charges: Number(newClaimantForm.delivery_charges) || 0,
+                miles: newClaimantForm.miles ? milesNum : null,
+                delivery_charges: newClaimantForm.delivery_charges ? deliveryNum : 0,
                 long_claim_id: claimId,
                 car_id: newClaimantCarId,
             };
