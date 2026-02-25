@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useContext, useState, FormEvent, useRef, useEffect } from "react";
+import React, { useState, FormEvent, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import axios from "axios";
 import Signature from "../components/Signature";
 import ImageDrawEditor, { ImageDrawEditorRef } from "../components/ImageEditor";
 import PDFShareButton from "../components/PDFShareButton";
