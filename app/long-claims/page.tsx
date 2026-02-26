@@ -62,7 +62,7 @@ export default function LongClaimsPage() {
       });
       setClaims(res.data.data || []);
     } catch {
-      setError("Failed to load long claims.");
+      setError("Failed to load sovereign long term.");
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ export default function LongClaimsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-              Sovereign Claims
+              Sovereign Long term
             </h1>
             <p className="mt-1 text-slate-500 text-sm">
               {claims.length} claim{claims.length !== 1 ? "s" : ""}
@@ -245,7 +245,7 @@ export default function LongClaimsPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
             <FileText size={36} strokeWidth={1.3} />
             <p className="text-base font-medium">
-              {search ? "No matching claims" : "No long claims yet"}
+              {search ? "No matching claims" : "No sovereign long term yet"}
             </p>
           </div>
         ) : (

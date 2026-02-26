@@ -88,7 +88,7 @@ export async function POST(
             .flat()
             .reduce((sum: number, cl: any) => sum + (Number(cl.delivery_charges) || 0), 0);
 
-        const bill = totalDelivery + 53 * claimCars.length;
+        const bill = totalDelivery + 58 * claimCars.length;
 
         // ────────────────────────────────────────────────
         // 5. Generate and return PDF

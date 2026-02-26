@@ -32,7 +32,7 @@ export default function RecentlyDeletedClaimsPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [allClaims, setAllClaims] = useState<Claim[]>([]);
 
-  // ── Sovereign / Long Claims ──────────────────────────────
+  // ── Sovereign / sovereign long term ──────────────────────────────
   const [longClaims, setLongClaims] = useState<LongClaim[]>([]);
   const [allLongClaims, setAllLongClaims] = useState<LongClaim[]>([]);
 
@@ -71,8 +71,8 @@ export default function RecentlyDeletedClaimsPage() {
       setAllLongClaims(data);
       setLongClaims(data);
     } catch (err) {
-      console.error("Long claims fetch failed", err);
-      setError("Failed to load sovereign/long claims");
+      console.error("sovereign long term fetch failed", err);
+      setError("Failed to load sovereign/sovereign long term");
     }
   };
 
@@ -115,7 +115,7 @@ export default function RecentlyDeletedClaimsPage() {
     setClaims(filtered);
   }, [searchTerm, selectedType, startDate, endDate, allClaims]);
 
-  // Filter long claims
+  // Filter sovereign long term
   useEffect(() => {
     let filtered = [...allLongClaims];
 
@@ -227,7 +227,7 @@ export default function RecentlyDeletedClaimsPage() {
               Recently Deleted Claims
             </h1>
             <p className="mt-2 text-lg text-green-700/80">
-              Regular and Sovereign claims • Auto-removed after 3 days
+              Regular and Sovereign Long term • Auto-removed after 3 days
             </p>
           </div>
 
@@ -417,7 +417,7 @@ export default function RecentlyDeletedClaimsPage() {
           )}
         </section>
 
-        {/* Sovereign / Long Claims */}
+        {/* Sovereign / sovereign long term */}
         <section>
           <h2 className="text-3xl font-bold text-green-800 mb-6">Sovereign / Long-Term Claims</h2>
 
@@ -429,8 +429,8 @@ export default function RecentlyDeletedClaimsPage() {
             <div className="text-center py-12 bg-white/60 rounded-3xl border border-green-100">
               <p className="text-xl text-green-700/80">
                 {hasFilters
-                  ? "No matching sovereign claims found"
-                  : "No recently deleted sovereign claims"}
+                  ? "No matching Sovereign Long term found"
+                  : "No recently deleted Sovereign Long term"}
               </p>
             </div>
           ) : (

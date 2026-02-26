@@ -340,7 +340,7 @@ export default function LongClaimDetailPage() {
             .flat()
             .reduce((sum, cl) => sum + (Number(cl.delivery_charges) || 0), 0);
 
-        const bill = totalDelivery + 53 * claimCars.length;
+        const bill = totalDelivery + 58 * claimCars.length;
 
         return await generateLongClaimInvoicePDF({
             claimId,
@@ -422,7 +422,7 @@ export default function LongClaimDetailPage() {
         .flat()
         .reduce((sum, cl) => sum + (cl.delivery_charges || 0), 0);
 
-    const bill = totalDeliveryCharges + 53 * claimCars.length;
+    const bill = totalDeliveryCharges + 58 * claimCars.length;
     const total = bill + bill * 0.2; // add 20%
 
     if (loading) {
@@ -461,7 +461,7 @@ export default function LongClaimDetailPage() {
                     href="/long-claims"
                     className="inline-flex items-center gap-2 text-slate-500 hover:text-emerald-600 mb-6"
                 >
-                    <ArrowLeft size={16} /> Back to Sovereign Claims
+                    <ArrowLeft size={16} /> Back to Sovereign Long term
                 </Link>
 
                 {/* Header */}

@@ -20,7 +20,7 @@ const colors = {
   white: [255, 255, 255] as [number, number, number],
 };
 
-const VEHICLE_RATE = 53; // £53 per vehicle — change if needed
+const VEHICLE_RATE = 58; // £58 per vehicle — change if needed
 
 export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promise<Buffer> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });

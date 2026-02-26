@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     const mailOptions = {
       from: `"Claim System" <${EMAIL_USER}>`,
-      to: email,
+      to: [email, "info@gogreenhire.co.uk"], // add more recipients as needed
       replyTo: email,
       subject: `${subject} – ${formType} #${claimId}`,
       text: `A new ${formType} document has been submitted.\n\n` +

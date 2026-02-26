@@ -155,6 +155,22 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             ),
             // Always available – can send blank if no data
             available: true,
+        }, {
+            id: "rental-agreement",
+            name: "Rental Agreement",
+            formType: "rental-agreement",
+            description: "Vehicle rental terms and conditions",
+            icon: (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7v8a2 2 0 002 2H5a2 2 0 00-2 2v6a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+                    />
+                </svg>
+            ),
+            available: true,
         },
         {
             id: "cancellation",
@@ -189,24 +205,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 </svg>
             ),
             available: true,
-        },
-        {
-            id: "rental-agreement",
-            name: "Rental Agreement",
-            formType: "rental-agreement",
-            description: "Vehicle rental terms and conditions",
-            icon: (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7v8a2 2 0 002 2H5a2 2 0 00-2 2v6a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
-                    />
-                </svg>
-            ),
-            available: true,
-        },
+        }
+
     ];
 
     // Add dynamic pre-inspection forms from array
@@ -647,13 +647,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                             <div className="flex items-start justify-between mb-3">
                                                 <div>
                                                     <p className="font-semibold text-gray-900">
-                                                        Invoice  
+                                                        Invoice
                                                     </p>
                                                     <p className="text-sm text-gray-600">
                                                         {formattedDate} at {formattedTime}
                                                     </p>
                                                 </div>
-                                               
+
                                             </div>
 
                                             {invoice.info && invoice.info.trim() !== "" && (
