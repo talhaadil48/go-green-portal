@@ -294,6 +294,7 @@ export default function LongClaimDetailPage() {
             alert("Delivery charges must be a number.");
             return;
         }
+      
 
         setSavingNewClaimant(true);
         try {
@@ -643,7 +644,7 @@ export default function LongClaimDetailPage() {
                                                                 <tr className="border-b bg-slate-100/60">
                                                                     <th className="px-2 py-2 text-left text-slate-600 font-medium">Name</th>
                                                                     <th className="px-2 py-2 text-left text-slate-600 font-medium">Dates</th>
-                                                                    <th className="px-2 py-2 text-left text-slate-600 font-medium">Loc</th>
+                                                                    <th className="px-2 py-2 text-left text-slate-600 font-medium">Location</th>
                                                                     <th className="px-2 py-2 text-left text-slate-600 font-medium">Miles</th>
                                                                     <th className="px-2 py-2 text-left text-slate-600 font-medium">Delivery</th>
                                                                     <th className="px-2 py-2 text-left text-slate-600 font-medium">Checklist</th>
@@ -840,9 +841,8 @@ export default function LongClaimDetailPage() {
                         <form onSubmit={handleNewClaimantSubmit} className="p-5">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                                 <div>
-                                    <label className="block text-xs text-slate-600 mb-1">Name *</label>
+                                    <label className="block text-xs text-slate-600 mb-1">Name</label>
                                     <input
-                                        required
                                         value={newClaimantForm.name}
                                         onChange={(e) => setNewClaimantForm((p) => ({ ...p, name: e.target.value }))}
                                         className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -857,9 +857,8 @@ export default function LongClaimDetailPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-slate-600 mb-1">Start Date *</label>
+                                    <label className="block text-xs text-slate-600 mb-1">Start Date</label>
                                     <input
-                                        required
                                         type="date"
                                         value={newClaimantForm.start_date}
                                         onChange={(e) => setNewClaimantForm((p) => ({ ...p, start_date: e.target.value }))}
@@ -867,9 +866,8 @@ export default function LongClaimDetailPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-slate-600 mb-1">End Date *</label>
+                                    <label className="block text-xs text-slate-600 mb-1">End Date</label>
                                     <input
-                                        required
                                         type="date"
                                         value={newClaimantForm.end_date}
                                         onChange={(e) => setNewClaimantForm((p) => ({ ...p, end_date: e.target.value }))}
