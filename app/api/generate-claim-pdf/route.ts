@@ -70,7 +70,7 @@ export async function POST(
         await Promise.all(
             claimCars.map(async (car: any) => {
                 try {
-                    const res = await api.get(`/api/car/${car.id}/claimants`, {
+                    const res = await api.get(`/api/car/${car.id}/claimants/${claimId}`, {
                         headers: { requiresAuth: true },
                     });
                     claimantsByCar[car.id] = res.data.data || [];

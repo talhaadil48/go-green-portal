@@ -145,7 +145,7 @@ export default function LongClaimDetailPage() {
                     await Promise.all(
                         cars.map(async (car: CarItem) => {
                             try {
-                                const res = await api.get(`/api/car/${car.id}/claimants`, { headers: { requiresAuth: true } });
+                                const res = await api.get(`/api/car/${car.id}/claimants/${claimId}`, { headers: { requiresAuth: true } });
                                 setClaimantsByCar((prev) => ({ ...prev, [car.id]: res.data.data || [] }));
                             } catch { }
                         })
@@ -155,7 +155,7 @@ export default function LongClaimDetailPage() {
                             try {
                                 const rateRes = await api.get(`/api/long-claim/${claimId}/car/${car.id}/daily-rate`, { headers: { requiresAuth: true } });
                                 console.log("Fetched daily rate for car", car.id, ":", rateRes.data.data.daily_rate);
-                                setDailyRates((prev) => ({ ...prev, [car.id]: rateRes.data.data.daily_rate ?? 58 }));
+                                setDailyRates((prev) => ({ ...prev, [car.id]: rateRes.data.data.daily_rate ?? 0 }));
                             } catch (err) {
                                 console.warn("Failed to fetch daily rate for car", car.id, err);
                             }
@@ -178,10 +178,10 @@ export default function LongClaimDetailPage() {
             const car = allCars.find((c) => c.id === carId);
             if (car) {
                 setClaimCars((prev) => [...prev, car]);
-                const res = await api.get(`/api/car/${carId}/claimants`, { headers: { requiresAuth: true } });
+                const res = await api.get(`/api/car/${carId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
                 setClaimantsByCar((prev) => ({ ...prev, [carId]: res.data.data || [] }));
                 const rateRes = await api.get(`/api/long-claim/${claimId}/car/${carId}/daily-rate`, { headers: { requiresAuth: true } });
-                setDailyRates((prev) => ({ ...prev, [carId]: rateRes.data.data ?? 58 }));
+                setDailyRates((prev) => ({ ...prev, [carId]: rateRes.data.data.daily_rate ?? 0 }));
             }
         } catch {
             alert("Failed to add car.");
@@ -241,7 +241,7 @@ export default function LongClaimDetailPage() {
                 delivery_charges: Number(editedClaimant.delivery_charges) || 0,
             };
             await api.put(`/api/claimant/${claimantId}`, payload, { headers: { requiresAuth: true } });
-            const res = await api.get(`/api/car/${carId}/claimants`, { headers: { requiresAuth: true } });
+            const res = await api.get(`/api/car/${carId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
             setClaimantsByCar((prev) => ({ ...prev, [carId]: res.data.data || [] }));
             cancelEdit();
         } catch {
@@ -290,7 +290,7 @@ export default function LongClaimDetailPage() {
         try {
             const payload = { ...newClaimantForm, miles: newClaimantForm.miles ? milesNum : null, delivery_charges: newClaimantForm.delivery_charges ? deliveryNum : 0, long_claim_id: claimId, car_id: newClaimantCarId };
             await api.post("/api/claimant", payload, { headers: { requiresAuth: true } });
-            const res = await api.get(`/api/car/${newClaimantCarId}/claimants`, { headers: { requiresAuth: true } });
+            const res = await api.get(`/api/car/${newClaimantCarId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
             setClaimantsByCar((prev) => ({ ...prev, [newClaimantCarId]: res.data.data || [] }));
             setShowNewClaimantModal(false);
         } catch {
@@ -416,7 +416,8 @@ export default function LongClaimDetailPage() {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleDownloadPDF}
-                            disabled={pdfLoading || claimCars.length === 0}
+                            disabled={pdfLoading || claimCars.length === 0 || !claim.ending_date}
+                            title={!claim.ending_date ? "Please provide an end date to download PDF" : ""}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-slate-300 text-slate-700 hover:border-emerald-400 hover:text-emerald-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {pdfLoading ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
@@ -426,7 +427,8 @@ export default function LongClaimDetailPage() {
                         {!claim.invoiced && (
                             <button
                                 onClick={() => setShowEmailModal(true)}
-                                disabled={claimCars.length === 0}
+                                disabled={claimCars.length === 0 || !claim.ending_date}
+                                title={!claim.ending_date ? "Please provide an end date to send invoice" : ""}
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50"
                             >
                                 <Mail size={13} />
@@ -445,9 +447,9 @@ export default function LongClaimDetailPage() {
                         { label: "Period", value: `${formatDate(claim.starting_date)} – ${formatDate(claim.ending_date)}` },
                         { label: "Vehicles", value: claimCars.length.toString(), accent: true },
                         { label: "Claimants", value: totalClaimants.toString(), accent: true },
-                        { label: "Total (inc. VAT)", value: `£${total.toFixed(2)}`, highlight: true },
+                        { label: "Total (inc. VAT)", value: !claim.ending_date ? "— Please add end date" : `£${total.toFixed(2)}`, highlight: true },
                     ].map((s) => (
-                        <div key={s.label} className={`rounded-xl px-4 py-3 border ${s.highlight ? "bg-emerald-600 border-emerald-600 text-white" : "bg-white border-slate-200"}`}>
+                        <div key={s.label} className={`rounded-xl px-4 py-3 border ${s.highlight ? "bg-emerald-600 border-emerald-600 text-white" : "bg-white border-slate-200"}`} title={!claim.ending_date && s.label === "Total (inc. VAT)" ? "Please provide an end date to calculate total" : ""}>
                             <p className={`text-xs font-medium mb-0.5 ${s.highlight ? "text-emerald-100" : "text-slate-400"}`}>{s.label}</p>
                             <p className={`text-base font-bold leading-tight ${s.highlight ? "text-white" : s.accent ? "text-emerald-700" : "text-slate-800"}`}>{s.value}</p>
                         </div>
@@ -529,7 +531,8 @@ export default function LongClaimDetailPage() {
                                 const carClaimants = claimantsByCar[car.id] || [];
                                 const isExpanded = expandedCarId === car.id;
                                 const carDelivery = carClaimants.reduce((s, c) => s + (c.delivery_charges || 0), 0);
-                                const dailyRate = dailyRates[car.id] || 0;
+                                const dailyRate = dailyRates[car.id];
+                                console.log(dailyRate, "daily rate for car", car.id);
                                 const isEditingRate = editingDailyRateCarId === car.id;
                                 const isSavingRate = savingDailyRateCarId === car.id;
 
