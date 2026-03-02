@@ -429,7 +429,7 @@ export default function RecentlyDeletedClaimsPage() {
 
         {/* ── Sovereign / Long-Term Claims Section ─────────────────────────── */}
         <section>
-          <h2 className="text-3xl font-bold text-green-800 mb-6">Sovereign / Long-Term Claims</h2>
+          <h2 className="text-3xl font-bold text-green-800 mb-6">Long-Term Hire</h2>
 
           {/* Long Claims Filters */}
           <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
@@ -483,8 +483,8 @@ export default function RecentlyDeletedClaimsPage() {
             <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
               <p className="text-xl text-green-700/80">
                 {longSearch || longStartDate || longEndDate
-                  ? "No matching Sovereign Long term found"
-                  : "No recently deleted Sovereign Long term"}
+                  ? "No matching  Long term found"
+                  : "No recently deleted Long term"}
               </p>
             </div>
           ) : (

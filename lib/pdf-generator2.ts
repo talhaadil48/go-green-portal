@@ -9,6 +9,7 @@ interface LongClaimPDFData {
   claimantsByCar: Record<number, any[]>; // Claimant[]
   totalDelivery: number;
   dailyRates: Record<number, number>;    // ← now required
+  hirer_name?: string;
 }
 
 const colors = {
@@ -47,6 +48,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 9;
+  const hirer_name = data.hirer_name || "";
 
   // Header gradient
   const headerHeight = 26;
@@ -95,26 +97,30 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   doc.setFontSize(9.5);
   doc.text(`Claim ${data.claimId}`, pageWidth / 2, 24, { align: "center" });
 
-  // Bill To
-  doc.setFontSize(9);
-  doc.setTextColor(...colors.darkText);
-  doc.setFont("helvetica", "bold");
-  doc.text("To:", margin, headerHeight + 6);
+  ;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  const billTo = [
-    "Sovereign Automotive",
-    "1st Floor, The Kirkgate",
-    "19 - 33 Church Street, Epsom, Surrey",
-    "KT17 APF",
-  ];
-  y = headerHeight + 11;
-  billTo.forEach(line => {
-    doc.text(line, margin, y);
-    y += 3.6;
-  });
+  if (hirer_name && hirer_name.toLowerCase() === "sovereign") {
+    // Bill To
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.darkText);
+    doc.setFont("helvetica", "bold");
+    doc.text("To:", margin, headerHeight + 6)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
 
+    const billTo = [
+      "Sovereign Automotive",
+      "1st Floor, The Kirkgate",
+      "19 - 33 Church Street, Epsom, Surrey",
+      "KT17 APF",
+    ];
+
+    let y = headerHeight + 11;
+    billTo.forEach(line => {
+      doc.text(line, margin, y);
+      y += 3.6;
+    });
+  }
   // Period & Generated
   doc.setFontSize(8);
   doc.setTextColor(...colors.gray);
@@ -206,7 +212,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
       if ([6, 7, 8].includes(data.column.index)) {
         data.cell.styles.halign = "right";
       }
-     
+
     },
     rowPageBreak: "avoid",
   });

@@ -27,6 +27,7 @@ interface LongClaim {
     starting_date: string | null;
     ending_date: string | null;
     invoiced: boolean;
+    hirer_name: string | null;
 }
 
 interface CarItem {
@@ -306,7 +307,7 @@ export default function LongClaimDetailPage() {
         if (!period.starting_date || !period.ending_date) throw new Error("Claim is missing start and/or end date.");
         const totalDelivery = Object.values(claimantsByCar).flat().reduce((sum, cl) => sum + (Number(cl.delivery_charges) || 0), 0);
         const bill = totalHire + totalDelivery;
-        return await generateLongClaimInvoicePDF({ claimId, period, claimCars, claimantsByCar, totalDelivery, dailyRates });
+        return await generateLongClaimInvoicePDF({ claimId, period, claimCars, claimantsByCar, totalDelivery, dailyRates, hirer_name : claim.hirer_name });
     };
 
     const handleDownloadPDF = async () => {
@@ -531,7 +532,7 @@ export default function LongClaimDetailPage() {
                                 const carClaimants = claimantsByCar[car.id] || [];
                                 const isExpanded = expandedCarId === car.id;
                                 const carDelivery = carClaimants.reduce((s, c) => s + (c.delivery_charges || 0), 0);
-                                const dailyRate = dailyRates[car.id];
+                                const dailyRate = dailyRates[car.id] || 0;
                                 console.log(dailyRate, "daily rate for car", car.id);
                                 const isEditingRate = editingDailyRateCarId === car.id;
                                 const isSavingRate = savingDailyRateCarId === car.id;
