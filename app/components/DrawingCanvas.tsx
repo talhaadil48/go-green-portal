@@ -21,6 +21,7 @@ export default function DrawingCanvas({
   const isDrawing = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const isInitialized = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // History for undo
   const history = useRef<string[]>([]);
@@ -205,6 +206,35 @@ export default function DrawingCanvas({
     onDrawingChange(null);
   }, [saveState, onDrawingChange]);
 
+  const handleImageUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (!dataUrl) return;
+
+        // Reset history before loading the new image
+        history.current = [];
+        setCanUndo(false);
+
+        loadImageToCanvas(dataUrl);
+
+        // Save as first history state after image loads
+        setTimeout(() => {
+          saveState();
+        }, 100);
+      };
+      reader.readAsDataURL(file);
+
+      // Reset input so the same file can be re-uploaded if needed
+      e.target.value = "";
+    },
+    [loadImageToCanvas, saveState]
+  );
+
   // Initialize
   useEffect(() => {
     initCanvas();
@@ -275,7 +305,24 @@ export default function DrawingCanvas({
         }}
       />
 
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageUpload}
+      />
+
       <div className="absolute bottom-4 right-4 flex gap-3">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm shadow transition"
+        >
+          Upload
+        </button>
+
         <button
           type="button"
           onClick={undo}

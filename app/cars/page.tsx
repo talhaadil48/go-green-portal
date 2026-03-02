@@ -291,7 +291,7 @@ export default function CarsPage() {
                     ID
                   </th>
                   <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">
-                    Name
+                    Make
                   </th>
                   <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">
                     Model

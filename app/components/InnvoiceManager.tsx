@@ -1,24 +1,21 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { generatePDF, PDFFormData } from "@/lib/pdf-generator";
 import { JSX } from "react/jsx-runtime";
 import api from "@/lib/axios";
-
-
 interface Invoice {
     id: number;
     invoice_number: string;
     invoice_datetime: string;
     info: string;
+    docs: string;
+    storage_bill: number;
+    rent_bill: number;
 }
-
-
 interface InvoiceManagerProps {
     claimId: string;
 }
-
 interface DocumentOption {
     id: string;
     name: string;
@@ -27,7 +24,6 @@ interface DocumentOption {
     icon: JSX.Element;
     available: boolean;
 }
-
 export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
     const [email, setEmail] = useState("");
@@ -45,12 +41,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [invoicesLoading, setInvoicesLoading] = useState(false);
-
     // Fetch all form data – allow missing forms (treat as empty)
     useEffect(() => {
         const fetchAllData = async () => {
             setIsLoading(true);
-
             try {
                 const endpoints = [
                     { key: "claim", url: `/api/accident-claims/${claimId}` },
@@ -60,18 +54,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     { key: "rental-agreement", url: `/api/rental-agreements/${claimId}` },
                     { key: "documents", url: `/api/claim-documents/${claimId}` },
                 ];
-
                 const results = await Promise.allSettled(
                     endpoints.map((ep) =>
                         api.get(ep.url, { headers: { requiresAuth: true } })
                     )
                 );
-
                 const data: Record<string, any> = {};
-
                 results.forEach((result, index) => {
                     const key = endpoints[index].key;
-
                     if (result.status === "fulfilled") {
                         if (key === "documents") {
                             data[key] = result.value.data.documents || {};
@@ -91,7 +81,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                         // documents list remains empty if failed
                     }
                 });
-
                 setDocumentsData(data);
             } catch (error) {
                 console.error("Error fetching documents:", error);
@@ -99,12 +88,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 setIsLoading(false);
             }
         };
-
         if (claimId) {
             fetchAllData();
         }
     }, [claimId]);
-
     // Fetch invoices for this claim
     useEffect(() => {
         const fetchInvoices = async () => {
@@ -113,17 +100,18 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 const response = await api.get(`/api/invoice/${claimId}`, {
                     headers: { requiresAuth: true },
                 });
-
                 if (response.data.success) {
                     // Transform array-of-arrays → array-of-objects
                     const rawData = response.data.data || [];
                     const formattedInvoices = rawData.map((row: any[]) => ({
-                        id: row[0],                    // 1
+                        id: row[0], // 1
                         invoice_number: row[1] || "—", // "PC-44"
-                        invoice_datetime: row[2],      // "2026-02-09T12:53:18.445405"
-                        info: row[3] || "",            // "da"  (notes / description)
+                        invoice_datetime: row[2], // "2026-02-09T12:53:18.445405"
+                        info: row[3] || "", // "da" (notes / description)
+                        docs: row[4] || "", // documents as string
+                        storage_bill: row[5] || 0, // storage_bill
+                        rent_bill: row[6] || 0, // rent_bill
                     }));
-
                     setInvoices(formattedInvoices);
                 }
             } catch (error) {
@@ -132,7 +120,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 setInvoicesLoading(false);
             }
         };
-
         if (claimId) {
             fetchInvoices();
         }
@@ -206,9 +193,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             ),
             available: true,
         }
-
     ];
-
     // Add dynamic pre-inspection forms from array
     const preInspectionForms: DocumentOption[] = [];
     if (documentsData["pre-inspection"] && Array.isArray(documentsData["pre-inspection"])) {
@@ -232,7 +217,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             });
         });
     }
-
     const uploadedDocuments: DocumentOption[] = [];
     if (documentsData["documents"]) {
         for (const id in documentsData["documents"]) {
@@ -255,27 +239,21 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             });
         }
     }
-
     const allDocuments = [...documents, ...preInspectionForms, ...uploadedDocuments];
-
     const toggleDocument = (docId: string) => {
         setSelectedDocs((prev) =>
             prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
         );
     };
-
     const selectAll = () => {
         const availableDocs = allDocuments.filter((d) => d.available).map((d) => d.id);
         setSelectedDocs(availableDocs);
     };
-
     const deselectAll = () => {
         setSelectedDocs([]);
     };
-
     const extractSignatures = (docId: string, data: any): Record<string, string | null> => {
         const signatures: Record<string, string | null> = {};
-
         switch (docId) {
             case "claim":
                 signatures.client = data?.client_signature || null;
@@ -300,13 +278,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             default:
                 break;
         }
-
         return signatures;
     };
-
     const extractImages = (docId: string, data: any): Record<string, string | null> => {
         const images: Record<string, string | null> = {};
-
         switch (docId) {
             case "claim":
                 images.circumstance_drawing = data?.circumstance_drawing || null;
@@ -319,49 +294,39 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             default:
                 break;
         }
-
         return images;
     };
-
     const handleSendDocuments = async () => {
         if (selectedDocs.length === 0) {
             setStatus({ type: "error", text: "Please select at least one document to send." });
             return;
         }
-
         if (!email) {
             setStatus({ type: "error", text: "Please enter an email address." });
             return;
         }
-
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             setStatus({ type: "error", text: "Please enter a valid email address." });
             return;
         }
-
         setIsSending(true);
         setStatus({ type: "info", text: "Uploading documents one by one..." });
         setCurrentProgress({ current: 0, total: selectedDocs.length });
-
         try {
             const uploadedDocs: { name: string; url: string; sizeKb: string }[] = [];
             const uploadErrors: string[] = [];
-
             for (let i = 0; i < selectedDocs.length; i++) {
                 const docId = selectedDocs[i];
                 const doc = allDocuments.find((d) => d.id === docId);
                 if (!doc) continue;
-
                 setCurrentProgress({ current: i + 1, total: selectedDocs.length });
                 setStatus({
                     type: "info",
                     text: `Uploading ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
                 });
-
                 let blob: Blob;
                 let filename: string;
-
                 if (doc.formType === "document") {
                     const url = documentsData["documents"]?.[docId];
                     if (!url) {
@@ -369,14 +334,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                         setStatus({ type: "error", text: `Missing file URL for ${doc.name}` });
                         continue;
                     }
-
                     const res = await fetch(url);
                     if (!res.ok) {
                         uploadErrors.push(doc.name || docId);
                         setStatus({ type: "error", text: `Failed to fetch ${doc.name} (${res.status})` });
                         continue;
                     }
-
                     blob = await res.blob();
                     let ext = "pdf";
                     if (blob.type === "image/jpeg") ext = "jpg";
@@ -387,7 +350,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     // Handle pre-inspection forms from array
                     const inspectionId = docId.replace("pre-inspection-", "");
                     let formDataObj = {};
-
                     if (Array.isArray(documentsData["pre-inspection"])) {
                         const form = documentsData["pre-inspection"].find((f: any) =>
                             String(f.inspection_id) === inspectionId
@@ -396,7 +358,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             formDataObj = form;
                         }
                     }
-
                     const pdfData: PDFFormData = {
                         title: doc.name,
                         formType: "pre-inspection",
@@ -420,20 +381,16 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     blob = await generatePDF(pdfData);
                     filename = `${doc.formType}-${claimId}.pdf`;
                 }
-
                 // Upload single file
                 const uploadFormData = new FormData();
                 uploadFormData.append('file', blob, filename);
                 uploadFormData.append('claimId', claimId);
                 uploadFormData.append('docName', doc.name || docId);
-
                 const uploadResponse = await fetch(`/api/upload-docs`, {
                     method: "POST",
                     body: uploadFormData,
                 });
-
                 const uploadData = await uploadResponse.json();
-
                 if (uploadResponse.ok && uploadData.success) {
                     uploadedDocs.push({
                         name: uploadData.name,
@@ -445,14 +402,11 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     console.error(`Upload failed for ${filename}:`, uploadData);
                 }
             }
-
             if (uploadedDocs.length === 0) {
                 setStatus({ type: "error", text: "No documents uploaded successfully." });
                 return;
             }
-
             setStatus({ type: "info", text: "Sending email with document links..." });
-
             // Now send the links (small JSON payload)
             const sendPayload = {
                 email,
@@ -461,33 +415,44 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 claimId,
                 documents: uploadedDocs, // array of {name, url, sizeKb}
             };
-
             const sendResponse = await fetch(`/api/send-documents`, {
                 method: "POST",
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(sendPayload),
             });
-
             const sendData = await sendResponse.json();
-
             if (sendResponse.ok && sendData.success) {
                 // Now create invoice if info is provided
                 if (info.trim()) {
                     try {
                         setStatus({ type: "info", text: "Creating invoice..." });
+                        // Fetch claim bill details
+                        const billResponse = await api.get(`/api/claim-bill/${claimId}`, {
+                            headers: { requiresAuth: true },
+                        });
+                        const { rental, storage } = billResponse.data;
+                        console.log("Bill details:", rental);
+                        console.log("Bill details:", storage);
+                            
+                        // Prepare docs as comma-separated string
+                        const docsArray = selectedDocs.map((docId) => {
+                            const docOption = allDocuments.find(d => d.id === docId);
+                            return docOption?.name || docId; // fallback to id if something went wrong
+                        });
                         const invoiceResponse = await api.post(`/api/invoice`, {
                             claim_id: claimId,
                             info: info,
+                            docs: docsArray,
+                            storage_bill: storage,
+                            rent_bill: rental,
                         }, {
                             headers: { requiresAuth: true },
                         });
-
                         if (invoiceResponse.data.success) {
                             setStatus({
                                 type: "success",
                                 text: `All ${uploadedDocs.length} documents sent and invoice created successfully!`,
                             });
-
                             // Refresh invoices list
                             const refreshResponse = await api.get(`/api/invoice/${claimId}`, {
                                 headers: { requiresAuth: true },
@@ -496,10 +461,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                 // Transform array-of-arrays → array-of-objects (same as initial fetch)
                                 const rawData = refreshResponse.data.data || [];
                                 const formattedInvoices = rawData.map((row: any[]) => ({
-                                    id: row[0],                    // 1
+                                    id: row[0], // 1
                                     invoice_number: row[1] || "—", // "PC-44"
-                                    invoice_datetime: row[2],      // "2026-02-09T12:53:18.445405"
-                                    info: row[3] || "",            // "da"  (notes / description)
+                                    invoice_datetime: row[2], // "2026-02-09T12:53:18.445405"
+                                    info: row[3] || "", // "da" (notes / description)
+                                    docs: row[4] || "", // documents as string
+                                    storage_bill: row[5] || 0, // storage_bill
+                                    rent_bill: row[6] || 0, // rent_bill
                                 }));
                                 setInvoices(formattedInvoices);
                             }
@@ -522,7 +490,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                         text: `All ${uploadedDocs.length} documents uploaded and links sent successfully!`,
                     });
                 }
-
                 setSelectedDocs([]);
                 setEmail("");
                 setMessage("");
@@ -555,10 +522,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             </div>
         );
     }
-
     const availableCount = allDocuments.filter((d) => d.available).length;
     const selectedCount = selectedDocs.length;
-
     return (
         <div className="space-y-8">
             <style jsx>{`
@@ -609,7 +574,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     </svg>
                     Invoice History
                 </h3>
-
                 {invoicesLoading ? (
                     <div className="flex items-center justify-center py-8">
                         <div className="text-center">
@@ -630,7 +594,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                 hour: '2-digit',
                                 minute: '2-digit',
                             });
-
                             return (
                                 <div key={invoice.id} className="flex gap-4">
                                     {/* Timeline dot and line */}
@@ -640,7 +603,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                             <div className="w-0.5 h-16 bg-gray-300 mt-2" />
                                         )}
                                     </div>
-
                                     {/* Invoice card */}
                                     <div className="flex-1 pb-4">
                                         <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 rounded-2xl p-4">
@@ -653,9 +615,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                         {formattedDate} at {formattedTime}
                                                     </p>
                                                 </div>
-
                                             </div>
-
                                             {invoice.info && invoice.info.trim() !== "" && (
                                                 <div className="mt-3 pt-3 border-t border-teal-200">
                                                     <p className="text-md font-medium text-gray-700 whitespace-pre-wrap break-words">
@@ -663,6 +623,29 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                     </p>
                                                 </div>
                                             )}
+                                            {invoice.docs && invoice.docs.length > 0 && (
+                                                <div className="mt-2">
+                                                    <span className="font-semibold text-gray-700">Documents: </span>
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {invoice.docs.map((doc, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="px-2 py-1 bg-gray-200 text-gray-800 rounded text-sm"
+                                                            >
+                                                                {doc}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="mt-2">
+                                                <span className="font-semibold text-gray-700">Rent Bill: </span>
+                                                <span className="text-md text-gray-700">${invoice.rent_bill}</span>
+                                            </div>
+                                            <div className="mt-2">
+                                                <span className="font-semibold text-gray-700">Storage Bill: </span>
+                                                <span className="text-md text-gray-700">${invoice.storage_bill}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -693,8 +676,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     </div>
                 )}
             </div>
-
-
             {/* Document Selection */}
             <div className="bg-gradient-to-br from-gray-50 to-emerald-50/30 rounded-3xl p-6 border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
@@ -748,7 +729,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             {allDocuments.map((doc) => {
                                 const isSelected = selectedDocs.includes(doc.id);
                                 const isAvailable = doc.available;
-
                                 return (
                                     <tr
                                         key={doc.id}
@@ -784,7 +764,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                 )}
                                             </div>
                                         </td>
-
                                         <td className="px-4">
                                             <div className="flex items-center gap-3">
                                                 <div
@@ -798,7 +777,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                 <div>
                                                     <div className="font-medium text-gray-900">
                                                         {doc.name}
-
                                                     </div>
                                                     <div className="text-sm text-gray-500 md:hidden line-clamp-1">
                                                         {doc.description}
@@ -806,11 +784,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                 </div>
                                             </div>
                                         </td>
-
                                         <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell line-clamp-2 max-w-md">
                                             {doc.description}
                                         </td>
-
                                         <td className="px-4 py-4 text-center text-sm">
                                             {isAvailable ? (
                                                 isSelected ? (
@@ -832,9 +808,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                         </tbody>
                     </table>
                 </div>
-
             </div>
-
             {/* Email Form */}
             <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -853,7 +827,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     </svg>
                     Email Details
                 </h3>
-
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -882,7 +855,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             </svg>
                         </div>
                     </div>
-
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                             Email Subject
@@ -895,7 +867,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                         />
                     </div>
-
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                             Additional Message (Optional)
@@ -908,7 +879,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none"
                         />
                     </div>
-
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                             Invoice Status
@@ -923,7 +893,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     </div>
                 </div>
             </div>
-
             {/* Status + Progress */}
             {status && (
                 <div
@@ -985,10 +954,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                 />
                             </svg>
                         )}
-
                         <span className="font-medium text-base">{status.text}</span>
                     </div>
-
                     {currentProgress && isSending && (
                         <div className="mt-2">
                             <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -1006,7 +973,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     )}
                 </div>
             )}
-
             {/* Send Button */}
             <div className="flex justify-center">
                 <button
@@ -1016,7 +982,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     className="group relative inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-emerald-500/40 hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                     <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 opacity-0 group-hover:opacity-30 blur-xl transition-opacity duration-300" />
-
                     {isSending ? (
                         <>
                             <svg
@@ -1062,8 +1027,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     )}
                 </button>
             </div>
-
-
         </div>
     );
 }

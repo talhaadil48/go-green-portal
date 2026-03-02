@@ -3,7 +3,7 @@ import { useState, useEffect, FormEvent, ChangeEvent, useRef } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
-import { Eye, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+import { Eye, Trash2, Pencil, Check, X, Loader2, Lock } from "lucide-react";
 
 interface Claim {
     claim_id: string;
@@ -15,6 +15,12 @@ interface Claim {
     invoice_id: string | null;
     info: string | null;
     invoice_datetime: string | null;
+    recently_deleted: boolean;
+    recently_deleted_date: string | null;
+    closed_date: string | null;
+    closed_by: string | null;
+    deleted_by: string | null;
+    status: string;
 }
 
 type SortColumn =
@@ -23,7 +29,8 @@ type SortColumn =
     | "claim_type"
     | "claim_start_date"
     | "invoice_sent"
-    | "council";
+    | "council"
+    | "status";
 
 type SortDirection = "asc" | "desc" | null;
 
@@ -38,6 +45,14 @@ const COUNCIL_OPTIONS = [
     { value: "North West Leicestershire", label: "North West Leicestershire" },
 ];
 
+const STATUS_COLORS: Record<string, string> = {
+    "claim created": "bg-green-700",
+    "hire start": "bg-purple-700",
+    "client paid": "bg-blue-600",
+    "hire end": "bg-yellow-600",
+    "invoice sent": "bg-indigo-700",
+};
+
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
@@ -45,11 +60,9 @@ export default function ClaimsPage() {
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
 
-    // Sorting
     const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-    // Create form
     const [formData, setFormData] = useState({
         claim_id: "",
         claimant_name: "",
@@ -59,13 +72,11 @@ export default function ClaimsPage() {
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
 
-    // Editing state
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState("");
-    const [savingClaimId, setSavingClaimId] = useState<string | null>(null); // NEW: per-row saving state
+    const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Filters
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
@@ -93,7 +104,6 @@ export default function ClaimsPage() {
         fetchClaims();
     }, []);
 
-    // Filtering + Sorting (unchanged)
     useEffect(() => {
         let filtered = [...allClaims];
 
@@ -105,15 +115,12 @@ export default function ClaimsPage() {
                     claim.claim_id.toLowerCase().includes(term)
             );
         }
-
         if (selectedType) {
             filtered = filtered.filter((claim) => claim.claim_type === selectedType);
         }
-
         if (selectedCouncil) {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
-
         if (startDate || endDate) {
             const start = startDate ? new Date(startDate) : null;
             const end = endDate ? new Date(endDate) : null;
@@ -143,9 +150,7 @@ export default function ClaimsPage() {
                     const aParts = getParts(a.claim_id);
                     const bParts = getParts(b.claim_id);
                     let cmp = aParts.prefix.localeCompare(bParts.prefix);
-                    if (cmp === 0) {
-                        cmp = aParts.num - bParts.num;
-                    }
+                    if (cmp === 0) cmp = aParts.num - bParts.num;
                     return sortDirection === "asc" ? cmp : -cmp;
                 }
 
@@ -171,9 +176,8 @@ export default function ClaimsPage() {
 
     const handleSort = (column: SortColumn) => {
         if (sortColumn === column) {
-            if (sortDirection === "asc") {
-                setSortDirection("desc");
-            } else if (sortDirection === "desc") {
+            if (sortDirection === "asc") setSortDirection("desc");
+            else if (sortDirection === "desc") {
                 setSortDirection(null);
                 setSortColumn(null);
             }
@@ -205,12 +209,9 @@ export default function ClaimsPage() {
                 claim_type: formData.claim_type.trim() || undefined,
                 council: formData.council.trim() || undefined,
             };
-            if (formData.claim_id.trim()) {
-                payload.claim_id = formData.claim_id.trim();
-            }
-            await api.post("/api/claims", payload, {
-                headers: { requiresAuth: true },
-            });
+            if (formData.claim_id.trim()) payload.claim_id = formData.claim_id.trim();
+
+            await api.post("/api/claims", payload, { headers: { requiresAuth: true } });
             setFormData({ claim_id: "", claimant_name: "", claim_type: "", council: "" });
             await fetchClaims();
         } catch (err: any) {
@@ -218,29 +219,54 @@ export default function ClaimsPage() {
             if (err.response?.status === 409) {
                 setCreateError("This Claim ID already exists. Please use a different one or leave it blank.");
             } else {
-                setCreateError(err.response?.data?.detail || "Failed to create claim. Try again.");
+                setCreateError(err.response?.data?.detail || "Failed to create claim.");
             }
         } finally {
             setCreating(false);
         }
     };
 
-    const handleDelete = async (claim_id: string) => {
-        if (!window.confirm(`Delete claim ${claim_id}? This cannot be undone.`)) return;
+    // ── Confirmation Helpers ────────────────────────────────────────────────
+    const confirmWithCredentials = async (
+        actionName: string,
+        claimId: string,
+        apiPath: string,
+        bodyKey: string
+    ) => {
+        const username = prompt(`Enter username to ${actionName} claim ${claimId}:`);
+        if (!username) return;
+
+        const password = prompt("Enter password:");
+        if (password !== "12345678") {
+            alert("Wrong password.");
+            return;
+        }
+
+        if (!window.confirm(`Really ${actionName} claim ${claimId}?`)) return;
+
         try {
-            await api.put(`/api/claims/${claim_id}/soft-delete`, null, {
-                headers: { requiresAuth: true },
-            });
+            await api.put(
+                `/api/claims/${claimId}${apiPath}`,
+                { [bodyKey]: username },
+                { headers: { requiresAuth: true } }
+            );
             await fetchClaims();
         } catch (err: any) {
-            console.error(err);
-            alert(err.response?.data?.detail || "Failed to delete claim.");
+            alert(err.response?.data?.detail || `Failed to ${actionName} claim.`);
         }
     };
 
-    // ── Inline Edit Handlers ────────────────────────────────────────────────
+    const handleSoftDelete = (claim_id: string) => {
+        confirmWithCredentials("soft-delete", claim_id, "/soft-delete", "deleted_by");
+    };
+
+    const handleCloseClaim = (claim_id: string) => {
+        confirmWithCredentials("close", claim_id, "/close", "closed_by");
+    };
+
+    // ── Inline Edit ─────────────────────────────────────────────────────────
     const startEditing = (claim: Claim) => {
-        if (savingClaimId) return; // prevent starting new edit while saving
+        if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
         setEditNameValue(claim.claimant_name || "");
         setTimeout(() => inputRef.current?.focus(), 10);
@@ -257,31 +283,23 @@ export default function ClaimsPage() {
             alert("Claimant name cannot be empty.");
             return;
         }
-
         if (savingClaimId) return;
 
         setSavingClaimId(claim_id);
-
         try {
             await api.put(
                 `/api/claims/${claim_id}`,
                 { claimant_name: editNameValue.trim() },
-                {
-                    headers: { requiresAuth: true },
-                }
+                { headers: { requiresAuth: true } }
             );
-
-            // Optimistic update
             setAllClaims((prev) =>
                 prev.map((c) =>
                     c.claim_id === claim_id ? { ...c, claimant_name: editNameValue.trim() } : c
                 )
             );
-
             setEditingClaimId(null);
             setEditNameValue("");
         } catch (err: any) {
-            console.error(err);
             alert(err.response?.data?.detail || "Failed to update claimant name.");
         } finally {
             setSavingClaimId(null);
@@ -323,7 +341,6 @@ export default function ClaimsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10">
                     <div>
                         <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
@@ -348,7 +365,6 @@ export default function ClaimsPage() {
                     </div>
                 )}
 
-                {/* Create Form - unchanged */}
                 <div className="mb-12 bg-white/80 backdrop-blur-md shadow-xl rounded-3xl border border-green-100/60 p-8 md:p-10">
                     <h2 className="text-2xl font-bold text-green-800 mb-6">Create New Claim</h2>
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -425,7 +441,6 @@ export default function ClaimsPage() {
                     </form>
                 </div>
 
-                {/* Filters - unchanged */}
                 <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div>
@@ -494,13 +509,11 @@ export default function ClaimsPage() {
                     </div>
                 </div>
 
-                {/* Claims Counter */}
                 <div className="mb-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                     Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                     <span className="font-bold text-green-800">{allClaims.length}</span> claims
                 </div>
 
-                {/* Table */}
                 {loading ? (
                     <div className="flex justify-center py-20">
                         <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
@@ -516,58 +529,70 @@ export default function ClaimsPage() {
                 ) : (
                     <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-green-100 text-sm">
+                            <table className="min-w-full divide-y divide-gray-400 border border-gray-400 text-sm rounded-md overflow-hidden">
                                 <thead className="bg-green-50/70">
-                                    <tr>
+                                    <tr className="border-b border-gray-500">
                                         <th
                                             onClick={() => handleSort("claim_id")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Claim ID {getSortArrow("claim_id")}
                                         </th>
                                         <th
                                             onClick={() => handleSort("claimant_name")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Claimant {getSortArrow("claimant_name")}
                                         </th>
                                         <th
                                             onClick={() => handleSort("claim_type")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Type {getSortArrow("claim_type")}
                                         </th>
                                         <th
                                             onClick={() => handleSort("council")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Council {getSortArrow("council")}
                                         </th>
                                         <th
+                                            onClick={() => handleSort("status")}
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
+                                        >
+                                            Status {getSortArrow("status")}
+                                        </th>
+                                        <th
                                             onClick={() => handleSort("claim_start_date")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Start Date {getSortArrow("claim_start_date")}
                                         </th>
                                         <th
                                             onClick={() => handleSort("invoice_sent")}
-                                            className="px-3 py-2 text-left font-semibold text-green-800 cursor-pointer hover:bg-green-100/50"
+                                            className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
                                         >
                                             Invoice {getSortArrow("invoice_sent")}
+                                        </th>
+                                        <th className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400">
+                                            Closed
                                         </th>
                                         <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-green-50">
+                                <tbody className="divide-y divide-gray-300 bg-white">
                                     {claims.map((claim) => {
                                         const isEditing = editingClaimId === claim.claim_id;
                                         const isSaving = savingClaimId === claim.claim_id;
+                                        const isClosed = !!claim.closed_date && !!claim.closed_by;
+                                        const statusClass = STATUS_COLORS[claim.status?.toLowerCase()] || "bg-gray-100 text-gray-800";
 
                                         return (
-                                            <tr key={claim.claim_id} className="hover:bg-green-200/50 transition-colors">
-                                                <td className="px-3 py-1 font-medium text-green-800">{claim.claim_id.toUpperCase()}</td>
-
-                                                <td className="px-3 py-1 text-gray-700">
+                                            <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                                <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
+                                                    {claim.claim_id.toUpperCase()}
+                                                </td>
+                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {isEditing ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <input
@@ -578,11 +603,10 @@ export default function ClaimsPage() {
                                                                 onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                                 disabled={isSaving}
                                                                 autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${
-                                                                    isSaving
-                                                                        ? "border-gray-300 bg-gray-50 text-gray-500"
-                                                                        : "border-green-400 focus:ring-green-500 bg-white"
-                                                                }`}
+                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving
+                                                                    ? "border-gray-300 bg-gray-50 text-gray-500"
+                                                                    : "border-green-400 focus:ring-green-500 bg-white"
+                                                                    }`}
                                                             />
                                                             {isSaving ? (
                                                                 <Loader2 size={16} className="text-green-600 animate-spin" />
@@ -612,9 +636,7 @@ export default function ClaimsPage() {
                                                             <span className={isSaving ? "opacity-50" : ""}>
                                                                 {(claim.claimant_name || "—").toUpperCase()}
                                                             </span>
-                                                            {isSaving ? (
-                                                                <Loader2 size={14} className="text-green-600 animate-spin" />
-                                                            ) : (
+                                                            {isSaving ? null : (
                                                                 <button
                                                                     onClick={() => startEditing(claim)}
                                                                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700"
@@ -626,24 +648,50 @@ export default function ClaimsPage() {
                                                         </div>
                                                     )}
                                                 </td>
-
-                                                <td className="px-3 py-1 text-gray-700">
+                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {claim.claim_type
                                                         ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
                                                         : "—"}
                                                 </td>
-                                                <td className="px-3 py-1 text-gray-700">{claim.council || "—"}</td>
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap">
+                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+                                                    {claim.council || "—"}
+                                                </td>
+                                                <td className="border-r border-gray-300">
+                                                    <div className="relative group mx-auto w-8 h-4">
+                                                        <div
+                                                            className={`w-full h-full rounded-full ${statusClass}`}
+                                                        ></div>
+                                                        <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-6 
+                     bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 
+                     group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
+                                                            {claim.status}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {formatDate(claim.claim_start_date)}
                                                 </td>
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap">
+                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {claim.invoice_datetime
                                                         ? `${new Date(claim.invoice_datetime).toLocaleDateString("en-GB", {
-                                                              day: "2-digit",
-                                                              month: "short",
-                                                              year: "numeric",
-                                                          })} ${claim.info || "No Info"}`
+                                                            day: "2-digit",
+                                                            month: "short",
+                                                            year: "numeric",
+                                                        })} ${claim.info || "No Info"}`
                                                         : "Not Sent"}
+                                                </td>
+                                                <td className="px-3 py-1 text-center border-r border-gray-300">
+                                                    <span
+                                                        className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full ${isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                                                            }`}
+                                                        title={
+                                                            isClosed
+                                                                ? `Closed by ${claim.closed_by} on ${formatDate(claim.closed_date)}`
+                                                                : ""
+                                                        }
+                                                    >
+                                                        {isClosed ? "Yes" : "No"}
+                                                    </span>
                                                 </td>
                                                 <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
                                                     <button
@@ -652,12 +700,26 @@ export default function ClaimsPage() {
                                                     >
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleDelete(claim.claim_id)}
-                                                        className="p-1 text-red-600 hover:text-red-800 transition rounded"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
+
+                                                    {!isClosed && (
+                                                        <button
+                                                            onClick={() => handleCloseClaim(claim.claim_id)}
+                                                            className="p-1 text-purple-600 hover:text-purple-800 transition rounded"
+                                                            title="Close claim"
+                                                        >
+                                                            <Lock size={16} />
+                                                        </button>
+                                                    )}
+
+                                                    {!claim.recently_deleted && (
+                                                        <button
+                                                            onClick={() => handleSoftDelete(claim.claim_id)}
+                                                            className="p-1 text-red-600 hover:text-red-800 transition rounded"
+                                                            title="Soft delete"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         );

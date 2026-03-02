@@ -11,6 +11,7 @@ import DocumentManager from "@/app/components/Document";
 import InvoiceManager from "@/app/components/InnvoiceManager";
 import UnsavedChangesDialog from "@/app/components/UnsavedChangesDialog";
 import { use } from "react";
+import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
 type TabKey =
   | "pre-inspection"
@@ -31,10 +32,20 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "invoice", label: "Invoice" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "claim created", label: "Claim Created" },
+  { value: "hire start", label: "Hire Start" },
+  { value: "client paid", label: "Client Paid" },
+  { value: "hire end", label: "Hire End" },
+  { value: "invoice sent", label: "Invoice Sent" },
+];
+
 interface ClaimData {
   claim_id: string;
   claimant_name: string | null;
   claim_type: string | null;
+  customer_type?: string;
+  status?: string;
   [key: string]: any;
 }
 
@@ -55,7 +66,39 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [pendingTab, setPendingTab] = useState<TabKey | null>(null);
   const [showDialog, setShowDialog] = useState(false);
 
+  // Status update related state
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const fetchClaim = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await api.get(`/api/claims/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
+      const data = res.data;
+      setClaimData(data);
+      setSelectedStatus(data.status || "claim created");
+    } catch (err: any) {
+      console.error("Failed to fetch claim:", err);
+      setError(
+        err.response?.data?.detail ||
+        "Could not load claim details. Please try again later."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!claimId) return;
+    fetchClaim();
+  }, [claimId]);
 
   const handleTabChange = (tabKey: TabKey) => {
     if (hasUnsavedChanges) {
@@ -81,39 +124,41 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   };
 
   const refreshPage = () => {
-    // Option 1: Full page reload (most reliable when data comes from server)
-    window.location.reload();
-
-    // Option 2: Soft refresh – only re-fetch claim data (uncomment if preferred)
-    // setLoading(true);
-    // setError(null);
-    // fetchClaim();
+    fetchClaim();
   };
 
-  const fetchClaim = async () => {
-    setLoading(true);
-    setError(null);
+  const handleUpdateStatus = async () => {
+    if (!selectedStatus) return;
+    if (selectedStatus === claimData?.status) {
+      setStatusMessage({ type: "success", text: "No change needed" });
+      return;
+    }
+
+    setStatusSaving(true);
+    setStatusMessage(null);
 
     try {
-      const res = await api.get(`/api/claims/${claimId}`, {
-        headers: { requiresAuth: true },
-      });
-      setClaimData(res.data);
-    } catch (err: any) {
-      console.error("Failed to fetch claim:", err);
-      setError(
-        err.response?.data?.detail ||
-        "Could not load claim details. Please try again later."
+      await api.put(
+        `/api/claims/${claimId}/status`,
+        { status: selectedStatus },
+        { headers: { requiresAuth: true } }
       );
+
+      setClaimData((prev) => prev ? { ...prev, status: selectedStatus } : null);
+      setStatusMessage({ type: "success", text: "Status updated successfully" });
+
+      // Optional: refresh full data
+      // fetchClaim();
+    } catch (err: any) {
+      console.error("Status update failed:", err);
+      setStatusMessage({
+        type: "error",
+        text: err.response?.data?.detail || "Failed to update status",
+      });
     } finally {
-      setLoading(false);
+      setStatusSaving(false);
     }
   };
-
-  useEffect(() => {
-    if (!claimId) return;
-    fetchClaim();
-  }, [claimId]);
 
   const getCustomerTypeLabel = (type?: string) => {
     if (!type) return "—";
@@ -127,18 +172,24 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     return types[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1);
   };
 
+  const getStatusLabel = (status?: string) => {
+    if (!status) return "—";
+    const option = STATUS_OPTIONS.find((opt) => opt.value === status);
+    return option ? option.label : status;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
       {/* Customer Info Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-25">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
             <h2 className="text-lg font-bold text-green-800">
               Claim / Customer Details
             </h2>
             <button
-              onClick={refreshPage} // define this function to reload claim data
-              className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+              onClick={refreshPage}
+              className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition flex items-center gap-2"
             >
               Refresh
             </button>
@@ -146,7 +197,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+              <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
               <span className="ml-3 text-gray-600">Loading claim details...</span>
             </div>
           ) : error ? (
@@ -154,14 +205,14 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               {error}
             </div>
           ) : claimData ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <p className="text-gray-500">Claim ID / Customer ID</p>
+                <p className="text-gray-500">Claim ID</p>
                 <p className="font-medium text-gray-900 mt-1">{claimData.claim_id?.toUpperCase() || "—"}</p>
               </div>
 
               <div>
-                <p className="text-gray-500">Claimant / Customer Name</p>
+                <p className="text-gray-500">Claimant Name</p>
                 <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name || "—"}</p>
               </div>
 
@@ -171,28 +222,77 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   {getCustomerTypeLabel(claimData.customer_type || claimData.claim_type)}
                 </p>
               </div>
+
+              <div className="lg:col-span-1">
+                <p className="text-gray-500">Status</p>
+                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    disabled={statusSaving}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white text-sm"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleUpdateStatus}
+                    disabled={statusSaving || selectedStatus === claimData.status}
+                    className={`px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition
+                      ${statusSaving
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700"
+                      }`}
+                  >
+                    {statusSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Update Status"
+                    )}
+                  </button>
+                </div>
+
+                {statusMessage && (
+                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${
+                    statusMessage.type === "success" ? "text-green-700" : "text-red-700"
+                  }`}>
+                    {statusMessage.type === "success" ? (
+                      <CheckCircle size={16} />
+                    ) : (
+                      <AlertCircle size={16} />
+                    )}
+                    {statusMessage.text}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-gray-600">No claim data available.</p>
           )}
         </div>
       </section>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Refresh Button + Tabs */}
-
-
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl overflow-x-auto">
+        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
-                ? "bg-green-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-white/50"
-                }`}
+              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${
+                activeTab === tab.key
+                  ? "bg-green-600 text-white shadow-lg"
+                  : "text-gray-600 hover:bg-white/50"
+              }`}
             >
               {tab.label}
             </button>

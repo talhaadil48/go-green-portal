@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
+import { Eye, RotateCcw, Trash2, Loader2 } from "lucide-react";
 
 interface Claim {
   claim_id: string;
@@ -11,6 +12,7 @@ interface Claim {
   claim_type: string | null;
   claim_start_date: string | null;
   recently_deleted_date: string | null;
+  deleted_by: string | null;
 }
 
 interface LongClaim {
@@ -20,31 +22,34 @@ interface LongClaim {
   invoice_sent: boolean | null;
   date_sent: string | null;
   recently_deleted_date?: string | null;
+  deleted_by?: string | null;          // ← NEW
 }
 
-// Helper type to track loading per claim + action
 type ActionLoading = {
   [claimId: string]: 'restore' | 'delete' | null;
 };
 
 export default function RecentlyDeletedClaimsPage() {
-  // ── Regular Claims ───────────────────────────────────────
   const [claims, setClaims] = useState<Claim[]>([]);
   const [allClaims, setAllClaims] = useState<Claim[]>([]);
 
-  // ── Sovereign / sovereign long term ──────────────────────────────
   const [longClaims, setLongClaims] = useState<LongClaim[]>([]);
   const [allLongClaims, setAllLongClaims] = useState<LongClaim[]>([]);
 
-  const [loading, setLoading] = useState(true);                    // initial data load
-  const [actionLoading, setActionLoading] = useState<ActionLoading>({}); // per-claim action loading
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<ActionLoading>({});
   const [error, setError] = useState<string | null>(null);
 
-  // Shared filter states
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedType, setSelectedType] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // Filters for Regular Claims
+  const [regSearch, setRegSearch] = useState("");
+  const [regType, setRegType] = useState("");
+  const [regStartDate, setRegStartDate] = useState("");
+  const [regEndDate, setRegEndDate] = useState("");
+
+  // Filters for Long Claims
+  const [longSearch, setLongSearch] = useState("");
+  const [longStartDate, setLongStartDate] = useState("");
+  const [longEndDate, setLongEndDate] = useState("");
 
   const router = useRouter();
 
@@ -71,7 +76,7 @@ export default function RecentlyDeletedClaimsPage() {
       setAllLongClaims(data);
       setLongClaims(data);
     } catch (err) {
-      console.error("sovereign long term fetch failed", err);
+      console.error("Sovereign long term fetch failed", err);
       setError("Failed to load sovereign/sovereign long term");
     }
   };
@@ -87,24 +92,26 @@ export default function RecentlyDeletedClaimsPage() {
     fetchAll();
   }, []);
 
-  // Filter regular claims
+  // ── Filter Regular Claims ───────────────────────────────────────────────
   useEffect(() => {
     let filtered = [...allClaims];
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase().trim();
-      filtered = filtered.filter((c) =>
-        c.claimant_name?.toLowerCase().includes(term)
+    if (regSearch.trim()) {
+      const term = regSearch.toLowerCase().trim();
+      filtered = filtered.filter(
+        (c) =>
+          (c.claimant_name?.toLowerCase().includes(term) || false) ||
+          c.claim_id.toLowerCase().includes(term)
       );
     }
 
-    if (selectedType) {
-      filtered = filtered.filter((c) => c.claim_type === selectedType);
+    if (regType) {
+      filtered = filtered.filter((c) => c.claim_type === regType);
     }
 
-    if (startDate || endDate) {
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
+    if (regStartDate || regEndDate) {
+      const start = regStartDate ? new Date(regStartDate) : null;
+      const end = regEndDate ? new Date(regEndDate) : null;
       filtered = filtered.filter((c) => {
         if (!c.claim_start_date) return false;
         const d = new Date(c.claim_start_date);
@@ -113,24 +120,25 @@ export default function RecentlyDeletedClaimsPage() {
     }
 
     setClaims(filtered);
-  }, [searchTerm, selectedType, startDate, endDate, allClaims]);
+  }, [regSearch, regType, regStartDate, regEndDate, allClaims]);
 
-  // Filter sovereign long term
+  // ── Filter Long Claims ──────────────────────────────────────────────────
   useEffect(() => {
     let filtered = [...allLongClaims];
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase().trim();
-      filtered = filtered.filter((c) =>
-        c.id.toLowerCase().includes(term) ||
-        (c.starting_date?.toLowerCase().includes(term) ?? false) ||
-        (c.ending_date?.toLowerCase().includes(term) ?? false)
+    if (longSearch.trim()) {
+      const term = longSearch.toLowerCase().trim();
+      filtered = filtered.filter(
+        (c) =>
+          c.id.toLowerCase().includes(term) ||
+          (c.starting_date?.toLowerCase().includes(term) ?? false) ||
+          (c.ending_date?.toLowerCase().includes(term) ?? false)
       );
     }
 
-    if (startDate || endDate) {
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
+    if (longStartDate || longEndDate) {
+      const start = longStartDate ? new Date(longStartDate) : null;
+      const end = longEndDate ? new Date(longEndDate) : null;
       filtered = filtered.filter((c) => {
         if (!c.starting_date) return false;
         const d = new Date(c.starting_date);
@@ -139,7 +147,7 @@ export default function RecentlyDeletedClaimsPage() {
     }
 
     setLongClaims(filtered);
-  }, [searchTerm, startDate, endDate, allLongClaims]);
+  }, [longSearch, longStartDate, longEndDate, allLongClaims]);
 
   const startAction = (claimId: string, action: 'restore' | 'delete') => {
     setActionLoading((prev) => ({ ...prev, [claimId]: action }));
@@ -155,6 +163,7 @@ export default function RecentlyDeletedClaimsPage() {
 
   const handleRestore = async (claim_id: string, isLong = false) => {
     if (actionLoading[claim_id]) return;
+    if (!confirm(`Restore claim ${claim_id}?`)) return;
 
     startAction(claim_id, 'restore');
 
@@ -174,7 +183,7 @@ export default function RecentlyDeletedClaimsPage() {
 
   const handlePermanentDelete = async (claim_id: string, isLong = false) => {
     if (actionLoading[claim_id]) return;
-    if (!confirm("Permanently delete this claim? This action cannot be undone.")) return;
+    if (!confirm(`Permanently delete claim ${claim_id}? This cannot be undone.`)) return;
 
     startAction(claim_id, 'delete');
 
@@ -205,20 +214,24 @@ export default function RecentlyDeletedClaimsPage() {
     }
   };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setSelectedType("");
-    setStartDate("");
-    setEndDate("");
+  const clearRegFilters = () => {
+    setRegSearch("");
+    setRegType("");
+    setRegStartDate("");
+    setRegEndDate("");
   };
 
-  const hasFilters = searchTerm || selectedType || startDate || endDate;
+  const clearLongFilters = () => {
+    setLongSearch("");
+    setLongStartDate("");
+    setLongEndDate("");
+  };
 
   const isActionLoading = (claimId: string) => !!actionLoading[claimId];
   const getActionType = (claimId: string) => actionLoading[claimId];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 relative">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10">
@@ -253,84 +266,76 @@ export default function RecentlyDeletedClaimsPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-10 bg-white/70 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search by Name / ID
-              </label>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Claimant or Claim ID..."
-                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Claim Type
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 transition bg-white/80"
-              >
-                <option value="">All Types</option>
-                <option value="taxi">Taxi</option>
-                <option value="personal">Personal</option>
-                <option value="sovereign">Sovereign</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 transition bg-white/80"
-              />
-            </div>
-
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 transition bg-white/80"
-                />
-              </div>
-              <button
-                onClick={clearFilters}
-                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition border border-gray-300"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Regular Claims */}
+        {/* ── Regular Claims Section ──────────────────────────────────────── */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold text-green-800 mb-6">Regular Claims</h2>
 
+          {/* Regular Filters */}
+          <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Search by Name / ID</label>
+                <input
+                  type="text"
+                  value={regSearch}
+                  onChange={(e) => setRegSearch(e.target.value)}
+                  placeholder="Claimant or Claim ID..."
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Claim Type</label>
+                <select
+                  value={regType}
+                  onChange={(e) => setRegType(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                >
+                  <option value="">All Types</option>
+                  <option value="taxi">Taxi</option>
+                  <option value="personal">Personal</option>
+                  <option value="sovereign">Sovereign</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={regStartDate}
+                  onChange={(e) => setRegStartDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={regEndDate}
+                    onChange={(e) => setRegEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                  />
+                </div>
+                <button
+                  onClick={clearRegFilters}
+                  className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div className="flex justify-center py-20">
               <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
             </div>
           ) : claims.length === 0 ? (
-            <div className="text-center py-12 bg-white/60 rounded-3xl border border-green-100">
+            <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
               <p className="text-xl text-green-700/80">
-                {hasFilters
+                {regSearch || regType || regStartDate || regEndDate
                   ? "No matching regular claims found"
                   : "No recently deleted regular claims"}
               </p>
@@ -338,72 +343,77 @@ export default function RecentlyDeletedClaimsPage() {
           ) : (
             <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-green-100">
+                <table className="min-w-full divide-y divide-gray-400 border border-gray-400 text-sm rounded-md overflow-hidden">
                   <thead className="bg-green-50/70">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Claim ID</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Claimant</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Type</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Start Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Deleted</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">Actions</th>
+                    <tr className="border-b border-gray-500">
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claim ID</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claimant</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Type</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Start Date</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Deleted</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Deleted By</th>
+                      <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-green-50">
+                  <tbody className="divide-y divide-gray-300 bg-white">
                     {claims.map((claim) => {
                       const isLoading = isActionLoading(claim.claim_id);
                       const actionType = getActionType(claim.claim_id);
 
                       return (
                         <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
-                          <td className="px-6 py-4 font-medium text-green-800">{claim.claim_id}</td>
-                          <td className="px-6 py-4 text-gray-700">{claim.claimant_name || "—"}</td>
-                          <td className="px-6 py-4 text-gray-700">
+                          <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
+                            {claim.claim_id.toUpperCase()}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+                            {(claim.claimant_name || "—").toUpperCase()}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                             {claim.claim_type
                               ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
                               : "—"}
                           </td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(claim.claim_start_date)}</td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(claim.recently_deleted_date)}</td>
-                          <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
-                            <Link
-                              href={`/claim/${claim.claim_id}`}
-                              className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                          <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                            {formatDate(claim.claim_start_date)}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                            {formatDate(claim.recently_deleted_date)}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+                            {claim.deleted_by || "—"}
+                          </td>
+                          <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => router.push(`/claim/${claim.claim_id}`)}
+                              className="p-1 text-green-600 hover:text-green-800 transition rounded"
+                              title="View claim"
                             >
-                              View
-                            </Link>
+                              <Eye size={16} />
+                            </button>
 
                             <button
                               onClick={() => handleRestore(claim.claim_id, false)}
                               disabled={isLoading}
-                              className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 min-w-[110px] justify-center
-                                ${actionType === 'restore' ? 'bg-emerald-700 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}
-                                disabled:opacity-60`}
+                              className="p-1 text-emerald-600 hover:text-emerald-800 transition rounded"
+                              title="Restore claim"
                             >
                               {actionType === 'restore' ? (
-                                <>
-                                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  Restoring...
-                                </>
+                                <Loader2 size={16} className="animate-spin" />
                               ) : (
-                                "Restore"
+                                <RotateCcw size={16} />
                               )}
                             </button>
 
                             <button
                               onClick={() => handlePermanentDelete(claim.claim_id, false)}
                               disabled={isLoading}
-                              className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 min-w-[140px] justify-center
-                                ${actionType === 'delete' ? 'bg-red-700 cursor-wait' : 'bg-red-600 hover:bg-red-700'}
-                                disabled:opacity-60`}
+                              className="p-1 text-red-600 hover:text-red-800 transition rounded"
+                              title="Delete permanently"
                             >
                               {actionType === 'delete' ? (
-                                <>
-                                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  Deleting...
-                                </>
+                                <Loader2 size={16} className="animate-spin" />
                               ) : (
-                                "Delete Permanently"
+                                <Trash2 size={16} />
                               )}
                             </button>
                           </td>
@@ -417,18 +427,62 @@ export default function RecentlyDeletedClaimsPage() {
           )}
         </section>
 
-        {/* Sovereign / sovereign long term */}
+        {/* ── Sovereign / Long-Term Claims Section ─────────────────────────── */}
         <section>
           <h2 className="text-3xl font-bold text-green-800 mb-6">Sovereign / Long-Term Claims</h2>
 
+          {/* Long Claims Filters */}
+          <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Search by ID / Date</label>
+                <input
+                  type="text"
+                  value={longSearch}
+                  onChange={(e) => setLongSearch(e.target.value)}
+                  placeholder="Claim ID or date..."
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={longStartDate}
+                  onChange={(e) => setLongStartDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={longEndDate}
+                    onChange={(e) => setLongEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                  />
+                </div>
+                <button
+                  onClick={clearLongFilters}
+                  className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+
           {loading ? (
-            <div className="flex justify-center py-16">
+            <div className="flex justify-center py-20">
               <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
             </div>
           ) : longClaims.length === 0 ? (
-            <div className="text-center py-12 bg-white/60 rounded-3xl border border-green-100">
+            <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
               <p className="text-xl text-green-700/80">
-                {hasFilters
+                {longSearch || longStartDate || longEndDate
                   ? "No matching Sovereign Long term found"
                   : "No recently deleted Sovereign Long term"}
               </p>
@@ -436,63 +490,77 @@ export default function RecentlyDeletedClaimsPage() {
           ) : (
             <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-green-100">
+                <table className="min-w-full divide-y divide-gray-400 border border-gray-400 text-sm rounded-md overflow-hidden">
                   <thead className="bg-green-50/70">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Claim ID</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Start Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">End Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Invoice Sent</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-green-800">Date Sent</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-green-800">Actions</th>
+                    <tr className="border-b border-gray-500">
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claim ID</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Start Date</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">End Date</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Invoice Sent</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date Sent</th>
+                      <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Deleted By</th>
+                      <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-green-50">
+                  <tbody className="divide-y divide-gray-300 bg-white">
                     {longClaims.map((claim) => {
                       const isLoading = isActionLoading(claim.id);
                       const actionType = getActionType(claim.id);
 
                       return (
                         <tr key={claim.id} className="hover:bg-green-50/40 transition-colors">
-                          <td className="px-6 py-4 font-medium text-green-800">{claim.id}</td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(claim.starting_date)}</td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(claim.ending_date)}</td>
-                          <td className="px-6 py-4 text-gray-700">
-                            {claim.invoice_sent === true ? "Yes" : claim.invoice_sent === false ? "No" : "—"}
+                          <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
+                            {claim.id}
                           </td>
-                          <td className="px-6 py-4 text-gray-700">{formatDate(claim.date_sent)}</td>
-                          <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                          <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                            {formatDate(claim.starting_date)}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                            {formatDate(claim.ending_date)}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 border-r border-gray-300 text-center">
+                            {claim.invoice_sent === true ? (
+                              <span className="px-2.5 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                Yes
+                              </span>
+                            ) : claim.invoice_sent === false ? (
+                              <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+                                No
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                            {formatDate(claim.date_sent)}
+                          </td>
+                          <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+                            {claim.deleted_by || "—"}
+                          </td>
+                          <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleRestore(claim.id, true)}
                               disabled={isLoading}
-                              className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 min-w-[110px] justify-center
-                                ${actionType === 'restore' ? 'bg-emerald-700 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700'}
-                                disabled:opacity-60`}
+                              className="p-1 text-emerald-600 hover:text-emerald-800 transition rounded"
+                              title="Restore claim"
                             >
                               {actionType === 'restore' ? (
-                                <>
-                                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  Restoring...
-                                </>
+                                <Loader2 size={16} className="animate-spin" />
                               ) : (
-                                "Restore"
+                                <RotateCcw size={16} />
                               )}
                             </button>
 
                             <button
                               onClick={() => handlePermanentDelete(claim.id, true)}
                               disabled={isLoading}
-                              className={`px-4 py-2 text-white text-sm rounded-lg flex items-center gap-2 min-w-[140px] justify-center
-                                ${actionType === 'delete' ? 'bg-red-700 cursor-wait' : 'bg-red-600 hover:bg-red-700'}
-                                disabled:opacity-60`}
+                              className="p-1 text-red-600 hover:text-red-800 transition rounded"
+                              title="Delete permanently"
                             >
                               {actionType === 'delete' ? (
-                                <>
-                                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  Deleting...
-                                </>
+                                <Loader2 size={16} className="animate-spin" />
                               ) : (
-                                "Delete Permanently"
+                                <Trash2 size={16} />
                               )}
                             </button>
                           </td>

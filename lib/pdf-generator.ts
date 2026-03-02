@@ -2196,35 +2196,38 @@ async function generateClaimPDF(
   );
   yPos += 14;
 
-  // Direction Drawings
-  const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
-  const drawingHeight = 36;
+ const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
+const drawingHeight = 42;
 
-  if (
-    formData.images?.direction_before_drawing ||
-    formData.images?.direction_after_drawing
-  ) {
-    yPos = addSectionHeader("DIRECTION OF TRAVEL", yPos);
+// Use the smaller value so the image is square but not too big
+const squareSize = Math.min(drawingWidth, drawingHeight);
 
-    const beforeY = yPos;
-    yPos = await addImage(
-      "Before Accident",
-      formData.images?.direction_before_drawing || null,
-      margin,
-      yPos,
-      drawingWidth,
-      drawingHeight,
-    );
-    await addImage(
-      "After Accident",
-      formData.images?.direction_after_drawing || null,
-      margin + drawingWidth + 5,
-      beforeY,
-      drawingWidth,
-      drawingHeight,
-    );
-  }
+if (
+  formData.images?.direction_before_drawing ||
+  formData.images?.direction_after_drawing
+) {
+  yPos = addSectionHeader("DIRECTION OF TRAVEL", yPos);
 
+  const beforeY = yPos;
+
+  yPos = await addImage(
+    "Before Accident",
+    formData.images?.direction_before_drawing || null,
+    margin,
+    yPos,
+    squareSize,
+    squareSize
+  );
+
+  await addImage(
+    "After Accident",
+    formData.images?.direction_after_drawing || null,
+    margin + squareSize + 5,
+    beforeY,
+    squareSize,
+    squareSize
+  );
+}
   // Circumstance Drawing
   if (formData.images?.circumstance_drawing) {
     yPos = checkNewPage(yPos, 75);
