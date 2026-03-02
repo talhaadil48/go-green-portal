@@ -48,7 +48,7 @@ interface Claimant {
     location: string | null;
     delivery_charges: number;
 }
-interface PDFData { 
+interface PDFData {
     claimId: string;
 }
 function formatDate(d: string | null) {
@@ -144,26 +144,17 @@ export default function LongClaimDetailPage() {
                 setAllCars(allCarsRes.data.data || []);
                 const cars = claimCarsRes.data.data || [];
                 setClaimCars(cars);
-                if (cars.length > 0) {
-                    await Promise.all(
-                        cars.map(async (car: CarItem) => {
-                            try {
-                                const res = await api.get(`/api/car/${car.id}/claimants/${claimId}`, { headers: { requiresAuth: true } });
-                                setClaimantsByCar((prev) => ({ ...prev, [car.id]: res.data.data || [] }));
-                            } catch { }
-                        })
-                    );
-                    await Promise.all(
-                        cars.map(async (car: CarItem) => {
-                            try {
-                                const rateRes = await api.get(`/api/long-claim/${claimId}/car/${car.id}/daily-rate`, { headers: { requiresAuth: true } });
-                                console.log("Fetched daily rate for car", car.id, ":", rateRes.data.data.daily_rate);
-                                setDailyRates((prev) => ({ ...prev, [car.id]: rateRes.data.data.daily_rate ?? 0 }));
-                            } catch (err) {
-                                console.warn("Failed to fetch daily rate for car", car.id, err);
-                            }
-                        })
-                    );
+                try {
+                    const res = await api.get(`/api/long-hire/${claimId}/claimants`, { headers: { requiresAuth: true } });
+
+                    // res.data.data is already grouped by car_id
+                    setClaimantsByCar(res.data.data || {});
+
+                    // Fetch daily rates separately if needed
+                    const ratesRes = await api.get(`/api/long-claim/${claimId}/daily-rates`, { headers: { requiresAuth: true } });
+                    setDailyRates(ratesRes.data.data || {});
+                } catch (error) {
+                    console.error("Failed to fetch claimants or rates:", error);
                 }
             } catch (err: any) {
                 setError(err.message || "Failed to load claim details.");
@@ -183,8 +174,8 @@ export default function LongClaimDetailPage() {
                 setClaimCars((prev) => [...prev, car]);
                 const res = await api.get(`/api/car/${carId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
                 setClaimantsByCar((prev) => ({ ...prev, [carId]: res.data.data || [] }));
-                const rateRes = await api.get(`/api/long-claim/${claimId}/car/${carId}/daily-rate`, { headers: { requiresAuth: true } });
-                setDailyRates((prev) => ({ ...prev, [carId]: rateRes.data.data.daily_rate ?? 0 }));
+                const dailyRatesRes = await api.get(`/api/long-claim/${claimId}/daily-rates`, { headers: { requiresAuth: true } });
+                setDailyRates(dailyRatesRes.data.data);
             }
         } catch {
             alert("Failed to add car.");
@@ -309,7 +300,7 @@ export default function LongClaimDetailPage() {
         if (!period.starting_date || !period.ending_date) throw new Error("Claim is missing start and/or end date.");
         const totalDelivery = Object.values(claimantsByCar).flat().reduce((sum, cl) => sum + (Number(cl.delivery_charges) || 0), 0);
         const bill = totalHire + totalDelivery;
-        return await generateLongClaimInvoicePDF({ claimId, period, claimCars, claimantsByCar, totalDelivery, dailyRates, hirer_name : claim.hirer_name });
+        return await generateLongClaimInvoicePDF({ claimId, period, claimCars, claimantsByCar, totalDelivery, dailyRates, hirer_name: claim.hirer_name });
     };
 
     const handleDownloadPDF = async () => {
@@ -528,7 +519,7 @@ export default function LongClaimDetailPage() {
                             <p className="text-slate-400 text-sm">No vehicles in this claim yet</p>
                             <button onClick={() => setShowCarSelector(true)} className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium">+ Add your first vehicle</button>
                         </div>
-                    ) :  (
+                    ) : (
                         <div className="divide-y divide-slate-100">
                             {claimCars.map((car) => {
                                 const carClaimants = claimantsByCar[car.id] || [];
