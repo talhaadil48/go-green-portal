@@ -48,7 +48,9 @@ interface Claimant {
     location: string | null;
     delivery_charges: number;
 }
-
+interface PDFData { 
+    claimId: string;
+}
 function formatDate(d: string | null) {
     if (!d) return "—";
     return new Date(d).toLocaleDateString("en-GB", {
@@ -526,7 +528,7 @@ export default function LongClaimDetailPage() {
                             <p className="text-slate-400 text-sm">No vehicles in this claim yet</p>
                             <button onClick={() => setShowCarSelector(true)} className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium">+ Add your first vehicle</button>
                         </div>
-                    ) : (
+                    ) :  (
                         <div className="divide-y divide-slate-100">
                             {claimCars.map((car) => {
                                 const carClaimants = claimantsByCar[car.id] || [];
