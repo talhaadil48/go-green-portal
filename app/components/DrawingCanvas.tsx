@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-
+import { useRouter } from "next/navigation";
 interface DrawingCanvasProps {
   width: number;
   height: number;
   onDrawingChange: (dataUrl: string | null) => void;
   initialImage?: string | null;
   isFromApi?: boolean;
+  type?: string;      // ← new prop for "before" or "after"
+  claimId?: string;   // ← new prop for claim ID
 }
 
 export default function DrawingCanvas({
@@ -16,12 +18,15 @@ export default function DrawingCanvas({
   onDrawingChange,
   initialImage,
   isFromApi = false,
+  type,
+  claimId,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const isInitialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter()
 
   // History for undo
   const history = useRef<string[]>([]);
@@ -317,21 +322,20 @@ export default function DrawingCanvas({
       <div className="absolute bottom-4 right-4 flex gap-3">
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => window.open(`/draw?claim_id=${claimId}&type=${type}`, '_blank')}
           className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm shadow transition"
         >
-          Upload
+          Draw
         </button>
 
         <button
           type="button"
           onClick={undo}
           disabled={!canUndo}
-          className={`px-5 py-2 rounded-lg text-sm shadow transition text-white ${
-            canUndo
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-gray-400 cursor-not-allowed"
-          }`}
+          className={`px-5 py-2 rounded-lg text-sm shadow transition text-white ${canUndo
+            ? "bg-blue-600 hover:bg-blue-700"
+            : "bg-gray-400 cursor-not-allowed"
+            }`}
         >
           Undo
         </button>

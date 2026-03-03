@@ -145,7 +145,7 @@ export default function CarsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/20">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10 gap-4">

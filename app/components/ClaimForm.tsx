@@ -880,7 +880,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       <img
                         src={beforeDrawing || "/placeholder.svg"}
                         alt="Before drawing"
-                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-contain mx-auto"
+                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-fit mx-auto"
                       />
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
@@ -898,6 +898,8 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       onDrawingChange={setBeforeDrawing}
                       initialImage={beforeDrawing}
                       isFromApi={isBeforeFromApi}
+                      type="before"
+                      claimId={claimId}
                     />
                   )}
                 </div>
@@ -912,7 +914,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       <img
                         src={afterDrawing || "/placeholder.svg"}
                         alt="After drawing"
-                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-contain mx-auto"
+                        className="w-96 h-96 border-2 border-gray-400 rounded-xl object-cover mx-auto"
                       />
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
@@ -930,6 +932,8 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       onDrawingChange={setAfterDrawing}
                       initialImage={afterDrawing}
                       isFromApi={isAfterFromApi}
+                      type="after"
+                      claimId={claimId}
                     />
                   )}
                 </div>

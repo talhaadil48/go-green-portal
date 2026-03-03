@@ -163,7 +163,7 @@ export default function AdminUsersPage() {
 
   if (isFetching) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50/50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
           <p className="text-gray-500 font-medium">Loading moderators...</p>
@@ -173,7 +173,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50/30 pb-16 pt-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-16 pt-10 px-4 sm:px-6 lg:px-8">
       <style jsx>{`
         input,
         textarea,

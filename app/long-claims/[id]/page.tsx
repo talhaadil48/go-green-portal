@@ -48,9 +48,7 @@ interface Claimant {
     location: string | null;
     delivery_charges: number;
 }
-interface PDFData {
-    claimId: string;
-}
+
 function formatDate(d: string | null) {
     if (!d) return "—";
     return new Date(d).toLocaleDateString("en-GB", {
@@ -130,6 +128,15 @@ export default function LongClaimDetailPage() {
     const [emailForm, setEmailForm] = useState({ email: "", subject: "Long Term Hire Invoice" });
     const [sendingEmail, setSendingEmail] = useState(false);
 
+    // ────────────────────────────────────────────────
+    // Helper: car is available if it has NO claimants OR ALL claimants have end_date
+    // ────────────────────────────────────────────────
+    const isCarAvailable = (carId: number): boolean => {
+        const claimants = claimantsByCar[carId] || [];
+        if (claimants.length === 0) return true;
+        return claimants.every((cl) => cl.end_date !== null && cl.end_date !== undefined);
+    };
+
     useEffect(() => {
         const fetchInitialData = async () => {
             setLoading(true);
@@ -146,11 +153,8 @@ export default function LongClaimDetailPage() {
                 setClaimCars(cars);
                 try {
                     const res = await api.get(`/api/long-hire/${claimId}/claimants`, { headers: { requiresAuth: true } });
-
-                    // res.data.data is already grouped by car_id
                     setClaimantsByCar(res.data.data || {});
 
-                    // Fetch daily rates separately if needed
                     const ratesRes = await api.get(`/api/long-claim/${claimId}/daily-rates`, { headers: { requiresAuth: true } });
                     setDailyRates(ratesRes.data.data || {});
                 } catch (error) {
@@ -385,7 +389,7 @@ export default function LongClaimDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans">
+        <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 font-sans">
             <style jsx global>{`
                 * { box-sizing: border-box; }
                 input, textarea { text-transform: none !important; }
@@ -526,9 +530,10 @@ export default function LongClaimDetailPage() {
                                 const isExpanded = expandedCarId === car.id;
                                 const carDelivery = carClaimants.reduce((s, c) => s + (c.delivery_charges || 0), 0);
                                 const dailyRate = dailyRates[car.id] || 0;
-                                console.log(dailyRate, "daily rate for car", car.id);
                                 const isEditingRate = editingDailyRateCarId === car.id;
                                 const isSavingRate = savingDailyRateCarId === car.id;
+
+                                const available = isCarAvailable(car.id);
 
                                 return (
                                     <div key={car.id}>
@@ -545,6 +550,13 @@ export default function LongClaimDetailPage() {
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <span className="font-semibold text-slate-800 text-sm">{car.name || "—"}</span>
                                                         <span className="text-xs text-slate-400">{car.model || "—"}</span>
+
+                                                        {available ? (
+                                                            <Badge color="emerald">Available</Badge>
+                                                        ) : (
+                                                            <Badge color="amber">In Use</Badge>
+                                                        )}
+
                                                         {car.reg_no && <Badge color="slate">{car.reg_no}</Badge>}
                                                     </div>
                                                     <div className="flex items-center gap-3 mt-0.5">
@@ -645,8 +657,7 @@ export default function LongClaimDetailPage() {
                                                                     return (
                                                                         <tr
                                                                             key={cl.id}
-                                                                            className={`hover:bg-slate-50/70 transition-colors ${isEditing ? "bg-emerald-50/40" : ""
-                                                                                }`}
+                                                                            className={`hover:bg-slate-50/70 transition-colors ${isEditing ? "bg-emerald-50/40" : ""}`}
                                                                         >
                                                                             {isEditing ? (
                                                                                 <>

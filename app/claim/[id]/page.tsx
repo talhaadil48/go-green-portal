@@ -179,7 +179,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 pb-12">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-12">
       {/* Customer Info Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">

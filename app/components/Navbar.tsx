@@ -33,7 +33,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-18">
           <Link
@@ -58,7 +58,7 @@ export default function Navbar() {
                   href="/long-claims"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  Long Term
+                  Long Term Hire
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link
@@ -72,7 +72,7 @@ export default function Navbar() {
                   href="/invoice"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  Invoices
+                  Accounts
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link

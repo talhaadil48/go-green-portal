@@ -30,7 +30,8 @@ type SortColumn =
     | "claim_start_date"
     | "invoice_sent"
     | "council"
-    | "status";
+    | "status"
+    | "closed";
 
 type SortDirection = "asc" | "desc" | null;
 
@@ -161,6 +162,13 @@ export default function ClaimsPage() {
                     bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
                 }
 
+                if (sortColumn === "closed") {
+                    const aClosed = !!(a.closed_date && a.closed_by);
+                    const bClosed = !!(b.closed_date && b.closed_by);
+                    const comparison = aClosed === bClosed ? 0 : aClosed ? 1 : -1;
+                    return sortDirection === "asc" ? comparison : -comparison;
+                }
+
                 if (typeof aVal === "string" && typeof bVal === "string") {
                     const comparison = aVal.toLowerCase().localeCompare(bVal.toLowerCase());
                     return sortDirection === "asc" ? comparison : -comparison;
@@ -226,7 +234,6 @@ export default function ClaimsPage() {
         }
     };
 
-    // ── Confirmation Helpers ────────────────────────────────────────────────
     const confirmWithCredentials = async (
         actionName: string,
         claimId: string,
@@ -264,7 +271,6 @@ export default function ClaimsPage() {
         confirmWithCredentials("close", claim_id, "/close", "closed_by");
     };
 
-    // ── Inline Edit ─────────────────────────────────────────────────────────
     const startEditing = (claim: Claim) => {
         if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
@@ -532,6 +538,12 @@ export default function ClaimsPage() {
                             <table className="min-w-full divide-y divide-gray-400 border border-gray-400 text-sm rounded-md overflow-hidden">
                                 <thead className="bg-green-50/70">
                                     <tr className="border-b border-gray-500">
+                                         <th
+                                            onClick={() => handleSort("closed")}
+                                            className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
+                                        >
+                                            Active {getSortArrow("closed")}
+                                        </th>
                                         <th
                                             onClick={() => handleSort("claim_id")}
                                             className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50"
@@ -574,9 +586,7 @@ export default function ClaimsPage() {
                                         >
                                             Invoice {getSortArrow("invoice_sent")}
                                         </th>
-                                        <th className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400">
-                                            Closed
-                                        </th>
+                                       
                                         <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
                                     </tr>
                                 </thead>
@@ -589,6 +599,19 @@ export default function ClaimsPage() {
 
                                         return (
                                             <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                                <td className="px-3 py-1 text-center border-r border-gray-300">
+                                                    <span
+                                                        className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full ${!isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                                                            }`}
+                                                        title={
+                                                            isClosed
+                                                                ? `Closed by ${claim.closed_by} on ${formatDate(claim.closed_date)}`
+                                                                : ""
+                                                        }
+                                                    >
+                                                        {isClosed ? "No" : "Yes"}
+                                                    </span>
+                                                </td>
                                                 <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
                                                     {claim.claim_id.toUpperCase()}
                                                 </td>
@@ -680,19 +703,7 @@ export default function ClaimsPage() {
                                                         })} ${claim.info || "No Info"}`
                                                         : "Not Sent"}
                                                 </td>
-                                                <td className="px-3 py-1 text-center border-r border-gray-300">
-                                                    <span
-                                                        className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full ${isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                                                            }`}
-                                                        title={
-                                                            isClosed
-                                                                ? `Closed by ${claim.closed_by} on ${formatDate(claim.closed_date)}`
-                                                                : ""
-                                                        }
-                                                    >
-                                                        {isClosed ? "Yes" : "No"}
-                                                    </span>
-                                                </td>
+                                                
                                                 <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
                                                     <button
                                                         onClick={() => router.push(`/claim/${claim.claim_id}`)}
