@@ -1,28 +1,25 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 import { SceneBuilder } from "../components/SceneBuilder";
 
 export default function Home() {
+  const params = useParams();
 
-  const searchParams = useSearchParams();
-
-  const claimId = searchParams.get('claim_id');
-
-  const type    = searchParams.get('type');
-
+  const claimId = params.claim_id;  // or params.claimId depending on route
+  const type = params.type;
   // Optional: provide default values or handle missing params
 
   const finalClaimId = claimId ?? '';
 
-  const finalType    = type ?? 'default';   // ← change default as needed
+  const finalType = type ?? 'default';   // ← change default as needed
 
   return (
 
     <main className="w-full h-screen">
 
-      <SceneBuilder 
+      <SceneBuilder
 
         claimId={finalClaimId}
 
