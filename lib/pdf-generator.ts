@@ -2196,11 +2196,8 @@ async function generateClaimPDF(
   );
   yPos += 14;
 
- const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
-const drawingHeight = 42;
-
-// Use the smaller value so the image is square but not too big
-const squareSize = Math.min(drawingWidth, drawingHeight);
+const drawingWidth = (pageWidth - margin * 2 - 5) / 2;
+const drawingHeight = drawingWidth * (800 / 1200); // maintain 3:2 ratio
 
 if (
   formData.images?.direction_before_drawing ||
@@ -2215,20 +2212,19 @@ if (
     formData.images?.direction_before_drawing || null,
     margin,
     yPos,
-    squareSize,
-    squareSize
+    drawingWidth,
+    drawingHeight
   );
 
   await addImage(
     "After Accident",
     formData.images?.direction_after_drawing || null,
-    margin + squareSize + 5,
+    margin + drawingWidth + 5,
     beforeY,
-    squareSize,
-    squareSize
+    drawingWidth,
+    drawingHeight
   );
-}
-  // Circumstance Drawing
+}  // Circumstance Drawing
   if (formData.images?.circumstance_drawing) {
     yPos = checkNewPage(yPos, 75);
     yPos = addSectionHeader("ACCIDENT CIRCUMSTANCE DIAGRAM", yPos);
@@ -2256,6 +2252,7 @@ if (
   yPos += 10;
 
   // Signature
+  
   yPos = addSectionHeader("SIGNATURE", yPos);
   const signatureWidth = (pageWidth - margin * 2) * 0.3; // 40% of full width
 

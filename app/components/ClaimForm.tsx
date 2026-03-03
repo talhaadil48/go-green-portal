@@ -877,11 +877,14 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   </div>
                   {isBeforeFromApi && beforeDrawing ? (
                     <div className="space-y-3">
-                      <img
-                        src={beforeDrawing || "/placeholder.svg"}
-                        alt="Before drawing"
-                        className="w-106 h-106 border-2 border-gray-400 rounded-xl object-fit mx-auto"
-                      />
+                      <div className="w-full rounded-xl border-2 border-gray-400 overflow-hidden" style={{ aspectRatio: '1200 / 800' }}>
+                        <img
+                          src={beforeDrawing || "/placeholder.svg"}
+                          alt="Before drawing"
+                          className="w-full h-full object-contain"
+                          style={{ imageRendering: 'crisp-edges' }}
+                        />
+                      </div>
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
                         type="button"
@@ -890,8 +893,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       >
                         Update
                       </button>
-                    </div>
-                  ) : (
+                    </div>) : (
                     <DrawingCanvas
                       width={400}
                       height={400}
@@ -911,11 +913,14 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                   </div>
                   {isAfterFromApi && afterDrawing ? (
                     <div className="space-y-3">
-                      <img
-                        src={afterDrawing || "/placeholder.svg"}
-                        alt="After drawing"
-                        className="w-106 h-106 border-2 border-gray-400 rounded-xl object-fit mx-auto"
-                      />
+                      <div className="w-full rounded-xl border-2 border-gray-400 overflow-hidden" style={{ aspectRatio: '1200 / 800' }}>
+                        <img
+                          src={afterDrawing || "/placeholder.svg"}
+                          alt="After drawing"
+                          className="w-full h-full object-contain"
+                          style={{ imageRendering: 'crisp-edges' }}
+                        />
+                      </div>
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
                         type="button"
