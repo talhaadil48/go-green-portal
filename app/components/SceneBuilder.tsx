@@ -128,6 +128,7 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
     //              MAIN CHANGE — Upload instead of download
     // ────────────────────────────────────────────────
     const exportScene = async (format: 'json' | 'png' | 'svg') => {
+        setSelectedElementId(null); // Deselect to hide controls
         if (format === 'json') {
             // Keep JSON as local download
             const json = JSON.stringify(elements, null, 2);
