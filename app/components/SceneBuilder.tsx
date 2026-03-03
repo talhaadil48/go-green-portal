@@ -5,7 +5,7 @@ import { IconPalette } from './IconPalette';
 import { SceneCanvas } from './SceneCanvas';
 import { ElementControls } from './ElementControl';
 import { SceneControls } from './SceneControl';
-import api from "@/lib/axios";           // ← your axios instance
+import api from "@/lib/axios"; // ← your axios instance
 
 export interface SceneElement {
     id: string;
@@ -19,7 +19,7 @@ export interface SceneElement {
 
 interface SceneBuilderProps {
     claimId: string;
-    type: string;       // "before" | "after"
+    type: string; // "before" | "after"
 }
 
 export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => {
@@ -27,6 +27,7 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [history, setHistory] = useState<SceneElement[][]>([[]]);
     const [historyIndex, setHistoryIndex] = useState(0);
+
     const svgRef = useRef<SVGSVGElement>(null);
     const nextIdRef = useRef(1);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -125,12 +126,18 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
     };
 
     // ────────────────────────────────────────────────
-    //              MAIN CHANGE — Upload instead of download
+    // MAIN CHANGE — deselect before export + upload
     // ────────────────────────────────────────────────
     const exportScene = async (format: 'json' | 'png' | 'svg') => {
-        setSelectedElementId(null); // Deselect to hide controls
+        // For visual exports → remove selection highlight
+        const wasSelected = selectedElementId;
+        if (format !== 'json' && selectedElementId) {
+            setSelectedElementId(null);
+            // Give React one render cycle to remove selection UI
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
         if (format === 'json') {
-            // Keep JSON as local download
             const json = JSON.stringify(elements, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -139,16 +146,19 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             a.download = `scene-${Date.now()}.json`;
             a.click();
             URL.revokeObjectURL(url);
+
+            // Restore selection after JSON (local only)
+            if (wasSelected) setSelectedElementId(wasSelected);
             return;
         }
 
         if (!svgRef.current) return;
 
-        // Prepare SVG content (same size for both png & svg)
+        // Prepare clean SVG (no selection)
         const svgClone = svgRef.current.cloneNode(true) as SVGSVGElement;
         svgClone.setAttribute('width', '1200');
         svgClone.setAttribute('height', '800');
-        // svgClone.removeAttribute('viewBox'); // optional – pixel perfect
+        // svgClone.removeAttribute('viewBox'); // uncomment if you want pixel-perfect size
 
         const svgString = new XMLSerializer().serializeToString(svgClone);
 
@@ -160,7 +170,7 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             file = new File([blob], `scene-${Date.now()}.svg`, { type: 'image/svg+xml' });
             fileName = file.name;
         } else {
-            // PNG ───────────────────────────────────────
+            // PNG conversion
             const canvas = document.createElement('canvas');
             canvas.width = 1200;
             canvas.height = 800;
@@ -190,12 +200,12 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             if (!file) return;
         }
 
-        // ─── Upload to /api/upload-document ────────────────────────────────
+        // ─── Upload ───────────────────────────────────────────────────────
         try {
             const formData = new FormData();
             formData.append("claimId", claimId);
             formData.append("file", file);
-            formData.append("docname", fileName);   // single file → single name
+            formData.append("docname", fileName);
 
             const uploadRes = await fetch("/api/upload-docs", {
                 method: "POST",
@@ -208,17 +218,15 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             }
 
             const uploadData = await uploadRes.json();
-
-            // Assuming single file upload → take first uploaded url
             const uploadedUrl = uploadData.url;
 
             if (!uploadedUrl) {
                 throw new Error("No URL returned from upload");
             }
 
-            // ─── Send URL to backend direction endpoint ─────────────────────
+            // Save to backend
             const backendRes = await api.put(`/api/accident-claims/${claimId}/direction`, {
-                type: type,           // "before" or "after" — comes from props
+                type: type,
                 value: uploadedUrl,
             }, {
                 headers: { requiresAuth: true },
@@ -228,11 +236,15 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
                 throw new Error("Failed to save direction URL to backend");
             }
 
-            // Optional: you can show a toast / add to UI list here
-
+            // Optional: toast / success message here
         } catch (err: any) {
             console.error(err);
             alert("Failed to upload/save scene: " + (err.message || "Unknown error"));
+        } finally {
+            // Restore original selection after everything
+            if (wasSelected) {
+                setSelectedElementId(wasSelected);
+            }
         }
     };
 
