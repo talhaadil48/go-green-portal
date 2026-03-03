@@ -17,7 +17,7 @@ export default function Home() {
   if (!claimId) return null; // optionally render a loading state
 
   return (
-    <main className="w-full h-screen">
+    <main className="w-full mt-[-74]">
       <SceneBuilder claimId={claimId} type={type} />
     </main>
   );

@@ -44,23 +44,22 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
       } else {
         onCanvasClick(e);
       }
-
-      setDragStart({
-        x: e.clientX,
-        y: e.clientY,
-      });
+      setDragStart({ x: e.clientX, y: e.clientY });
     };
 
     const handleMouseMove = useCallback(
       (e: React.MouseEvent<SVGSVGElement>) => {
         if (!draggingId || !svgRef.current) return;
 
-        const rect = svgRef.current.getBoundingClientRect();
         const element = elements.find((el) => el.id === draggingId);
         if (!element) return;
 
-        const deltaX = e.clientX - dragStart.x;
-        const deltaY = e.clientY - dragStart.y;
+        const rect = svgRef.current.getBoundingClientRect();
+        const scaleX = 1200 / rect.width;
+        const scaleY = 800 / rect.height;
+
+        const deltaX = (e.clientX - dragStart.x) * scaleX;
+        const deltaY = (e.clientY - dragStart.y) * scaleY;
 
         const margin = 120;
         const newX = Math.max(-margin, Math.min(1200 + margin - 100, element.x + deltaX));
@@ -72,9 +71,7 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
       [draggingId, elements, dragStart, onElementMove]
     );
 
-    const handleMouseUp = () => {
-      setDraggingId(null);
-    };
+    const handleMouseUp = () => setDraggingId(null);
 
     const handleDragOver = (e: React.DragEvent<SVGSVGElement>) => {
       e.preventDefault();
@@ -98,11 +95,14 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
     };
 
     return (
-      <div className="w-96 h-96 rounded-xl border-2 border-slate-300 bg-white overflow-hidden shadow-lg">
+      <div
+        className="w-full rounded-xl border-2 border-slate-300 bg-white overflow-hidden shadow-lg"
+        style={{ aspectRatio: '1000 / 560' }}
+      >
         <svg
           ref={svgRef}
           viewBox="0 0 1200 800"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
           className="w-full h-full bg-white touch-none select-none"
           onMouseDown={(e) => handleMouseDown(e)}
           onMouseMove={handleMouseMove}
@@ -125,12 +125,7 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
               if (!icon) return null;
 
               const isSelected = element.id === selectedElementId;
-
-              // ────────────────────────────────────────────────
-              // HIT AREA – makes dragging possible in a larger zone
-              // Adjust size according to your largest icons
-              // ────────────────────────────────────────────────
-              const hitSize = 180;           // diameter/width of clickable area
+              const hitSize = 180;
               const hitHalf = hitSize / 2;
 
               return (
@@ -145,28 +140,21 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
                       : 'drop-shadow(0 3px 8px rgba(0,0,0,0.14))',
                   }}
                 >
-                  {/* Invisible hit area – makes the whole zone draggable */}
                   <rect
                     x={element.x - hitHalf}
                     y={element.y - hitHalf}
                     width={hitSize}
                     height={hitSize}
                     fill="transparent"
-                    // pointer-events only on this rect when not selected
-                    // (prevents blocking other elements when dragging over them)
                     pointerEvents={isSelected ? 'all' : 'visiblePainted'}
-                    // You can make it visible temporarily for debugging:
-                    // stroke="red" strokeWidth="1" strokeDasharray="4 4" opacity="0.3"
                   />
 
-                  {/* The actual icon */}
                   <g
                     dangerouslySetInnerHTML={{
                       __html: icon.render(element.x, element.y, element.rotation, element.scale),
                     }}
                   />
 
-                  {/* Visual selection feedback (only when selected) */}
                   {isSelected && (
                     <>
                       <rect
@@ -179,7 +167,7 @@ export const SceneCanvas = React.forwardRef<SVGSVGElement, SceneCanvasProps>(
                         strokeWidth="4"
                         strokeDasharray="10 6"
                         rx="8"
-                        pointerEvents="none" // don't block mouse events
+                        pointerEvents="none"
                       />
                       <circle
                         cx={element.x}

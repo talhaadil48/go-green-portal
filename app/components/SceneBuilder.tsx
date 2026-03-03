@@ -1,11 +1,11 @@
 'use client';
-import React, { useRef, useState, useCallback } from 'react';
-import { ICON_LIBRARY, IconType, ICON_CATEGORIES } from '@/lib/icons';
+import React, { useRef, useState } from 'react';
+import { ICON_LIBRARY, IconType } from '@/lib/icons';
 import { IconPalette } from './IconPalette';
 import { SceneCanvas } from './SceneCanvas';
 import { ElementControls } from './ElementControl';
 import { SceneControls } from './SceneControl';
-import api from "@/lib/axios"; // ← your axios instance
+import api from "@/lib/axios";
 
 export interface SceneElement {
     id: string;
@@ -125,16 +125,53 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
         }
     };
 
-    // ────────────────────────────────────────────────
-    // MAIN CHANGE — deselect before export + upload
-    // ────────────────────────────────────────────────
+    const embedExternalImages = async (svgClone: SVGSVGElement) => {
+        const imageElements = svgClone.querySelectorAll('image[href]');
+        const promises: Promise<void>[] = [];
+
+        imageElements.forEach((imgEl) => {
+            const href = imgEl.getAttribute('href');
+            if (!href || href.startsWith('data:')) return;
+
+            const promise = fetch(href)
+                .then((res) => {
+                    if (!res.ok) throw new Error(`Failed to fetch image: ${href}`);
+                    return res.blob();
+                })
+                .then((blob) => {
+                    return new Promise<void>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            imgEl.setAttribute('href', reader.result as string);
+                            resolve();
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                })
+                .catch((err) => {
+                    console.warn(`Could not embed ${href} during export:`, err);
+                    const fallback = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    fallback.setAttribute("x", imgEl.getAttribute("x") || "0");
+                    fallback.setAttribute("y", imgEl.getAttribute("y") || "0");
+                    fallback.setAttribute("width", imgEl.getAttribute("width") || "100");
+                    fallback.setAttribute("height", imgEl.getAttribute("height") || "100");
+                    fallback.setAttribute("fill", "#e2e8f0");
+                    imgEl.parentNode?.replaceChild(fallback, imgEl);
+                });
+
+            promises.push(promise);
+        });
+
+        await Promise.all(promises);
+    };
+
     const exportScene = async (format: 'json' | 'png' | 'svg') => {
-        // For visual exports → remove selection highlight
         const wasSelected = selectedElementId;
         if (format !== 'json' && selectedElementId) {
             setSelectedElementId(null);
-            // Give React one render cycle to remove selection UI
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            // Give React a chance to re-render without selection
+            await new Promise((r) => setTimeout(r, 50));
         }
 
         if (format === 'json') {
@@ -147,65 +184,92 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             a.click();
             URL.revokeObjectURL(url);
 
-            // Restore selection after JSON (local only)
             if (wasSelected) setSelectedElementId(wasSelected);
             return;
         }
 
         if (!svgRef.current) return;
 
-        // Prepare clean SVG (no selection)
+        // Export dimensions — must exactly match the viewBox (1200 × 800)
+        // so nothing gets letterboxed or cropped.
+        const EXPORT_W = 1200;
+        const EXPORT_H = 800;
+
+        // Clone the live SVG
         const svgClone = svgRef.current.cloneNode(true) as SVGSVGElement;
-        svgClone.setAttribute('width', '1200');
-        svgClone.setAttribute('height', '800');
-        // svgClone.removeAttribute('viewBox'); // uncomment if you want pixel-perfect size
+
+        // Set explicit pixel dimensions equal to the viewBox.
+        // Setting preserveAspectRatio="none" ensures the SVG renderer
+        // stretches to fill exactly EXPORT_W × EXPORT_H with no
+        // letterbox bars — which is what was causing the ~10% crop.
+        svgClone.setAttribute('width', String(EXPORT_W));
+        svgClone.setAttribute('height', String(EXPORT_H));
+        svgClone.setAttribute('viewBox', `0 0 ${EXPORT_W} ${EXPORT_H}`);
+        svgClone.setAttribute('preserveAspectRatio', 'none');
+
+        await embedExternalImages(svgClone);
 
         const svgString = new XMLSerializer().serializeToString(svgClone);
 
         let file: File | null = null;
-        let fileName: string = '';
+        const fileName = `scene-${Date.now()}`;
 
         if (format === 'svg') {
-            const blob = new Blob([svgString], { type: 'image/svg+xml' });
-            file = new File([blob], `scene-${Date.now()}.svg`, { type: 'image/svg+xml' });
-            fileName = file.name;
+            // For SVG files restore a sensible preserveAspectRatio
+            svgClone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            const finalSvgString = new XMLSerializer().serializeToString(svgClone);
+            const blob = new Blob([finalSvgString], { type: 'image/svg+xml' });
+            file = new File([blob], `${fileName}.svg`, { type: 'image/svg+xml' });
         } else {
-            // PNG conversion
+            // PNG export ────────────────────────────────────────────────
             const canvas = document.createElement('canvas');
-            canvas.width = 1200;
-            canvas.height = 800;
+            canvas.width = EXPORT_W;
+            canvas.height = EXPORT_H;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
+            // Background
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, EXPORT_W, EXPORT_H);
 
             const img = new Image();
             img.crossOrigin = 'anonymous';
 
             await new Promise<void>((resolve, reject) => {
                 img.onload = () => {
-                    ctx.drawImage(img, 0, 0, 1200, 800);
+                    // Draw at exact export size — no scaling gaps, no cropping
+                    ctx.drawImage(img, 0, 0, EXPORT_W, EXPORT_H);
                     canvas.toBlob((blob) => {
-                        if (!blob) return reject(new Error("Canvas toBlob failed"));
-                        file = new File([blob], `scene-${Date.now()}.png`, { type: 'image/png' });
-                        fileName = file.name;
-                        resolve();
+                        if (blob) {
+                            file = new File([blob], `${fileName}.png`, { type: 'image/png' });
+                            resolve();
+                        } else {
+                            reject(new Error('canvas.toBlob failed'));
+                        }
                     }, 'image/png', 1.0);
                 };
-                img.onerror = reject;
+
+                img.onerror = (err) => {
+                    console.error('PNG export failed – could not load SVG image', err);
+                    reject(err);
+                };
+
                 img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
             });
 
-            if (!file) return;
+            if (!file) {
+                alert('Failed to generate PNG');
+                if (wasSelected) setSelectedElementId(wasSelected);
+                return;
+            }
         }
 
-        // ─── Upload ───────────────────────────────────────────────────────
+        // Upload ───────────────────────────────────────────────────────
         try {
             const formData = new FormData();
             formData.append("claimId", claimId);
-            formData.append("file", file);
-            formData.append("docname", fileName);
+            formData.append("file", file!);
+            formData.append("docname", file!.name);
 
             const uploadRes = await fetch("/api/upload-docs", {
                 method: "POST",
@@ -220,11 +284,8 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             const uploadData = await uploadRes.json();
             const uploadedUrl = uploadData.url;
 
-            if (!uploadedUrl) {
-                throw new Error("No URL returned from upload");
-            }
+            if (!uploadedUrl) throw new Error("No URL returned from upload");
 
-            // Save to backend
             const backendRes = await api.put(`/api/accident-claims/${claimId}/direction`, {
                 type: type,
                 value: uploadedUrl,
@@ -233,18 +294,15 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
             });
 
             if (backendRes.status !== 200) {
-                throw new Error("Failed to save direction URL to backend");
+                throw new Error("Failed to save to backend");
             }
 
-            // Optional: toast / success message here
+            alert("Exported and saved successfully!");
         } catch (err: any) {
-            console.error(err);
-            alert("Failed to upload/save scene: " + (err.message || "Unknown error"));
+            console.error("Export/upload error:", err);
+            alert("Failed to export/upload: " + (err.message || "Unknown error"));
         } finally {
-            // Restore original selection after everything
-            if (wasSelected) {
-                setSelectedElementId(wasSelected);
-            }
+            if (wasSelected) setSelectedElementId(wasSelected);
         }
     };
 
@@ -266,12 +324,9 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
 
     return (
         <div className="flex h-screen bg-slate-50">
-            {/* Sidebar Palette */}
             <IconPalette icons={ICON_LIBRARY} onIconSelect={addElement} />
 
-            {/* Main Canvas Area */}
             <div className="flex-1 flex flex-col">
-                {/* Top Controls */}
                 <SceneControls
                     elementCount={elements.length}
                     canUndo={historyIndex > 0}
@@ -283,8 +338,8 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
                     onLoad={loadScene}
                 />
 
-                {/* Canvas + Right Panel */}
-                <div className="flex-1 flex gap-4 p-4">
+                <div className="flex-1 flex gap-4 p-4 overflow-hidden">
+                    <div className="flex-[0.95] min-w-0">
                     <SceneCanvas
                         ref={svgRef}
                         elements={elements}
@@ -300,7 +355,10 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
                         onElementSelect={(id) => setSelectedElementId(id)}
                         onDropIcon={(iconId, x, y) => addElement(iconId, x, y)}
                     />
+                    </div>
 
+                    {/* Fixed-width sidebar — always reserves space so canvas never resizes */}
+                    <div className="w-60 shrink-0">
                     {selectedElement && getSelectedIcon() && (
                         <ElementControls
                             element={selectedElement}
@@ -309,6 +367,7 @@ export const SceneBuilder: React.FC<SceneBuilderProps> = ({ claimId, type }) => 
                             onDelete={deleteElement}
                         />
                     )}
+                    </div>
                 </div>
             </div>
         </div>
