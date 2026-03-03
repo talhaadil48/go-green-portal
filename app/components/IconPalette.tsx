@@ -67,10 +67,10 @@ export const IconPalette: React.FC<IconPaletteProps> = ({
   };
 
   return (
-    <div className="w-80 bg-white border-r-2 border-slate-300 overflow-y-auto shadow-sm">
-      <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 z-10">
-        <h2 className="text-xl font-bold">Scene Elements</h2>
-        <p className="text-sm text-slate-300 mt-1">Drag or click to add to canvas</p>
+    <div className="w-56 bg-white border-r-2 border-slate-300 overflow-y-auto shadow-sm">
+      <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3 z-10">
+        <h2 className="text-base font-bold">Scene Elements</h2>
+        <p className="text-xs text-slate-300 mt-0.5">Drag or click to add</p>
       </div>
 
       <div className="divide-y divide-slate-200">
@@ -85,43 +85,43 @@ export const IconPalette: React.FC<IconPaletteProps> = ({
               {/* Category Header */}
               <button
                 onClick={() => toggleCategory(categoryKey)}
-                className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-100 transition-colors font-semibold text-slate-800 text-base"
+                className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-slate-100 transition-colors font-semibold text-slate-800 text-sm"
               >
                 <span>{categoryLabel}</span>
                 {isExpanded ? (
-                  <ChevronUp size={20} />
+                  <ChevronUp size={16} />
                 ) : (
-                  <ChevronDown size={20} />
+                  <ChevronDown size={16} />
                 )}
               </button>
 
               {/* Icons */}
               {isExpanded && (
-                <div className="px-4 py-4 space-y-3 bg-slate-50">
+                <div className="px-2 py-2 space-y-1 bg-slate-50">
                   {categoryIcons.map((icon) => (
                     <div
                       key={icon.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, icon.id)}
                       onClick={() => handleIconClick(icon.id)}
-                      className="flex items-center gap-4 p-3 rounded-xl bg-white border-2 border-slate-200 hover:border-blue-500 hover:shadow-lg cursor-grab active:cursor-grabbing transition-all hover:bg-blue-50/70 active:bg-blue-100 select-none"
+                      className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-500 hover:shadow-md cursor-grab active:cursor-grabbing transition-all hover:bg-blue-50/70 active:bg-blue-100 select-none"
                     >
-                      {/* Larger Icon Preview */}
+                      {/* Compact Icon Preview */}
                       <svg
-                        width="80"
-                        height="80"
-                        viewBox="-60 -60 120 120" // adjusted to better center most icons
-                        className="flex-shrink-0 drop-shadow-sm"
+                        width="36"
+                        height="36"
+                        viewBox="-60 -60 120 120"
+                        className="flex-shrink-0"
                       >
                         <g
                           dangerouslySetInnerHTML={{
-                            __html: icon.render(0, 0, 0, 0.85), // slightly smaller scale to fit nicely
+                            __html: icon.render(0, 0, 0, 0.85),
                           }}
                         />
                       </svg>
 
                       {/* Label */}
-                      <span className="text-base font-medium text-slate-800">
+                      <span className="text-xs font-medium text-slate-700 leading-tight">
                         {icon.label}
                       </span>
                     </div>

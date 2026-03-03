@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import AWS from "aws-sdk";
-
+import { v4 as uuidv4 } from "uuid"; // Install uuid: npm install uuid
 // Configure S3
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
     const baseName = safeName.replace(/\.[^/.]+$/, "");
 
     // Use **same key every time** → overwrites existing file
-    const key = `claims/${claimId}/${baseName}${extension}`;
+      // Append a timestamp or UUID to avoid overwriting
+    const key = `claims/${claimId}/${baseName}_${Date.now()}${extension}`;
+    // Or using UUID: `${baseName}_${uuidv4()}${extension}`
 
     // Upload to S3
     const params = {

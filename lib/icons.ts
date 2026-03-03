@@ -61,61 +61,58 @@ const roadIntersection: IconType = {
     </g>
   `,
 };
-
 const roadCrossroad: IconType = {
   id: 'road-crossroad',
   label: '4-Way Crossroad',
   category: 'road',
   color: '#64748b',
-  width: 300,
-  height: 300,
+  width: 600,
+  height: 600,
   render: (x, y, rotation, scale) => `
-    <g transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})">
-      <!-- background fill for arms -->
+    <g transform="translate(${x},${y}) rotate(${rotation}) scale(${0.7*scale})">
       <!-- horizontal road -->
-      <rect x="-150" y="-55" width="300" height="110" fill="#94a3b8"/>
+      <rect x="-300" y="-55" width="600" height="110" fill="#94a3b8"/>
       <!-- vertical road -->
-      <rect x="-55" y="-150" width="110" height="300" fill="#94a3b8"/>
+      <rect x="-55" y="-300" width="110" height="600" fill="#94a3b8"/>
 
       <!-- kerb outlines -->
-      <rect x="-150" y="-55" width="300" height="110" fill="none" stroke="#475569" stroke-width="4"/>
-      <rect x="-55" y="-150" width="110" height="300" fill="none" stroke="#475569" stroke-width="4"/>
+      <rect x="-300" y="-55" width="600" height="110" fill="none" stroke="#475569" stroke-width="4"/>
+      <rect x="-55" y="-300" width="110" height="600" fill="none" stroke="#475569" stroke-width="4"/>
 
-      <!-- corner fillets (cover the ugly corners) -->
+      <!-- corner fillets -->
       <rect x="-55" y="-55" width="110" height="110" fill="#94a3b8"/>
 
       <!-- horizontal centre dash -->
-      <line x1="-150" y1="0" x2="-60" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
-      <line x1="60"   y1="0" x2="150" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="-300" y1="0" x2="-60" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="60"   y1="0" x2="300" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
 
       <!-- vertical centre dash -->
-      <line x1="0" y1="-150" x2="0" y2="-60" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
-      <line x1="0" y1="60"   x2="0" y2="150" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="0" y1="-300" x2="0" y2="-60" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="0" y1="60"   x2="0" y2="300" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
 
       <!-- edge lines horizontal -->
-      <line x1="-150" y1="-45" x2="-55" y2="-45" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 55"  y1="-45" x2="150" y2="-45" stroke="#fef08a" stroke-width="5"/>
-      <line x1="-150" y1=" 45" x2="-55" y2=" 45" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 55"  y1=" 45" x2="150" y2=" 45" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-300" y1="-45" x2="-55" y2="-45" stroke="#fef08a" stroke-width="5"/>
+      <line x1=" 55"  y1="-45" x2="300" y2="-45" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-300" y1=" 45" x2="-55" y2=" 45" stroke="#fef08a" stroke-width="5"/>
+      <line x1=" 55"  y1=" 45" x2="300" y2=" 45" stroke="#fef08a" stroke-width="5"/>
 
       <!-- edge lines vertical -->
-      <line x1="-45" y1="-150" x2="-45" y2="-55" stroke="#fef08a" stroke-width="5"/>
-      <line x1="-45" y1=" 55"  x2="-45" y2="150" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 45" y1="-150" x2=" 45" y2="-55" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 45" y1=" 55"  x2=" 45" y2="150" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-45" y1="-300" x2="-45" y2="-55" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-45" y1=" 55"  x2="-45" y2="300" stroke="#fef08a" stroke-width="5"/>
+      <line x1=" 45" y1="-300" x2=" 45" y2="-55" stroke="#fef08a" stroke-width="5"/>
+      <line x1=" 45" y1=" 55"  x2=" 45" y2="300" stroke="#fef08a" stroke-width="5"/>
 
-      <!-- zebra crossing — top -->
+      <!-- zebra crossings — top -->
       ${[...Array(5)].map((_,i) => `<rect x="-42" y="${-72 + i*8}" width="84" height="5" fill="white" opacity="0.7"/>`).join('')}
-      <!-- zebra crossing — bottom -->
+      <!-- zebra crossings — bottom -->
       ${[...Array(5)].map((_,i) => `<rect x="-42" y="${55 + i*8}" width="84" height="5" fill="white" opacity="0.7"/>`).join('')}
-      <!-- zebra crossing — left -->
+      <!-- zebra crossings — left -->
       ${[...Array(5)].map((_,i) => `<rect x="${-72 + i*8}" y="-42" width="5" height="84" fill="white" opacity="0.7"/>`).join('')}
-      <!-- zebra crossing — right -->
+      <!-- zebra crossings — right -->
       ${[...Array(5)].map((_,i) => `<rect x="${55 + i*8}" y="-42" width="5" height="84" fill="white" opacity="0.7"/>`).join('')}
     </g>
   `,
 };
-
 const roadRoundabout: IconType = {
   id: 'road-roundabout',
   label: 'Roundabout',

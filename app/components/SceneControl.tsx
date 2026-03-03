@@ -8,6 +8,7 @@ import {
   Upload,
   Save,
   Loader2,
+  FileJson,
 } from 'lucide-react';
 
 interface SceneControlsProps {
@@ -105,24 +106,7 @@ export const SceneControls: React.FC<SceneControlsProps> = ({
             )}
           </button>
         </div>
-
-        {/* Import */}
-        <div className="flex items-center gap-1 border-r border-slate-300 px-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            title="Import JSON scene"
-            className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-700"
-          >
-            <Upload size={20} />
-          </button>
-        </div>
+        {/* Export JSON */}
 
         {/* Clear */}
         <button

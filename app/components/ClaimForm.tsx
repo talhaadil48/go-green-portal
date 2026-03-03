@@ -18,6 +18,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
 
+
   const checklistItems = [
     "V.D",
     "DVLA",
@@ -110,6 +111,8 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
   );
   const [beforeDrawing, setBeforeDrawing] = useState<string | null>(null);
   const [afterDrawing, setAfterDrawing] = useState<string | null>(null);
+  const [beforeJson, setBeforeJson] = useState<any | null>(null);
+  const [afterJson, setAfterJson] = useState<any | null>(null);
 
   const [isCircumstanceFromApi, setIsCircumstanceFromApi] = useState(false);
   const [isBeforeFromApi, setIsBeforeFromApi] = useState(false);
@@ -140,6 +143,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
       });
 
       const data = response.data;
+      console.log("Fetched claim data:", data);
       const updatedFormData = { ...initialFormData };
 
       Object.keys(data).forEach((key) => {
@@ -183,7 +187,10 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
         setSignatures((prev) => ({ ...prev, client: null }));
         setIsSignatureFromApi(false);
       }
-
+      setBeforeJson(data.json_before || null);
+      setAfterJson(data.json_after || null);
+      console.log("Loaded JSON for before drawing:", data.json_before);
+      console.log("Loaded JSON for after drawing:", data.json_after);
       // Check if witness data comes from API
       const hasWitnessData = !!(
         data.witness1_name ||
@@ -888,13 +895,17 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
                         type="button"
-                        onClick={() => setIsBeforeFromApi(false)}
+                        onClick={() => {
+                          localStorage.setItem("json", JSON.stringify(beforeJson)); // save JSON
+                          window.open(`/draw?claim_id=${claimId}&type=before`, "_blank");
+                        }}
                         className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
                       >
                         Update
                       </button>
                     </div>) : (
                     <DrawingCanvas
+                      json={beforeJson}
                       width={400}
                       height={400}
                       onDrawingChange={setBeforeDrawing}
@@ -924,7 +935,10 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                       <p className="text-sm text-gray-500 italic">(Saved drawing from submission)</p>
                       <button
                         type="button"
-                        onClick={() => setIsAfterFromApi(false)}
+                        onClick={() => {
+                          localStorage.setItem("json", JSON.stringify(afterJson)); // save JSON
+                          window.open(`/draw?claim_id=${claimId}&type=after`, "_blank");
+                        }}
                         className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
                       >
                         Update
@@ -932,6 +946,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
                     </div>
                   ) : (
                     <DrawingCanvas
+                      json={afterJson}
                       width={400}
                       height={400}
                       onDrawingChange={setAfterDrawing}
