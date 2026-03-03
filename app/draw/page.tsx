@@ -1,21 +1,23 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SceneBuilder } from "../components/SceneBuilder";
 
 export default function Home() {
   const router = useRouter();
-  const search = new URLSearchParams(window.location.search);
+  const [claimId, setClaimId] = useState("");
+  const [type, setType] = useState("default");
 
-  const claimId = search.get('claim_id') ?? '';
-  const type    = search.get('type') ?? 'default';
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    setClaimId(search.get("claim_id") ?? "");
+    setType(search.get("type") ?? "default");
+  }, []);
+
+  if (!claimId) return null; // optionally render a loading state
 
   return (
     <main className="w-full h-screen">
-      <SceneBuilder 
-        claimId={claimId}
-        type={type}
-      />
+      <SceneBuilder claimId={claimId} type={type} />
     </main>
   );
 }
