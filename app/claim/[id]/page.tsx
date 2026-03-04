@@ -124,9 +124,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   };
 
   const refreshPage = () => {
-    fetchClaim();
+    window.location.reload();
   };
-
   const handleUpdateStatus = async () => {
     if (!selectedStatus) return;
     if (selectedStatus === claimData?.status) {
@@ -260,9 +259,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 </div>
 
                 {statusMessage && (
-                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${
-                    statusMessage.type === "success" ? "text-green-700" : "text-red-700"
-                  }`}>
+                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${statusMessage.type === "success" ? "text-green-700" : "text-red-700"
+                    }`}>
                     {statusMessage.type === "success" ? (
                       <CheckCircle size={16} />
                     ) : (
@@ -288,11 +286,10 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${
-                activeTab === tab.key
+              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
                   ? "bg-green-600 text-white shadow-lg"
                   : "text-gray-600 hover:bg-white/50"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
