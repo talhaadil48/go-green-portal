@@ -11,7 +11,6 @@ export interface IconType {
 // ────────────────────────────────────────────────
 // Roads ───────────────────────────────────────────
 // ────────────────────────────────────────────────
-
 const roadStraight: IconType = {
   id: 'road-straight-clean',
   label: 'Straight Road',
@@ -22,10 +21,29 @@ const roadStraight: IconType = {
   render: (x, y, rotation, scale) => `
     <g transform="translate(${x},${y}) rotate(${rotation}) scale(${0.8*scale})">
       <rect x="-112.5" y="-175" width="225" height="350" fill="#94a3b8" stroke="#475569" stroke-width="6"/>
-      <line x1="-100" y1="-175" x2="-100" y2="175" stroke="#fef08a" stroke-width="10"/>
-      <line x1="100"  y1="-175" x2="100"  y2="175" stroke="#fef08a" stroke-width="10"/>
-      <line x1="-30" y1="-175" x2="-30" y2="175" stroke="#fbbf24" stroke-width="7.5" stroke-dasharray="30,30"/>
-      <line x1="30"  y1="-175" x2="30"  y2="175" stroke="#fbbf24" stroke-width="7.5" stroke-dasharray="30,30"/>
+      <line x1="-100" y1="-175" x2="-100" y2="175" stroke="#ffffff" stroke-width="10"/>
+      <line x1="100"  y1="-175" x2="100"  y2="175" stroke="#ffffff" stroke-width="10"/>
+      <line x1="-30" y1="-175" x2="-30" y2="175" stroke="#ffffff" stroke-width="7.5" stroke-dasharray="30,30"/>
+      <line x1="30"  y1="-175" x2="30"  y2="175" stroke="#ffffff" stroke-width="7.5" stroke-dasharray="30,30"/>
+    </g>
+  `,
+};
+
+const roadStraight2Lanes: IconType = {
+  id: 'road-straight-2lanes',
+  label: 'Straight 2 lane Road',
+  category: 'road',
+  color: '#64748b',
+  width: 180,
+  height: 350,
+  render: (x, y, rotation, scale) => `
+    <g transform="translate(${x},${y}) rotate(${rotation}) scale(${0.8*scale})">
+      <rect x="-90" y="-175" width="180" height="350" fill="#94a3b8" stroke="#475569" stroke-width="6"/>
+      <!-- solid edge lines -->
+      <line x1="-80"  y1="-175" x2="-80"  y2="175" stroke="#ffffff" stroke-width="10"/>
+      <line x1="80"   y1="-175" x2="80"   y2="175" stroke="#ffffff" stroke-width="10"/>
+      <!-- center dashed line -->
+      <line x1="0"    y1="-175" x2="0"    y2="175" stroke="#ffffff" stroke-width="8" stroke-dasharray="30,30"/>
     </g>
   `,
 };
@@ -40,7 +58,7 @@ const roadCurved: IconType = {
   render: (x, y, rotation, scale) => `
     <g transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})">
       <path d="M -75 -125 Q 75 -125 75 125" fill="none" stroke="#94a3b8" stroke-width="100" stroke-linecap="round"/>
-      <path d="M -75 -125 Q 75 -125 75 125" fill="none" stroke="#fbbf24" stroke-width="5" stroke-dasharray="25,25"/>
+      <path d="M -75 -125 Q 75 -125 75 125" fill="none" stroke="#ffffff" stroke-width="5" stroke-dasharray="25,25"/>
     </g>
   `,
 };
@@ -56,11 +74,12 @@ const roadIntersection: IconType = {
     <g transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})">
       <rect x="-100" y="-50" width="200" height="100" fill="#94a3b8" stroke="#475569" stroke-width="5"/>
       <rect x="-50"  y="-100" width="100" height="200" fill="#94a3b8" stroke="#475569" stroke-width="5"/>
-      <line x1="-100" y1="0" x2="100" y2="0" stroke="#fbbf24" stroke-width="5" stroke-dasharray="25,25"/>
-      <line x1="0" y1="-100" x2="0" y2="100" stroke="#fbbf24" stroke-width="5" stroke-dasharray="25,25"/>
+      <line x1="-100" y1="0" x2="100" y2="0" stroke="#ffffff" stroke-width="5" stroke-dasharray="25,25"/>
+      <line x1="0" y1="-100" x2="0" y2="100" stroke="#ffffff" stroke-width="5" stroke-dasharray="25,25"/>
     </g>
   `,
 };
+
 const roadCrossroad: IconType = {
   id: 'road-crossroad',
   label: '4-Way Crossroad',
@@ -83,24 +102,24 @@ const roadCrossroad: IconType = {
       <rect x="-55" y="-55" width="110" height="110" fill="#94a3b8"/>
 
       <!-- horizontal centre dash -->
-      <line x1="-300" y1="0" x2="-60" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
-      <line x1="60"   y1="0" x2="300" y2="0" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="-300" y1="0" x2="-60" y2="0" stroke="#ffffff" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="60"   y1="0" x2="300" y2="0" stroke="#ffffff" stroke-width="6" stroke-dasharray="22,18"/>
 
       <!-- vertical centre dash -->
-      <line x1="0" y1="-300" x2="0" y2="-60" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
-      <line x1="0" y1="60"   x2="0" y2="300" stroke="#fbbf24" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="0" y1="-300" x2="0" y2="-60" stroke="#ffffff" stroke-width="6" stroke-dasharray="22,18"/>
+      <line x1="0" y1="60"   x2="0" y2="300" stroke="#ffffff" stroke-width="6" stroke-dasharray="22,18"/>
 
       <!-- edge lines horizontal -->
-      <line x1="-300" y1="-45" x2="-55" y2="-45" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 55"  y1="-45" x2="300" y2="-45" stroke="#fef08a" stroke-width="5"/>
-      <line x1="-300" y1=" 45" x2="-55" y2=" 45" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 55"  y1=" 45" x2="300" y2=" 45" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-300" y1="-45" x2="-55" y2="-45" stroke="#ffffff" stroke-width="5"/>
+      <line x1=" 55"  y1="-45" x2="300" y2="-45" stroke="#ffffff" stroke-width="5"/>
+      <line x1="-300" y1=" 45" x2="-55" y2=" 45" stroke="#ffffff" stroke-width="5"/>
+      <line x1=" 55"  y1=" 45" x2="300" y2=" 45" stroke="#ffffff" stroke-width="5"/>
 
       <!-- edge lines vertical -->
-      <line x1="-45" y1="-300" x2="-45" y2="-55" stroke="#fef08a" stroke-width="5"/>
-      <line x1="-45" y1=" 55"  x2="-45" y2="300" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 45" y1="-300" x2=" 45" y2="-55" stroke="#fef08a" stroke-width="5"/>
-      <line x1=" 45" y1=" 55"  x2=" 45" y2="300" stroke="#fef08a" stroke-width="5"/>
+      <line x1="-45" y1="-300" x2="-45" y2="-55" stroke="#ffffff" stroke-width="5"/>
+      <line x1="-45" y1=" 55"  x2="-45" y2="300" stroke="#ffffff" stroke-width="5"/>
+      <line x1=" 45" y1="-300" x2=" 45" y2="-55" stroke="#ffffff" stroke-width="5"/>
+      <line x1=" 45" y1=" 55"  x2=" 45" y2="300" stroke="#ffffff" stroke-width="5"/>
 
       <!-- zebra crossings — top -->
       ${[...Array(5)].map((_,i) => `<rect x="-42" y="${-72 + i*8}" width="84" height="5" fill="white" opacity="0.7"/>`).join('')}
@@ -122,13 +141,21 @@ const roadRoundabout: IconType = {
   height: 250,
   render: (x, y, rotation, scale) => `
     <g transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})">
-      <circle cx="0" cy="0" r="100" fill="none" stroke="#94a3b8" stroke-width="50"/>
+      <!-- Outer asphalt ring -->
+      <circle cx="0" cy="0" r="90" fill="none" stroke="#94a3b8" stroke-width="50"/>
+
+      <!-- Inner island (grass/curb) -->
       <circle cx="0" cy="0" r="62.5" fill="#e0e7ff" stroke="#475569" stroke-width="5"/>
-      <circle cx="0" cy="0" r="50" fill="none" stroke="#fbbf24" stroke-width="5" stroke-dasharray="25,25"/>
+
+      <!-- Dashed white lines on the circulatory roadway -->
+      <circle cx="0" cy="0" r="85"  fill="none" stroke="#ffffff" stroke-width="4" stroke-dasharray="20,20"/>
+      <circle cx="0" cy="0" r="50"  fill="none" stroke="#ffffff" stroke-width="5" stroke-dasharray="25,25"/>
+
+      <!-- Optional: thinner inner dashed line near island for extra definition -->
+      <!-- <circle cx="0" cy="0" r="68" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="18,18"/> -->
     </g>
   `,
 };
-
 // ────────────────────────────────────────────────
 // Vehicles — Realistic Top-Down View ──────────────
 // ────────────────────────────────────────────────
@@ -530,7 +557,7 @@ const movementArrowCurved: IconType = {
   `,
 };
 export const ICON_LIBRARY: IconType[] = [
-  roadStraight, roadCurved, roadIntersection, roadCrossroad, roadRoundabout,
+  roadStraight, roadCurved, roadIntersection, roadCrossroad, roadRoundabout, roadStraight2Lanes,
   vehicleCarRed, vehicleCarBlue, vehicleCarBlack, vehicleCarSilver, vehicleCarGray, vehicleCarBrown,
   vehicleTruck, vehicleMotorcycle,vehicleVan,
   trafficLight, stopSign, speedLimitSign,
