@@ -143,7 +143,7 @@ export default function LongClaimDetailPage() {
             try {
                 const [claimRes, allCarsRes, claimCarsRes] = await Promise.all([
                     api.get(`/api/long-claims/${claimId}`, { headers: { requiresAuth: true } }),
-                    api.get("/api/cars", { headers: { requiresAuth: true } }),
+                    api.get("/api/cars/available", { headers: { requiresAuth: true } }),
                     api.get(`/api/long-claim/${claimId}/cars`, { headers: { requiresAuth: true } }),
                 ]);
                 if (!claimRes.data.success) throw new Error(claimRes.data.message || "Failed to load claim");

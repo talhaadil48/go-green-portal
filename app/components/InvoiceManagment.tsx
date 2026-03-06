@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Loader2, RefreshCw, Edit2, X ,Check } from "lucide-react";
 import api from "@/lib/axios";
 
 interface ClaimInvoice {
@@ -58,12 +58,12 @@ function getInfoBadge(info: string | null) {
   }
   if (upper.includes("PENDING") || upper.includes("DRAFT")) {
     return (
-      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
+      <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
         {info}
       </span>
     );
   }
-  return <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">{info}</span>;
+  return <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">{info}</span>;
 }
 
 export default function InvoiceManagementPage() {
@@ -82,7 +82,17 @@ export default function InvoiceManagementPage() {
   const [loadingLongHire, setLoadingLongHire] = useState(true);
   const [errorLongHire, setErrorLongHire] = useState<string | null>(null);
 
-  // Shared Filters (per tab)
+  // Editing state (only for claim invoices)
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    info: "",
+    storage_bill: "",
+    rent_bill: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Shared Filters
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   // Claim-specific
@@ -91,7 +101,7 @@ export default function InvoiceManagementPage() {
   // Long-hire specific
   const [filterHirer, setFilterHirer] = useState("");
 
-  // Create form – only for Claim Invoices in this version
+  // Create form – Claim Invoices
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createFormData, setCreateFormData] = useState({
     claim_id: "",
@@ -133,6 +143,7 @@ export default function InvoiceManagementPage() {
     fetchLongHireInvoices();
   }, []);
 
+  // ── Create Claim Invoice ────────────────────────────────────────────────
   const handleCreateClaimInvoice = async (e: FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -155,6 +166,52 @@ export default function InvoiceManagementPage() {
       setCreateError(err.response?.data?.message || "Failed to create invoice.");
     } finally {
       setCreating(false);
+    }
+  };
+
+  // ── Start / Cancel / Save Edit ──────────────────────────────────────────
+  const startEditing = (inv: ClaimInvoice) => {
+    setEditingId(inv.id);
+    setEditFormData({
+      info: inv.info || "",
+      storage_bill: inv.storage_bill?.toString() || "",
+      rent_bill: inv.rent_bill?.toString() || "",
+    });
+    setSaveError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditFormData({ info: "", storage_bill: "", rent_bill: "" });
+    setSaveError(null);
+  };
+
+  const handleSaveEdit = async (invoiceId: number) => {
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const payload = {
+        info: editFormData.info.trim() || null,
+        storage_bill: editFormData.storage_bill ? Number(editFormData.storage_bill) : null,
+        rent_bill: editFormData.rent_bill ? Number(editFormData.rent_bill) : null,
+      };
+
+      const res = await api.put(`/api/invoice/${invoiceId}`, payload, {
+        headers: { requiresAuth: true },
+      });
+
+      if (!res.data.success) {
+        throw new Error(res.data.message || "Update failed");
+      }
+
+      // Refresh list
+      await fetchClaimInvoices();
+      cancelEdit();
+    } catch (err: any) {
+      setSaveError(err.response?.data?.message || "Failed to update invoice.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -256,7 +313,7 @@ export default function InvoiceManagementPage() {
           </div>
         </div>
 
-        {/* Create Form – only shown for claim tab */}
+        {/* Create Form */}
         {isClaimTab && showCreateForm && (
           <div className="mb-10 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-green-100/60 p-6">
             <h2 className="text-xl font-bold text-green-800 mb-5">Create New Claim Invoice</h2>
@@ -413,8 +470,9 @@ export default function InvoiceManagementPage() {
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date / Time</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Info</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Storage</th>
-                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Rent</th>
+                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Hire</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Total</th>
+                        <th className="px-3 py-2 text-center font-semibold text-green-800">Actions</th>
                       </>
                     ) : (
                       <>
@@ -427,29 +485,103 @@ export default function InvoiceManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isClaimTab
-                    ? filteredClaimInvoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
-                          <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
-                            {inv.claimant_name || "—"}
-                          </td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
-                            {formatDate(inv.invoice_datetime)}
-                          </td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 text-center">
-                            {getInfoBadge(inv.info)}
-                          </td>
-                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                            {formatCurrency(inv.storage_bill)}
-                          </td>
-                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                            {formatCurrency(inv.rent_bill)}
-                          </td>
-                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                            {formatCurrency((inv.rent_bill || 0) + (inv.storage_bill || 0))}
-                          </td>
-                        </tr>
-                      ))
+                    ? filteredClaimInvoices.map((inv) => {
+                        const isEditing = editingId === inv.id;
+
+                        return (
+                          <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
+                            <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
+                            <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
+                              {inv.claimant_name || "—"}
+                            </td>
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                              {formatDate(inv.invoice_datetime)}
+                            </td>
+
+                            <td className="px-3 py-1.5 border-r border-gray-300 text-center">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editFormData.info}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({ ...p, info: e.target.value }))
+                                  }
+                                  className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  placeholder="e.g. SENT"
+                                />
+                              ) : (
+                                getInfoBadge(inv.info)
+                              )}
+                            </td>
+
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editFormData.storage_bill}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({ ...p, storage_bill: e.target.value }))
+                                  }
+                                  className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  placeholder="0"
+                                />
+                              ) : (
+                                formatCurrency(inv.storage_bill)
+                              )}
+                            </td>
+
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  value={editFormData.rent_bill}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({ ...p, rent_bill: e.target.value }))
+                                  }
+                                  className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  placeholder="0"
+                                />
+                              ) : (
+                                formatCurrency(inv.rent_bill)
+                              )}
+                            </td>
+
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {formatCurrency((inv.rent_bill || 0) + (inv.storage_bill || 0))}
+                            </td>
+
+                            <td className="px-3 py-1.5 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleSaveEdit(inv.id)}
+                                    disabled={saving}
+                                    className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                                    title="Save"
+                                  >
+                                    <Check size={16} />
+                                  </button>
+                                  <button
+                                    onClick={cancelEdit}
+                                    className="text-red-600 hover:text-red-800"
+                                    title="Cancel"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => startEditing(inv)}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Edit invoice"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     : filteredLongHireInvoices.map((inv) => (
                         <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
                           <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
@@ -467,6 +599,12 @@ export default function InvoiceManagementPage() {
                 </tbody>
               </table>
             </div>
+
+            {saveError && (
+              <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
+                {saveError}
+              </div>
+            )}
           </div>
         )}
       </main>
