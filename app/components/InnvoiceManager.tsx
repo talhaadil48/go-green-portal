@@ -104,13 +104,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     // Transform array-of-arrays → array-of-objects
                     const rawData = response.data.data || [];
                     const formattedInvoices = rawData.map((row: any[]) => ({
-                        id: row[0], // 1
-                        invoice_number: row[1] || "—", // "PC-44"
-                        invoice_datetime: row[2], // "2026-02-09T12:53:18.445405"
-                        info: row[3] || "", // "da" (notes / description)
-                        docs: row[4] || "", // documents as string
-                        storage_bill: row[5] || 0, // storage_bill
-                        rent_bill: row[6] || 0, // rent_bill
+                        id: row[0],
+                        invoice_number: row[1] || "—",
+                        invoice_datetime: row[2],
+                        info: row[3] || "",
+                        docs: row[4] || "",
+                        storage_bill: row[5] || 0,
+                        rent_bill: row[6] || 0,
                     }));
                     setInvoices(formattedInvoices);
                 }
@@ -140,7 +140,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     />
                 </svg>
             ),
-            // Always available – can send blank if no data
             available: true,
         }, {
             id: "rental-agreement",
@@ -311,7 +310,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             return;
         }
         setIsSending(true);
-        setStatus({ type: "info", text: "Uploading documents one by one..." });
+        setStatus({ type: "info", text: "Preparing documents..." });
         setCurrentProgress({ current: 0, total: selectedDocs.length });
         try {
             const uploadedDocs: { name: string; url: string; sizeKb: string }[] = [];
@@ -323,31 +322,35 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 setCurrentProgress({ current: i + 1, total: selectedDocs.length });
                 setStatus({
                     type: "info",
-                    text: `Uploading ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
+                    text: `Processing ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
                 });
-                let blob: Blob;
-                let filename: string;
+
+                // ─────────────────────────────────────────────────────────────
+                // UPLOADED DOCUMENTS: already have a URL – use it directly,
+                // no fetching or re-uploading needed.
+                // ─────────────────────────────────────────────────────────────
                 if (doc.formType === "document") {
-                    const url = documentsData["documents"]?.[docId];
-                    if (!url) {
+                    const existingUrl = documentsData["documents"]?.[docId];
+                    if (!existingUrl) {
                         uploadErrors.push(doc.name || docId);
                         setStatus({ type: "error", text: `Missing file URL for ${doc.name}` });
                         continue;
                     }
-                    const res = await fetch(url);
-                    if (!res.ok) {
-                        uploadErrors.push(doc.name || docId);
-                        setStatus({ type: "error", text: `Failed to fetch ${doc.name} (${res.status})` });
-                        continue;
-                    }
-                    blob = await res.blob();
-                    let ext = "pdf";
-                    if (blob.type === "image/jpeg") ext = "jpg";
-                    else if (blob.type === "image/png") ext = "png";
-                    else if (blob.type === "application/pdf") ext = "pdf";
-                    filename = `${doc.id}.${ext}`;
-                } else if (doc.formType === "pre-inspection") {
-                    // Handle pre-inspection forms from array
+                    uploadedDocs.push({
+                        name: doc.name || docId,
+                        url: existingUrl,
+                        sizeKb: "—", // size unknown without fetching the file
+                    });
+                    continue; // skip presign / S3 upload entirely
+                }
+
+                // ─────────────────────────────────────────────────────────────
+                // GENERATED DOCUMENTS: build PDF blob then upload to S3
+                // ─────────────────────────────────────────────────────────────
+                let blob: Blob;
+                let filename: string;
+
+                if (doc.formType === "pre-inspection") {
                     const inspectionId = docId.replace("pre-inspection-", "");
                     let formDataObj = {};
                     if (Array.isArray(documentsData["pre-inspection"])) {
@@ -381,39 +384,60 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     blob = await generatePDF(pdfData);
                     filename = `${doc.formType}-${claimId}.pdf`;
                 }
-                // Upload single file
-                const uploadFormData = new FormData();
-                uploadFormData.append('file', blob, filename);
-                uploadFormData.append('claimId', claimId);
-                uploadFormData.append('docName', doc.name || docId);
-                const uploadResponse = await fetch(`/api/upload-docs`, {
+
+                // Get presigned URL
+                const presignRes = await fetch("/api/presign-upload", {
                     method: "POST",
-                    body: uploadFormData,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        claimId,
+                        files: [{ name: filename, type: blob.type || "application/pdf" }],
+                    }),
                 });
-                const uploadData = await uploadResponse.json();
-                if (uploadResponse.ok && uploadData.success) {
-                    uploadedDocs.push({
-                        name: uploadData.name,
-                        url: uploadData.url,
-                        sizeKb: uploadData.sizeKb,
-                    });
-                } else {
+
+                if (!presignRes.ok) {
                     uploadErrors.push(filename);
-                    console.error(`Upload failed for ${filename}:`, uploadData);
+                    console.error(`Failed to get presigned URL for ${filename}`);
+                    continue;
                 }
+
+                const { results } = await presignRes.json();
+                const { presignedUrl, fileUrl } = results[0];
+
+                // Upload directly to S3
+                const s3Res = await fetch(presignedUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": blob.type || "application/pdf" },
+                    body: blob,
+                });
+
+                if (!s3Res.ok) {
+                    uploadErrors.push(filename);
+                    console.error(`S3 upload failed for ${filename}`);
+                    continue;
+                }
+
+                uploadedDocs.push({
+                    name: doc.name || docId,
+                    url: fileUrl,
+                    sizeKb: String(Math.round(blob.size / 1024)),
+                });
             }
+
             if (uploadedDocs.length === 0) {
-                setStatus({ type: "error", text: "No documents uploaded successfully." });
+                setStatus({ type: "error", text: "No documents processed successfully." });
                 return;
             }
+
             setStatus({ type: "info", text: "Sending email with document links..." });
-            // Now send the links (small JSON payload)
+
+            // Send links (small JSON payload)
             const sendPayload = {
                 email,
                 subject,
                 message,
                 claimId,
-                documents: uploadedDocs, // array of {name, url, sizeKb}
+                documents: uploadedDocs,
             };
             const sendResponse = await fetch(`/api/send-documents`, {
                 method: "POST",
@@ -422,7 +446,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             });
             const sendData = await sendResponse.json();
             if (sendResponse.ok && sendData.success) {
-                // Now create invoice if info is provided
+                // Create invoice if info is provided
                 if (info.trim()) {
                     try {
                         setStatus({ type: "info", text: "Creating invoice..." });
@@ -431,13 +455,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             headers: { requiresAuth: true },
                         });
                         const { rental, storage } = billResponse.data;
-                        console.log("Bill details:", rental);
-                        console.log("Bill details:", storage);
-                            
-                        // Prepare docs as comma-separated string
+
                         const docsArray = selectedDocs.map((docId) => {
                             const docOption = allDocuments.find(d => d.id === docId);
-                            return docOption?.name || docId; // fallback to id if something went wrong
+                            return docOption?.name || docId;
                         });
                         const invoiceResponse = await api.post(`/api/invoice`, {
                             claim_id: claimId,
@@ -458,16 +479,15 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                 headers: { requiresAuth: true },
                             });
                             if (refreshResponse.data.success) {
-                                // Transform array-of-arrays → array-of-objects (same as initial fetch)
                                 const rawData = refreshResponse.data.data || [];
                                 const formattedInvoices = rawData.map((row: any[]) => ({
-                                    id: row[0], // 1
-                                    invoice_number: row[1] || "—", // "PC-44"
-                                    invoice_datetime: row[2], // "2026-02-09T12:53:18.445405"
-                                    info: row[3] || "", // "da" (notes / description)
-                                    docs: row[4] || "", // documents as string
-                                    storage_bill: row[5] || 0, // storage_bill
-                                    rent_bill: row[6] || 0, // rent_bill
+                                    id: row[0],
+                                    invoice_number: row[1] || "—",
+                                    invoice_datetime: row[2],
+                                    info: row[3] || "",
+                                    docs: row[4] || "",
+                                    storage_bill: row[5] || 0,
+                                    rent_bill: row[6] || 0,
                                 }));
                                 setInvoices(formattedInvoices);
                             }
@@ -487,7 +507,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 } else {
                     setStatus({
                         type: "success",
-                        text: `All ${uploadedDocs.length} documents uploaded and links sent successfully!`,
+                        text: `All ${uploadedDocs.length} documents sent successfully!`,
                     });
                 }
                 setSelectedDocs([]);
