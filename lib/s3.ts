@@ -33,3 +33,28 @@ export async function uploadToS3(file: File, claimId: string): Promise<string> {
     });
   });
 }
+
+
+
+export function generatePresignedUrl(
+  claimId: string,
+  fileName: string,
+  fileType: string
+): { presignedUrl: string; fileUrl: string; key: string } {
+  const fileExtension = fileName.split(".").pop();
+  const uniqueId = uuidv4();
+  const baseName = fileName.split(".")[0];
+  const uniqueFileName = `${baseName}-${uniqueId}.${fileExtension}`;
+  const key = `accident-claims/${claimId}/${uniqueFileName}`;
+
+  const presignedUrl = s3.getSignedUrl("putObject", {
+    Bucket: process.env.AWS_S3_BUCKET_NAME!,
+    Key: key,
+    ContentType: fileType,
+    Expires: 60 * 5, // 5 minutes
+  });
+
+  const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+  return { presignedUrl, fileUrl, key };
+}

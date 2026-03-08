@@ -2,16 +2,17 @@
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import api from "@/lib/axios";
+import { uploadToS3 } from "@/lib/s3";
 
 interface DocumentManagerProps {
   claimId: string;
 }
 
 interface DocumentsMap {
-  [key: string]:  string;
+  [key: string]: string;
 }
 
-export default function DocumentManager({  claimId }: DocumentManagerProps) {
+export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<DocumentsMap>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,14 +50,19 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
 
   const handleFilesSelect = (e: ChangeEvent<HTMLInputElement>, from: "file" | "camera") => {
     if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setSelectedFiles(filesArray);
-      // Initialize names with original filenames
-      setFileNames(filesArray.map((f) => f.name));
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...newFiles]);
+      setFileNames((prev) => [...prev, ...newFiles.map((f) => f.name)]);
       setSourceType(from);
-      // Clear single name when switching to multi
       setSingleDocName("");
+      // Reset input so the same file can be re-added if needed
+      e.target.value = "";
     }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileNames((prev) => prev.filter((_, i) => i !== index));
   };
 
   const updateFileName = (index: number, name: string) => {
@@ -78,44 +84,98 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
     setSuccessMsg(null);
 
     try {
-      const formData = new FormData();
-      formData.append("claimId", claimId);
-
-      // Append files
-      selectedFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      // Append names (in same order as files)
+      // Build names array
+      let names: string[];
       if (selectedFiles.length === 1) {
-        const name = singleDocName.trim() || selectedFiles[0].name;
-        formData.append("names", name);
+        names = [singleDocName.trim() || selectedFiles[0].name];
       } else {
-        // Multiple files → send array of names
-        const cleanedNames = fileNames.map((n, i) =>
+        names = fileNames.map((n, i) =>
           n.trim() ? n.trim() : selectedFiles[i].name
         );
-        cleanedNames.forEach((name) => {
-          formData.append("names", name);
-        });
       }
 
-      const uploadRes = await fetch("/api/upload-document", {
+      // Step 1: Get presigned URLs from our API route
+      const presignRes = await fetch("/api/presign-upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          claimId,
+          files: selectedFiles.map((f) => ({ name: f.name, type: f.type })),
+        }),
       });
 
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(err.error || "Upload failed");
+      if (!presignRes.ok) throw new Error("Failed to get upload URLs");
+
+      const { results } = await presignRes.json() as {
+        results: { presignedUrl: string; fileUrl: string; key: string }[];
+      };
+
+      // Step 2: Upload each file directly to S3 using presigned URLs
+      await Promise.all(
+        selectedFiles.map((file, i) =>
+          fetch(results[i].presignedUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          }).then((res) => {
+            if (!res.ok) throw new Error(`S3 upload failed for ${file.name}`);
+          })
+        )
+      );
+
+      // Step 3: Fetch existing docs from backend
+      let currentDocs: Record<string, string> = {};
+      try {
+        const getRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`
+        );
+        if (getRes.ok) {
+          const data = await getRes.json();
+          currentDocs = data.documents || {};
+        }
+      } catch {
+        currentDocs = {};
       }
+
+      // Step 4: Merge with dedup logic using display names → S3 URLs
+      for (let i = 0; i < results.length; i++) {
+        let desiredName = names[i].trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
+
+        const [base, ext] = desiredName.includes(".")
+          ? [
+            desiredName.slice(0, desiredName.lastIndexOf(".")),
+            desiredName.slice(desiredName.lastIndexOf(".")),
+          ]
+          : [desiredName, ""];
+
+        let finalKey = desiredName;
+        let counter = 1;
+        while (currentDocs[finalKey]) {
+          finalKey = `${base}-${counter}${ext}`;
+          counter++;
+        }
+
+        currentDocs[finalKey] = results[i].fileUrl;
+      }
+
+      // Step 5: PUT updated docs to backend
+      const putRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documents: currentDocs }),
+        }
+      );
+
+      if (!putRes.ok) throw new Error("Backend PUT failed");
 
       await fetchDocuments();
 
       const count = selectedFiles.length;
       setSuccessMsg(
         count === 1
-          ? `Document "${singleDocName.trim() || selectedFiles[0].name}" uploaded successfully`
+          ? `Document "${names[0]}" uploaded successfully`
           : `${count} files uploaded successfully`
       );
 
@@ -131,6 +191,7 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
       setUploading(false);
     }
   };
+
 
   const handleDelete = async (docKey: string) => {
     if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
@@ -201,9 +262,18 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
                   <div className="space-y-3 mt-2">
                     {selectedFiles.map((file, index) => (
                       <div key={index} className="flex flex-col">
-                        <label className="text-xs text-gray-600 mb-1 truncate">
-                          {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-600 truncate flex-1">
+                            {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFile(index)}
+                            className="ml-2 text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+                          >
+                            ✕ Remove
+                          </button>
+                        </div>
                         <input
                           type="text"
                           value={fileNames[index] || ""}
@@ -214,6 +284,17 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* Single file remove button */}
+                {!isMultiple && selectedFiles.length === 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(0)}
+                    className="mt-2 text-xs text-red-500 hover:text-red-700"
+                  >
+                    ✕ Remove file
+                  </button>
                 )}
               </div>
             )}
@@ -226,7 +307,7 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
               <div className="flex flex-col sm:flex-row gap-3">
                 <label className="flex-1 cursor-pointer">
                   <div className="w-full px-4 py-3 border border-green-200 rounded-xl bg-green-50/50 hover:bg-green-100 transition text-center text-green-700 font-medium">
-                    Choose Files
+                    {selectedFiles.length > 0 ? "Add More Files" : "Choose Files"}
                   </div>
                   <input
                     type="file"
@@ -346,4 +427,3 @@ export default function DocumentManager({  claimId }: DocumentManagerProps) {
     </div>
   );
 }
-
