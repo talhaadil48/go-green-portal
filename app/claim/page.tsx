@@ -46,17 +46,15 @@ const COUNCIL_OPTIONS = [
     { value: "Lichfield District", label: "Lichfield District" },
     { value: "North West Leicestershire", label: "North West Leicestershire" },
 ];
-
 const STATUS_COLORS: Record<string, string> = {
     "claim created": "bg-green-600",
     "hire start": "bg-purple-600",
     "client paid": "bg-blue-600",
     "hire end": "bg-yellow-600",
-    "invoice sent": "bg-indigo-600",
+    "invoice sent": "bg-orange-600", // changed from indigo
     "close claim": "bg-rose-600",
     default: "bg-gray-500",
 };
-
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
@@ -518,19 +516,6 @@ export default function ClaimsPage() {
                 {/* Filters + Legend */}
                 <div className="mb-8 space-y-6">
                     {/* Status Color Legend */}
-                    <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl p-5 shadow-lg">
-                        <h3 className="text-lg font-semibold text-green-800 mb-3">Status Color Reference</h3>
-                        <div className="flex flex-wrap gap-4">
-                            {Object.entries(STATUS_COLORS).map(([status, color]) =>
-                                status !== "default" ? (
-                                    <div key={status} className="flex items-center gap-2">
-                                        <div className={`w-5 h-5 rounded-full ${color}`}></div>
-                                        <span className="text-sm capitalize">{status}</span>
-                                    </div>
-                                ) : null
-                            )}
-                        </div>
-                    </div>
 
                     {/* Filters */}
                     <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
@@ -631,6 +616,29 @@ export default function ClaimsPage() {
                                     Clear
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                    {/* Small status dots legend (bottom-right) */}
+                    <div className="flex justify-end">
+                        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-green-100 rounded-full px-3 py-2 shadow-sm">
+                            {Object.entries(STATUS_COLORS)
+                                .filter(([status]) => status !== "default")
+                                .map(([status, color]) => (
+                                    <div key={status} className="relative group">
+                                        {/* dot */}
+                                        <div
+                                            className={`w-3 h-3 rounded-full ${color} ring-1 ring-black/10`}
+                                            aria-label={status}
+                                        />
+
+                                        {/* tooltip on hover */}
+                                        <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover:block">
+                                            <div className="rounded-md bg-gray-900 text-white text-xs px-2 py-1 whitespace-nowrap shadow-lg">
+                                                {status.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                         </div>
                     </div>
                 </div>
