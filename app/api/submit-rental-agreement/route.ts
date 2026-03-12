@@ -103,7 +103,6 @@ export async function POST(req: NextRequest) {
         fullData[field] = null;
       }
     });
-
     // Forward to external backend
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/rental-agreements`;
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock } from "lucide-react";
+import Cookies from "js-cookie";
 
 interface Claim {
     claim_id: string;
@@ -47,11 +48,13 @@ const COUNCIL_OPTIONS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-    "claim created": "bg-green-700",
-    "hire start": "bg-purple-700",
+    "claim created": "bg-green-600",
+    "hire start": "bg-purple-600",
     "client paid": "bg-blue-600",
     "hire end": "bg-yellow-600",
-    "invoice sent": "bg-indigo-700",
+    "invoice sent": "bg-indigo-600",
+    "close claim": "bg-rose-600",
+    default: "bg-gray-500",
 };
 
 export default function ClaimsPage() {
@@ -64,26 +67,41 @@ export default function ClaimsPage() {
     const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
+    // Filters
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedType, setSelectedType] = useState("");
+    const [selectedCouncil, setSelectedCouncil] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState("");
+    const [activeFilter, setActiveFilter] = useState<"all" | "active" | "closed">("all");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+
+    // Form
     const [formData, setFormData] = useState({
         claim_id: "",
         claimant_name: "",
         claim_type: "",
         council: "",
     });
-
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
 
+    // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState("");
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedType, setSelectedType] = useState("");
-    const [selectedCouncil, setSelectedCouncil] = useState("");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    const getCurrentUsername = (): string | null => {
+        try {
+            const userData = Cookies.get("user");
+            if (!userData) return null;
+            const parsed = JSON.parse(userData);
+            return parsed?.username || null;
+        } catch {
+            return null;
+        }
+    };
 
     const fetchClaims = async () => {
         setLoading(true);
@@ -109,6 +127,7 @@ export default function ClaimsPage() {
     useEffect(() => {
         let filtered = [...allClaims];
 
+        // Text search
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
             filtered = filtered.filter(
@@ -118,14 +137,34 @@ export default function ClaimsPage() {
             );
         }
 
+        // Type
         if (selectedType) {
             filtered = filtered.filter((claim) => claim.claim_type === selectedType);
         }
 
+        // Council
         if (selectedCouncil) {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
 
+        // Status
+        if (selectedStatus) {
+            filtered = filtered.filter((claim) => claim.status === selectedStatus);
+        }
+
+        // Active / Closed filter
+        if (activeFilter === "active") {
+            filtered = filtered.filter(
+                (claim) => !(claim.closed_date && claim.closed_by)
+            );
+        } else if (activeFilter === "closed") {
+            filtered = filtered.filter(
+                (claim) => !!(claim.closed_date && claim.closed_by)
+            );
+        }
+        // "all" → no filtering here
+
+        // Date range
         if (startDate || endDate) {
             const start = startDate ? new Date(startDate) : null;
             const end = endDate ? new Date(endDate) : null;
@@ -138,6 +177,7 @@ export default function ClaimsPage() {
             });
         }
 
+        // Sorting
         if (sortColumn && sortDirection) {
             filtered.sort((a, b) => {
                 let aVal: any = a[sortColumn] ?? "";
@@ -184,7 +224,18 @@ export default function ClaimsPage() {
         }
 
         setClaims(filtered);
-    }, [allClaims, searchTerm, selectedType, selectedCouncil, startDate, endDate, sortColumn, sortDirection]);
+    }, [
+        allClaims,
+        searchTerm,
+        selectedType,
+        selectedCouncil,
+        selectedStatus,
+        activeFilter,
+        startDate,
+        endDate,
+        sortColumn,
+        sortDirection,
+    ]);
 
     const handleSort = (column: SortColumn) => {
         if (sortColumn === column) {
@@ -208,7 +259,10 @@ export default function ClaimsPage() {
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: name === "claim_id" ? value.toUpperCase() : value }));
+        setFormData((prev) => ({
+            ...prev,
+            [name]: name === "claim_id" ? value.toUpperCase() : value,
+        }));
     };
 
     const handleSubmit = async (e: FormEvent) => {
@@ -222,7 +276,6 @@ export default function ClaimsPage() {
                 council: formData.council.trim() || undefined,
             };
             if (formData.claim_id.trim()) payload.claim_id = formData.claim_id.trim();
-
             await api.post("/api/claims", payload, { headers: { requiresAuth: true } });
             setFormData({ claim_id: "", claimant_name: "", claim_type: "", council: "" });
             await fetchClaims();
@@ -237,22 +290,31 @@ export default function ClaimsPage() {
             setCreating(false);
         }
     };
-
-    const confirmWithCredentials = async (
-        actionName: string,
+    const performActionWithUsername = async (
         claimId: string,
         apiPath: string,
-        bodyKey: string
+        bodyKey: string,
+        actionName: string
     ) => {
-        const username = prompt(`Enter username to ${actionName} claim ${claimId}:`);
-        if (!username) return
-        const password = prompt("Enter password:");
-        if (password !== "12345678") {
-            alert("Wrong password.");
+        const username = getCurrentUsername();
+
+        if (!username) {
+            alert("User session not found. Please log in again.");
             return;
         }
 
-        if (!window.confirm(`Really ${actionName} claim ${claimId}?`)) return;
+        const confirmationPassword = prompt(
+            "Security Confirmation\n\nPlease enter the confirmation password to proceed."
+        );
+
+        if (!confirmationPassword) return;
+
+        if (confirmationPassword !== "12345678") {
+            alert("Incorrect confirmation password.");
+            return;
+        }
+
+        if (!window.confirm(`You want to ${actionName} claim ${claimId}?`)) return;
 
         try {
             await api.put(
@@ -260,23 +322,20 @@ export default function ClaimsPage() {
                 { [bodyKey]: username },
                 { headers: { requiresAuth: true } }
             );
+
             await fetchClaims();
         } catch (err: any) {
             alert(err.response?.data?.detail || `Failed to ${actionName} claim.`);
         }
     };
+    const handleSoftDelete = (claim_id: string) =>
+        performActionWithUsername(claim_id, "/soft-delete", "deleted_by", "soft-delete");
 
-    const handleSoftDelete = (claim_id: string) => {
-        confirmWithCredentials("soft-delete", claim_id, "/soft-delete", "deleted_by");
-    };
+    const handleCloseClaim = (claim_id: string) =>
+        performActionWithUsername(claim_id, "/close", "closed_by", "close");
 
-    const handleCloseClaim = (claim_id: string) => {
-        confirmWithCredentials("close", claim_id, "/close", "closed_by");
-    };
-
-    const handleReopenClaim = (claim_id: string) => {
-        confirmWithCredentials("reopen", claim_id, "/reopen", "reopened_by"); // adjust body key if backend expects different
-    };
+    const handleReopenClaim = (claim_id: string) =>
+        performActionWithUsername(claim_id, "/reopen", "reopened_by", "reopen");
 
     const startEditing = (claim: Claim) => {
         if (savingClaimId) return;
@@ -297,7 +356,6 @@ export default function ClaimsPage() {
             return;
         }
         if (savingClaimId) return;
-
         setSavingClaimId(claim_id);
         try {
             await api.put(
@@ -305,13 +363,11 @@ export default function ClaimsPage() {
                 { claimant_name: editNameValue.trim() },
                 { headers: { requiresAuth: true } }
             );
-
             setAllClaims((prev) =>
                 prev.map((c) =>
                     c.claim_id === claim_id ? { ...c, claimant_name: editNameValue.trim() } : c
                 )
             );
-
             setEditingClaimId(null);
             setEditNameValue("");
         } catch (err: any) {
@@ -347,6 +403,8 @@ export default function ClaimsPage() {
         setSearchTerm("");
         setSelectedType("");
         setSelectedCouncil("");
+        setSelectedStatus("");
+        setActiveFilter("all");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -380,7 +438,7 @@ export default function ClaimsPage() {
                     </div>
                 )}
 
-                {/* Create New Claim Form */}
+                {/* Create New Claim */}
                 <div className="mb-12 bg-white/80 backdrop-blur-md shadow-xl rounded-3xl border border-green-100/60 p-8 md:p-10">
                     <h2 className="text-2xl font-bold text-green-800 mb-6">Create New Claim</h2>
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -457,71 +515,122 @@ export default function ClaimsPage() {
                     </form>
                 </div>
 
-                {/* Filters */}
-                <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Search by Claimant</label>
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Type name..."
-                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                            />
+                {/* Filters + Legend */}
+                <div className="mb-8 space-y-6">
+                    {/* Status Color Legend */}
+                    <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl p-5 shadow-lg">
+                        <h3 className="text-lg font-semibold text-green-800 mb-3">Status Color Reference</h3>
+                        <div className="flex flex-wrap gap-4">
+                            {Object.entries(STATUS_COLORS).map(([status, color]) =>
+                                status !== "default" ? (
+                                    <div key={status} className="flex items-center gap-2">
+                                        <div className={`w-5 h-5 rounded-full ${color}`}></div>
+                                        <span className="text-sm capitalize">{status}</span>
+                                    </div>
+                                ) : null
+                            )}
                         </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Claim Type</label>
-                            <select
-                                value={selectedType}
-                                onChange={(e) => setSelectedType(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                            >
-                                <option value="">All Types</option>
-                                <option value="taxi">Taxi</option>
-                                <option value="personal">Personal</option>
-                                <option value="sovereign">Sovereign</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Council</label>
-                            <select
-                                value={selectedCouncil}
-                                onChange={(e) => setSelectedCouncil(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                            >
-                                {COUNCIL_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                            />
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-                            <div className="flex-1">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                                 <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Claimant / ID..."
                                     className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                 />
                             </div>
-                            <button
-                                onClick={clearFilters}
-                                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
-                            >
-                                Clear
-                            </button>
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                                <select
+                                    value={selectedType}
+                                    onChange={(e) => setSelectedType(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                >
+                                    <option value="">All Types</option>
+                                    <option value="taxi">Taxi</option>
+                                    <option value="personal">Personal</option>
+                                    <option value="sovereign">Sovereign</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Council</label>
+                                <select
+                                    value={selectedCouncil}
+                                    onChange={(e) => setSelectedCouncil(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                >
+                                    {COUNCIL_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                <select
+                                    value={selectedStatus}
+                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                >
+                                    <option value="">All Statuses</option>
+                                    {Object.keys(STATUS_COLORS)
+                                        .filter((k) => k !== "default")
+                                        .map((s) => (
+                                            <option key={s} value={s}>
+                                                {s}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Active</label>
+                                <select
+                                    value={activeFilter}
+                                    onChange={(e) => setActiveFilter(e.target.value as "all" | "active" | "closed")}
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                >
+                                    <option value="all">All</option>
+                                    <option value="active">Active only</option>
+                                    <option value="closed">Closed only</option>
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        />
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={clearFilters}
+                                    className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -538,7 +647,7 @@ export default function ClaimsPage() {
                 ) : claims.length === 0 ? (
                     <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                         <p className="text-xl text-green-700/80">
-                            {searchTerm || selectedType || selectedCouncil || startDate || endDate
+                            {searchTerm || selectedType || selectedCouncil || selectedStatus || activeFilter !== "all" || startDate || endDate
                                 ? "No matching claims found"
                                 : "No claims yet — create one above!"}
                         </p>
@@ -605,30 +714,34 @@ export default function ClaimsPage() {
                                         const isEditing = editingClaimId === claim.claim_id;
                                         const isSaving = savingClaimId === claim.claim_id;
                                         const isClosed = !!(claim.closed_date && claim.closed_by);
-
-                                        const statusClass = STATUS_COLORS[claim.status?.toLowerCase()] || "bg-gray-100 text-gray-800";
+                                        const statusClass =
+                                            STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
 
                                         return (
-                                            <tr key={claim.claim_id} className="hover:bg-green-50/40 transition-colors">
+                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
                                                 <td className="px-3 py-1 text-center border-r border-gray-300">
-                                                    <span
-                                                        className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                                                            !isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                                                        }`}
-                                                        title={
-                                                            isClosed
-                                                                ? `Closed by ${claim.closed_by} on ${formatDate(claim.closed_date)}`
-                                                                : ""
-                                                        }
-                                                    >
-                                                        {isClosed ? "No" : "Yes"}
-                                                    </span>
-                                                </td>
+                                                    <div className="relative group inline-block">
 
+                                                        <span
+                                                            className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-medium rounded-full ${!isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
+                                                                }`}
+                                                        >
+                                                            {isClosed ? "No" : "Yes"}
+                                                        </span>
+
+                                                        {isClosed && (
+                                                            <div className="absolute bottom-full mb-2 hidden group-hover:block 
+                      bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap
+                      shadow-lg">
+                                                                Closed by {claim.closed_by} on {formatDate(claim.closed_date)}
+                                                            </div>
+                                                        )}
+
+                                                    </div>
+                                                </td>
                                                 <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
                                                     {claim.claim_id.toUpperCase()}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {isEditing ? (
                                                         <div className="flex items-center gap-1.5">
@@ -640,11 +753,10 @@ export default function ClaimsPage() {
                                                                 onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                                 disabled={isSaving}
                                                                 autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${
-                                                                    isSaving
-                                                                        ? "border-gray-300 bg-gray-50 text-gray-500"
-                                                                        : "border-green-400 focus:ring-green-500 bg-white"
-                                                                }`}
+                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving
+                                                                    ? "border-gray-300 bg-gray-50 text-gray-500"
+                                                                    : "border-green-400 focus:ring-green-500 bg-white"
+                                                                    }`}
                                                             />
                                                             {isSaving ? (
                                                                 <Loader2 size={16} className="text-green-600 animate-spin" />
@@ -686,44 +798,52 @@ export default function ClaimsPage() {
                                                         </div>
                                                     )}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {claim.claim_type
                                                         ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)
                                                         : "—"}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {claim.council || "—"}
                                                 </td>
-
                                                 <td className="border-r border-gray-300">
-                                                    <div className="relative group mx-auto w-8 h-4">
-                                                        <div className={`w-full h-full rounded-full ${statusClass}`}></div>
+                                                    <div className="relative group flex justify-center">
+
+                                                        <div className={`w-8 h-4 rounded-full ${statusClass}`}></div>
+
                                                         <span
-                                                            className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-6
-                                                            bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0
-                                                            group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10"
+                                                            className="
+                                                        absolute bottom-full mb-1
+                                                        left-1/2 -translate-x-1/2
+                                                        bg-gray-800 text-white text-xs
+                                                        px-2 py-1 rounded
+                                                        opacity-0 group-hover:opacity-100
+                                                        transition-opacity duration-200
+                                                        whitespace-nowrap pointer-events-none
+                                                        z-10
+                                                    "
                                                         >
-                                                            {claim.status}
+                                                            {claim.status === "close claim"
+                                                                ? "Claim Closed"
+                                                                : claim.status
+                                                                    .replace("_", " ")
+                                                                    .replace(/\b\w/g, (c) => c.toUpperCase())}
                                                         </span>
+
                                                     </div>
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {formatDate(claim.claim_start_date)}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {claim.invoice_datetime
                                                         ? `${new Date(claim.invoice_datetime).toLocaleDateString("en-GB", {
-                                                              day: "2-digit",
-                                                              month: "short",
-                                                              year: "numeric",
-                                                          })} ${claim.info || "No Info"}`
+                                                            day: "2-digit",
+                                                            month: "short",
+                                                            year: "numeric",
+                                                        })} ${claim.info || "No Info"}`
                                                         : "Not Sent"}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
                                                     {!isClosed && (
                                                         <button
@@ -734,7 +854,6 @@ export default function ClaimsPage() {
                                                             <Eye size={16} />
                                                         </button>
                                                     )}
-
                                                     {isClosed ? (
                                                         <button
                                                             onClick={() => handleReopenClaim(claim.claim_id)}
@@ -752,7 +871,6 @@ export default function ClaimsPage() {
                                                             <Lock size={16} />
                                                         </button>
                                                     )}
-
                                                     {!claim.recently_deleted && (
                                                         <button
                                                             onClick={() => handleSoftDelete(claim.claim_id)}

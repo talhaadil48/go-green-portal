@@ -4,6 +4,7 @@ import axios from "axios";
 import { generatePDF, PDFFormData } from "@/lib/pdf-generator";
 import { JSX } from "react/jsx-runtime";
 import api from "@/lib/axios";
+import Cookies from "js-cookie";
 interface Invoice {
     id: number;
     invoice_number: string;
@@ -12,6 +13,7 @@ interface Invoice {
     docs: string;
     storage_bill: number;
     rent_bill: number;
+    user_name: string;
 }
 interface InvoiceManagerProps {
     claimId: string;
@@ -41,6 +43,18 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [invoicesLoading, setInvoicesLoading] = useState(false);
+    
+    const getCurrentUsername = (): string | null => {
+        try {
+            const userData = Cookies.get("user");
+            if (!userData) return null;
+            const parsed = JSON.parse(userData);
+            return parsed?.username || null;
+        } catch {
+            return null;
+        }
+    };
+
     // Fetch all form data – allow missing forms (treat as empty)
     useEffect(() => {
         const fetchAllData = async () => {
@@ -111,6 +125,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                         docs: row[4] || "",
                         storage_bill: row[5] || 0,
                         rent_bill: row[6] || 0,
+                        user_name : row[7] || "Unknown",
                     }));
                     setInvoices(formattedInvoices);
                 }
@@ -466,6 +481,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                             docs: docsArray,
                             storage_bill: storage,
                             rent_bill: rental,
+                            user_name : getCurrentUsername() || "Unknown", // or fetch actual user name if available
                         }, {
                             headers: { requiresAuth: true },
                         });
@@ -488,6 +504,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                     docs: row[4] || "",
                                     storage_bill: row[5] || 0,
                                     rent_bill: row[6] || 0,
+                                    user_name : row[7] || "Unknown",
                                 }));
                                 setInvoices(formattedInvoices);
                             }
@@ -632,7 +649,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                                                         Invoice
                                                     </p>
                                                     <p className="text-sm text-gray-600">
-                                                        {formattedDate} at {formattedTime}
+                                                        Sent by {invoice.user_name} • {formattedDate} at {formattedTime}
                                                     </p>
                                                 </div>
                                             </div>

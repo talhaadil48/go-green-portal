@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, RefreshCw, Edit2, X ,Check } from "lucide-react";
+import { Plus, Loader2, RefreshCw, Edit2, X, Check } from "lucide-react";
 import api from "@/lib/axios";
 
 interface ClaimInvoice {
@@ -14,6 +14,7 @@ interface ClaimInvoice {
   docs: string | null;
   storage_bill: number | null;
   rent_bill: number | null;
+  user_name: string | null;       // ← NEW
 }
 
 interface LongHireInvoice {
@@ -22,6 +23,7 @@ interface LongHireInvoice {
   hirer_name: string | null;
   amount: number | null;
   date_sent: string | null;
+  user_name: string | null;       // ← NEW
 }
 
 function formatDate(d: string | null) {
@@ -49,14 +51,7 @@ function getInfoBadge(info: string | null) {
   if (!info) return <span className="text-xs text-slate-400">—</span>;
 
   const upper = info.toUpperCase();
-  if (upper.includes("SENT")) {
-    return (
-      <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-        {info}
-      </span>
-    );
-  }
-  if (upper.includes("PENDING") || upper.includes("DRAFT")) {
+  if (upper.includes("SENT") || upper.includes("PENDING") || upper.includes("DRAFT")) {
     return (
       <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
         {info}
@@ -88,6 +83,7 @@ export default function InvoiceManagementPage() {
     info: "",
     storage_bill: "",
     rent_bill: "",
+    user_name: "",           // ← NEW
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -98,6 +94,7 @@ export default function InvoiceManagementPage() {
   // Claim-specific
   const [filterClaimant, setFilterClaimant] = useState("");
   const [filterInfo, setFilterInfo] = useState("");
+  const [filterSentBy, setFilterSentBy] = useState("");    // ← optional new filter
   // Long-hire specific
   const [filterHirer, setFilterHirer] = useState("");
 
@@ -108,6 +105,7 @@ export default function InvoiceManagementPage() {
     claimant_name: "",
     storage_bill: "",
     rent_bill: "",
+    user_name: "",                                 // ← optional: you may want to auto-fill or remove
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -155,11 +153,12 @@ export default function InvoiceManagementPage() {
         claimant_name: createFormData.claimant_name.trim() || null,
         storage_bill: createFormData.storage_bill ? Number(createFormData.storage_bill) : null,
         rent_bill: createFormData.rent_bill ? Number(createFormData.rent_bill) : null,
+        user_name: createFormData.user_name.trim() || null,     // ← added (optional)
       };
 
       await api.post("/api/invoice", payload, { headers: { requiresAuth: true } });
 
-      setCreateFormData({ claim_id: "", claimant_name: "", storage_bill: "", rent_bill: "" });
+      setCreateFormData({ claim_id: "", claimant_name: "", storage_bill: "", rent_bill: "", user_name: "" });
       setShowCreateForm(false);
       await fetchClaimInvoices();
     } catch (err: any) {
@@ -176,13 +175,14 @@ export default function InvoiceManagementPage() {
       info: inv.info || "",
       storage_bill: inv.storage_bill?.toString() || "",
       rent_bill: inv.rent_bill?.toString() || "",
+      user_name: inv.user_name || "",               // ← NEW
     });
     setSaveError(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditFormData({ info: "", storage_bill: "", rent_bill: "" });
+    setEditFormData({ info: "", storage_bill: "", rent_bill: "", user_name: "" });
     setSaveError(null);
   };
 
@@ -195,6 +195,7 @@ export default function InvoiceManagementPage() {
         info: editFormData.info.trim() || null,
         storage_bill: editFormData.storage_bill ? Number(editFormData.storage_bill) : null,
         rent_bill: editFormData.rent_bill ? Number(editFormData.rent_bill) : null,
+        user_name: editFormData.user_name.trim() || null,     // ← NEW
       };
 
       const res = await api.put(`/api/invoice/${invoiceId}`, payload, {
@@ -205,7 +206,6 @@ export default function InvoiceManagementPage() {
         throw new Error(res.data.message || "Update failed");
       }
 
-      // Refresh list
       await fetchClaimInvoices();
       cancelEdit();
     } catch (err: any) {
@@ -221,13 +221,15 @@ export default function InvoiceManagementPage() {
       !search ||
       String(inv.id).includes(search) ||
       inv.claim_id?.toLowerCase().includes(search.toLowerCase()) ||
-      inv.claimant_name?.toLowerCase().includes(search.toLowerCase());
+      inv.claimant_name?.toLowerCase().includes(search.toLowerCase()) ||
+      inv.user_name?.toLowerCase().includes(search.toLowerCase());
 
     const matchesClaimId = !filterClaimId || inv.claim_id?.toLowerCase().includes(filterClaimId.toLowerCase());
     const matchesClaimant = !filterClaimant || inv.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
     const matchesInfo = !filterInfo || inv.info?.toLowerCase().includes(filterInfo.toLowerCase());
+    const matchesSentBy = !filterSentBy || inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase());
 
-    return matchesSearch && matchesClaimId && matchesClaimant && matchesInfo;
+    return matchesSearch && matchesClaimId && matchesClaimant && matchesInfo && matchesSentBy;
   });
 
   // Filtering – Long Hire Invoices
@@ -236,12 +238,14 @@ export default function InvoiceManagementPage() {
       !search ||
       String(inv.id).includes(search) ||
       inv.claim_id?.toLowerCase().includes(search.toLowerCase()) ||
-      inv.hirer_name?.toLowerCase().includes(search.toLowerCase());
+      inv.hirer_name?.toLowerCase().includes(search.toLowerCase()) ||
+      inv.user_name?.toLowerCase().includes(search.toLowerCase());
 
     const matchesClaimId = !filterClaimId || inv.claim_id?.toLowerCase().includes(filterClaimId.toLowerCase());
     const matchesHirer = !filterHirer || inv.hirer_name?.toLowerCase().includes(filterHirer.toLowerCase());
+    const matchesSentBy = !filterSentBy || inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase());
 
-    return matchesSearch && matchesClaimId && matchesHirer;
+    return matchesSearch && matchesClaimId && matchesHirer && matchesSentBy;
   });
 
   const isClaimTab = activeTab === "claim";
@@ -359,6 +363,18 @@ export default function InvoiceManagementPage() {
                 />
               </div>
 
+              {/* Optional: you can remove or keep — depends if you want to set sender manually on create */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Sent By (optional)</label>
+                <input
+                  type="text"
+                  value={createFormData.user_name}
+                  onChange={(e) => setCreateFormData((p) => ({ ...p, user_name: e.target.value }))}
+                  placeholder="Your name / auto-filled?"
+                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                />
+              </div>
+
               <div className="md:col-span-2 flex justify-end gap-3 mt-2">
                 <button
                   type="button"
@@ -391,7 +407,7 @@ export default function InvoiceManagementPage() {
         )}
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <input
             type="text"
             value={search}
@@ -423,15 +439,31 @@ export default function InvoiceManagementPage() {
                 placeholder="Filter Info / Status"
                 className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
               />
+              <input
+                type="text"
+                value={filterSentBy}
+                onChange={(e) => setFilterSentBy(e.target.value)}
+                placeholder="Filter Sent By"
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+              />
             </>
           ) : (
-            <input
-              type="text"
-              value={filterHirer}
-              onChange={(e) => setFilterHirer(e.target.value)}
-              placeholder="Filter Hirer Name"
-              className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-            />
+            <>
+              <input
+                type="text"
+                value={filterHirer}
+                onChange={(e) => setFilterHirer(e.target.value)}
+                placeholder="Filter Hirer Name"
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+              />
+              <input
+                type="text"
+                value={filterSentBy}
+                onChange={(e) => setFilterSentBy(e.target.value)}
+                placeholder="Filter Sent By"
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+              />
+            </>
           )}
 
           <div className="text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center">
@@ -452,7 +484,7 @@ export default function InvoiceManagementPage() {
           </div>
         ) : (isClaimTab ? filteredClaimInvoices : filteredLongHireInvoices).length === 0 ? (
           <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
-            {search || filterClaimId || (isClaimTab ? filterClaimant || filterInfo : filterHirer)
+            {search || filterClaimId || filterSentBy || (isClaimTab ? filterClaimant || filterInfo : filterHirer)
               ? "No matching invoices"
               : `No ${isClaimTab ? "claim" : "long term hire"} invoices yet`}
           </div>
@@ -469,6 +501,7 @@ export default function InvoiceManagementPage() {
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claimant</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date / Time</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Info</th>
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th> {/* NEW */}
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Storage</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Hire</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Total</th>
@@ -478,6 +511,7 @@ export default function InvoiceManagementPage() {
                       <>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Hirer</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date Sent</th>
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th> {/* NEW */}
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Amount</th>
                       </>
                     )}
@@ -511,6 +545,25 @@ export default function InvoiceManagementPage() {
                                 />
                               ) : (
                                 getInfoBadge(inv.info)
+                              )}
+                            </td>
+
+                            {/* NEW — Sent By column (editable in claim tab) */}
+                            <td className="px-3 py-1.5 border-r border-gray-300">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editFormData.user_name}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({ ...p, user_name: e.target.value }))
+                                  }
+                                  className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  placeholder="Name"
+                                />
+                              ) : (
+                                <span className="truncate block max-w-[140px]">
+                                  {inv.user_name || "—"}
+                                </span>
                               )}
                             </td>
 
@@ -591,6 +644,12 @@ export default function InvoiceManagementPage() {
                           <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                             {formatDate(inv.date_sent)}
                           </td>
+
+                          {/* NEW — Sent By for long hire (not editable) */}
+                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[140px]">
+                            {inv.user_name || "—"}
+                          </td>
+
                           <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                             {formatCurrency(inv.amount)}
                           </td>
