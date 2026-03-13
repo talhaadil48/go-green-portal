@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, RefreshCw, Eye, Trash2, Pencil, Check, X } from "lucide-react";
 import api from "@/lib/axios";
-
+import Cookies from "js-cookie";
 interface LongClaim {
   id: string;
   starting_date: string | null;
@@ -93,10 +93,20 @@ export default function LongClaimsPage() {
     fetchClaims();
   }, []);
 
+  const getCurrentUsername = (): string | null => {
+          try {
+              const userData = Cookies.get("user");
+              if (!userData) return null;
+              const parsed = JSON.parse(userData);
+              return parsed?.username || null;
+          } catch {
+              return null;
+          }
+      };
+  
   // ── Username + Password confirmation for delete ────────────────────────
   const confirmDeleteWithCredentials = async (claimId: string) => {
-    const username = prompt(`Enter your username to delete claim ${claimId}:`);
-    if (!username) return;
+    
 
     const password = prompt("Enter password:");
     if (password !== "12345678") {
@@ -104,13 +114,12 @@ export default function LongClaimsPage() {
       return;
     }
 
-    if (!confirm(`Really mark claim ${claimId} as deleted?`)) return;
-
-    setDeletingId(claimId);
+    if (!confirm(`Do you want to mark claim ${claimId} as deleted?`)) return;
+    console.log(getCurrentUsername())
     try {
       await api.patch(
         `/api/long-claims/${claimId}/mark-deleted`,
-        { deleted_by: username },
+        { deleted_by: getCurrentUsername() },
         { headers: { requiresAuth: true } }
       );
 
