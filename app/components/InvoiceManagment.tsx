@@ -526,7 +526,7 @@ export default function InvoiceManagementPage() {
                           <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
                             <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
                             <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
-                              {inv.claimant_name || "—"}
+                              {inv.claimant_name?.toUpperCase() || "—"} 
                             </td>
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                               {formatDate(inv.invoice_datetime)}
