@@ -398,7 +398,8 @@ export default function ClaimsPage() {
 
         // Status-based active/non-active/closed
         const activeStatusClaims = allClaims.filter(c =>
-            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
+            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase()) &&
+            !(c.closed_date && c.closed_by)
         ).length;
         const nonActiveStatusClaims = allClaims.filter(c =>
             ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
@@ -464,7 +465,7 @@ export default function ClaimsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
-            
+
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
                 {/* ── Page Header ─────────────────────────────────────────── */}
@@ -597,7 +598,7 @@ export default function ClaimsPage() {
                                             className={`relative bg-gradient-to-br ${cfg.gradient} border ${cfg.border} rounded-xl p-4 flex flex-col gap-3 overflow-hidden group hover:shadow-md transition-shadow duration-200`}
                                         >
                                             {/* Big ghost number in background */}
-                                          
+
                                             <div className="flex items-center justify-between">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.iconBg}`}>
                                                     <Icon size={15} strokeWidth={2.2} />
