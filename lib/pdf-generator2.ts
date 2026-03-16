@@ -169,30 +169,30 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
 
     if (claimants.length === 0) {
       body.push([
-        formatSlt(sltCounter++),
         car.name || "—",
         car.model || "—",
         car.reg_no || "—",
+        `£${dailyRate.toFixed(2)}`,      // Daily Rate
+        `£${hireAmount.toFixed(2)}`,     // Hire Total
+        formatSlt(sltCounter++),         // ID
         "No claimants",
-        "—",
-        "—",
-        `£${dailyRate.toFixed(2)}`,           // ← Daily Rate
-        "—",                                  // Delivery
-        `£${hireAmount.toFixed(2)}`,          // Hire
+        "—",                             // Dates
+        "—",                             // Location
+        "—",                             // Delivery
       ]);
     } else {
       claimants.forEach((cl: any, idx: number) => {
         body.push([
-          formatSlt(sltCounter++),
           idx === 0 ? (car.name || "—") : "",
           idx === 0 ? (car.model || "—") : "",
           idx === 0 ? (car.reg_no || "—") : "",
+          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",
+          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",
+          formatSlt(sltCounter++),
           cl.name || "—",
           `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`,
           cl.location || "—",
-          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",     // ← Daily Rate (only on first row per car)
-          `£${(cl.delivery_charges || 0).toFixed(2)}`,     // Delivery
-          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",    // Hire (only on first row)
+          `£${(cl.delivery_charges || 0).toFixed(2)}`,
         ]);
       });
     }
@@ -201,7 +201,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   autoTable(doc, {
     startY: tableStartY,
     head: [
-      ["ID", "Vehicle", "Model", "Reg", "Claimant", "Dates", "Location", "Daily Rate", "Delivery £", "Hire Total £"]
+      ["Vehicle", "Model", "Reg", "Daily Rate", "Hire Total £", "ID", "Claimant", "Dates", "Location", "Delivery £"]
     ],
     body,
     theme: "grid",
@@ -221,27 +221,25 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     },
     alternateRowStyles: { fillColor: colors.lightBg },
     columnStyles: {
-      0: { cellWidth: 14, halign: "center" },     // ID
-      1: { cellWidth: 18 },                       // Vehicle
-      2: { cellWidth: 16 },                       // Model
-      3: { cellWidth: 13 },                       // Reg
-      4: { cellWidth: 26 },                       // Claimant
-      5: { cellWidth: 32 },                       // Dates
-      6: { cellWidth: 28 },                       // Location
-      7: { cellWidth: 15, halign: "right" },      // Daily Rate     ← new position
-      8: { cellWidth: 16, halign: "right" },      // Delivery £
-      9: { cellWidth: 17, halign: "right" },      // Hire £
+      0: { cellWidth: 18 },                  // Vehicle
+      1: { cellWidth: 16 },                  // Model
+      2: { cellWidth: 13 },                  // Reg
+      3: { cellWidth: 15, halign: "right" }, // Daily Rate
+      4: { cellWidth: 17, halign: "right" }, // Hire Total
+      5: { cellWidth: 14, halign: "center" },// ID
+      6: { cellWidth: 26 },                  // Claimant
+      7: { cellWidth: 32 },                  // Dates
+      8: { cellWidth: 28 },                  // Location
+      9: { cellWidth: 16, halign: "right" }, // Delivery £
     },
-    margin: { left: margin, right: margin },
     didParseCell(hookData) {
-      // Right-align numeric columns
-      if ([0, 7, 8, 9].includes(hookData.column.index)) {
-        hookData.cell.styles.halign = hookData.column.index === 0 ? "center" : "right";
+      if ([3, 4, 5, 9].includes(hookData.column.index)) {
+        hookData.cell.styles.halign = hookData.column.index === 5 ? "center" : "right";
       }
     },
+    margin: { left: margin, right: margin },
     rowPageBreak: "avoid",
   });
-
   // ─── Billing Summary (SECOND TABLE COMPLETELY REMOVED + simplified billing) ───
   const tableEndY = (doc as any).lastAutoTable.finalY || 100;
   // Add this explanation note
