@@ -82,24 +82,35 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     const headerHeight = 35;
     const gradientSteps = 30;
 
+    // Starting from white → going toward primaryDark
+    const startColor = [255, 255, 255];           // white
+    const endColor = [255,255,255]  // fallback if primaryDark missing
+
     for (let i = 0; i < gradientSteps; i++) {
-      const ratio = i / gradientSteps;
-      const r = Math.round(
-        colors.primary[0] + (colors.primaryDark[0] - colors.primary[0]) * ratio,
-      );
-      const g = Math.round(
-        colors.primary[1] + (colors.primaryDark[1] - colors.primary[1]) * ratio,
-      );
-      const b = Math.round(
-        colors.primary[2] + (colors.primaryDark[2] - colors.primary[2]) * ratio,
-      );
+      const ratio = i / (gradientSteps - 1);     // 0 → 1
+
+      const r = Math.round(startColor[0] + (endColor[0] - startColor[0]) * ratio);
+      const g = Math.round(startColor[1] + (endColor[1] - startColor[1]) * ratio);
+      const b = Math.round(startColor[2] + (endColor[2] - startColor[2]) * ratio);
+
       pdf.setFillColor(r, g, b);
-      pdf.rect(0, i * 1.2, pageWidth, 1.2, "F");
+      pdf.rect(0, i * (headerHeight / gradientSteps), pageWidth, headerHeight / gradientSteps + 0.5, "F");
     }
 
-    pdf.setTextColor(...colors.white);
+    // ────────────────────────────────────────────────
+    // Text colors – choose depending on your brand colors
+    // Option A: always white (usually safest on dark bottom)
+    pdf.setTextColor(30,30,30);   // white
+
+    // Option B: very dark gray (if bottom is still quite light)
+    // pdf.setTextColor(30, 30, 30);
+
+    // Option C: two-tone (white on bottom, dark on top) – more advanced
+    // You can split text drawing if needed (see comment below)
+
     pdf.setFontSize(20);
     pdf.setFont("helvetica", "bold");
+
     pdf.addImage(
       "/logo.png",
       "JPEG",
@@ -131,7 +142,6 @@ Website: www.gogreenhire.co.uk`;
 
     return headerHeight + 5;
   };
-
   const addSectionHeader = (title: string, y: number): number => {
     pdf.setFillColor(...colors.light);
     pdf.roundedRect(margin, y, pageWidth - margin * 2, 6, 1.5, 1.5, "F");
