@@ -1,14 +1,14 @@
-// lib/pdf-generator.ts
+// lib/pdf-generator2.ts
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface LongClaimPDFData {
   claimId: string;
   period: { starting_date: string | null; ending_date: string | null };
-  claimCars: any[];                    // CarItem[]
+  claimCars: any[]; // CarItem[]
   claimantsByCar: Record<number, any[]>; // Claimant[]
   totalDelivery: number;
-  dailyRates: Record<number, number>;    // ← now required
+  dailyRates: Record<number, number>;
   hirer_name?: string;
 }
 
@@ -50,19 +50,12 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   const margin = 9;
   const hirer_name = data.hirer_name || "";
 
-  // Header gradient
+  // ─── Header (white background) ───────────────────────────────────────────────
   const headerHeight = 26;
-  const gradientSteps = 18;
-  for (let i = 0; i < gradientSteps; i++) {
-    const ratio = i / gradientSteps;
-    const r = Math.round(colors.primary[0] + (colors.primaryDark[0] - colors.primary[0]) * ratio);
-    const g = Math.round(colors.primary[1] + (colors.primaryDark[1] - colors.primary[1]) * ratio);
-    const b = Math.round(colors.primary[2] + (colors.primaryDark[2] - colors.primary[2]) * ratio);
-    doc.setFillColor(r, g, b);
-    doc.rect(0, i * (headerHeight / gradientSteps), pageWidth, headerHeight / gradientSteps + 1, "F");
-  }
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, headerHeight, "F");
 
-  // Logo
+  // ─── Logo ─────────────────────────────────────────────────────────────────────
   try {
     const img = await fetch("/logo.jpeg").then(res => res.blob());
     const imgData = await new Promise<string>((resolve) => {
@@ -70,15 +63,15 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
       reader.onload = () => resolve(reader.result as string);
       reader.readAsDataURL(img);
     });
-    doc.addImage(imgData, "JPEG", margin, 4, 45, 18);
+    doc.addImage(imgData, "JPEG", margin, 4, 70, 12);
   } catch (err) {
     console.warn("Logo failed", err);
   }
 
-  // Company info
+  // ─── Company info ─────────────────────────────────────────────────────────────
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(...colors.white);
+  doc.setTextColor(...colors.primaryDark);
   const companyLines = [
     "Derby Turn, Building 1, Derby Road",
     "BURTON UPON TRENT Staffordshire DE141RX",
@@ -90,21 +83,19 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     y += 3;
   });
 
-  // Invoice title
+  // ─── Invoice title ────────────────────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
+  doc.setTextColor(...colors.primaryDark);
   doc.text("INVOICE", pageWidth / 2, 19, { align: "center" });
-  doc.setFontSize(9.5);
-  doc.text(`Claim ${data.claimId}`, pageWidth / 2, 24, { align: "center" });
 
-  ;
-
+  // ─── Bill To (Sovereign only) ─────────────────────────────────────────────────
+  // ─── Bill To (Sovereign only) + Total Duration ────────────────────────────────────
   if (hirer_name && hirer_name.toLowerCase() === "sovereign") {
-    // Bill To
     doc.setFontSize(8);
     doc.setTextColor(...colors.darkText);
     doc.setFont("helvetica", "bold");
-    doc.text("To:", margin, headerHeight + 6)
+    doc.text("To:", margin, headerHeight + 6);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
 
@@ -120,28 +111,56 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
       doc.text(line, margin, y);
       y += 3.6;
     });
+
+    // Add spacing after address
+    y += 4;
+
+    // ─── Total Duration ─ always show, regardless of hirer name
+    const days = calculateDays(data.period.starting_date, data.period.ending_date);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.gray);
+    const label = "Total Duration:";
+    doc.text(label, margin, y);
+
+    doc.setTextColor(...colors.darkText);
+    const labelWidth = doc.getTextWidth(label);
+    doc.text(`${days} days`, margin + labelWidth + 1, y); // 2.5 = nice small gap
   }
-  // Period & Generated
+  // ─── Period, Generated, Invoice Number ────────────────────────────────────────
+  const infoX = pageWidth - 65;
+  const days = calculateDays(data.period.starting_date, data.period.ending_date); // you can keep or remove this duplicate calculation
+
   doc.setFontSize(8);
   doc.setTextColor(...colors.gray);
-  doc.text("Period:", pageWidth - 65, headerHeight + 6);
+  doc.text("Period:", infoX, headerHeight + 6);
   doc.setTextColor(...colors.darkText);
   doc.text(
     `${formatDate(data.period.starting_date)} – ${formatDate(data.period.ending_date)}`,
-    pageWidth - 65,
+    infoX,
     headerHeight + 10
   );
 
   doc.setTextColor(...colors.gray);
-  doc.text("Generated:", pageWidth - 65, headerHeight + 16);
+  doc.text("Generated:", infoX, headerHeight + 16);
   doc.setTextColor(...colors.darkText);
-  doc.text(new Date().toLocaleDateString("en-GB"), pageWidth - 65, headerHeight + 20);
+  doc.text(new Date().toLocaleDateString("en-GB"), infoX, headerHeight + 20);
 
+  doc.setTextColor(...colors.gray);
+  doc.text("Invoice Number:", infoX, headerHeight + 26);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...colors.primaryDark);
+  doc.text(data.claimId, infoX, headerHeight + 30);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.darkText);
   // ─── Main Table ───────────────────────────────────────────────────────────────
-  const tableStartY = headerHeight + 28;
-  const days = calculateDays(data.period.starting_date, data.period.ending_date);
+  // Extra space for the new "Total Duration" line
+  const tableStartY = headerHeight + 48;
 
   const body: any[] = [];
+  let sltCounter = 1;
+  const formatSlt = (n: number) => `SLT${String(n).padStart(3, "0")}`;
 
   data.claimCars.forEach(car => {
     const claimants = data.claimantsByCar[car.id] || [];
@@ -150,11 +169,12 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
 
     if (claimants.length === 0) {
       body.push([
+        formatSlt(sltCounter++),
         car.name || "—",
         car.model || "—",
         car.reg_no || "—",
+        `£${dailyRate.toFixed(2)}`,
         "No claimants",
-        "—",
         "—",
         "—",
         "—",
@@ -163,13 +183,14 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     } else {
       claimants.forEach((cl: any, idx: number) => {
         body.push([
+          formatSlt(sltCounter++),
           idx === 0 ? (car.name || "—") : "",
           idx === 0 ? (car.model || "—") : "",
           idx === 0 ? (car.reg_no || "—") : "",
+          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",
           cl.name || "—",
           `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`,
           cl.location || "—",
-          cl.miles != null ? cl.miles : "—",
           `£${(cl.delivery_charges || 0).toFixed(2)}`,
           idx === 0 ? `£${hireAmount.toFixed(2)}` : "",
         ]);
@@ -179,11 +200,11 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
 
   autoTable(doc, {
     startY: tableStartY,
-    head: [["Vehicle", "Model", "Reg", "Claimant", "Dates", "Location", "Miles", "Delivery £"]],
+    head: [["ID", "Vehicle", "Model", "Reg", "Daily Rate", "Claimant", "Dates", "Location", "Delivery £", "Hire £"]],
     body,
     theme: "grid",
     styles: {
-      fontSize: 6.5,
+      fontSize: 6.2,
       cellPadding: 1.2,
       lineColor: [215, 215, 215],
       lineWidth: 0.2,
@@ -192,39 +213,50 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     headStyles: {
       fillColor: colors.primary,
       textColor: colors.white,
-      fontSize: 7.2,
+      fontSize: 6.8,
       fontStyle: "bold",
       cellPadding: 1.6,
     },
     alternateRowStyles: { fillColor: colors.lightBg },
     columnStyles: {
-      0: { cellWidth: 24 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 35 },
-      5: { cellWidth: 28 },
-      6: { cellWidth: 14, halign: "right" },
-      7: { cellWidth: 15, halign: "right" },
+      0: { cellWidth: 14, halign: "center" },
+      1: { cellWidth: 18 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 13 },
+      4: { cellWidth: 15, halign: "right" },
+      5: { cellWidth: 26 },
+      6: { cellWidth: 32 },
+      7: { cellWidth: 28 },
+      8: { cellWidth: 16, halign: "right" },
+      9: { cellWidth: 17, halign: "right" },
     },
     margin: { left: margin, right: margin },
-    didParseCell(data) {
-      if ([6, 7, 8].includes(data.column.index)) {
-        data.cell.styles.halign = "right";
+    didParseCell(hookData) {
+      if ([0, 4, 8, 9].includes(hookData.column.index)) {
+        hookData.cell.styles.halign = hookData.column.index === 0 ? "center" : "right";
       }
-
     },
     rowPageBreak: "avoid",
   });
 
-  // ─── Billing Summary ─────────────────────────────────────────────────────────
-  const tableEndY = (doc as any).lastAutoTable.finalY || 100;
 
+  // ─── Billing Summary (SECOND TABLE COMPLETELY REMOVED + simplified billing) ───
+  const tableEndY = (doc as any).lastAutoTable.finalY || 100;
+  // Add this explanation note
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...colors.gray);
+  doc.text(
+    "* Hire amount = Daily rate × Total days in claim period",
+    margin,
+    tableEndY + 6
+  );
+
+  // Calculate totals (same as before)
   const totalHire = data.claimCars.reduce((sum, car) => {
     const rate = data.dailyRates[car.id] || 0;
     return sum + rate * days;
   }, 0);
-
   const deliveryTotal = data.totalDelivery;
   const subTotal = totalHire + deliveryTotal;
   const vatAmount = subTotal * 0.2;
@@ -235,33 +267,39 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   const labelX = pageWidth - 68;
   const rowSpacing = 4.5;
 
-  doc.setFont("helvetica", "normal");
+  // NO individual car lines any more → directly Total Hire (sum of ALL hires)
+  const carRowsHeight = 0; // removed per-car listing as requested
+  const summaryStartY = billY + carRowsHeight + 2;
+
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(...colors.darkText);
 
-  doc.text("Hire charges:", labelX, billY);
-  doc.text(`£${totalHire.toFixed(2)}`, rightColX, billY, { align: "right" });
-
-  doc.text("Delivery charges:", labelX, billY + rowSpacing);
-  doc.text(`£${deliveryTotal.toFixed(2)}`, rightColX, billY + rowSpacing, { align: "right" });
-
-  doc.setDrawColor(...colors.gray);
-  doc.setLineWidth(0.4);
-  doc.line(labelX - 2, billY + rowSpacing * 1.4, rightColX + 2, billY + rowSpacing * 1.4);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Subtotal:", labelX, billY + rowSpacing * 2.4);
-  doc.text(`£${subTotal.toFixed(2)}`, rightColX, billY + rowSpacing * 2.4, { align: "right" });
+  doc.text("Total Hire:", labelX, summaryStartY + rowSpacing * 0);
+  doc.text(`£${totalHire.toFixed(2)}`, rightColX, summaryStartY + rowSpacing * 0, { align: "right" });
 
   doc.setFont("helvetica", "normal");
-  doc.text("VAT (20%):", labelX, billY + rowSpacing * 3.4);
-  doc.text(`£${vatAmount.toFixed(2)}`, rightColX, billY + rowSpacing * 3.4, { align: "right" });
+  doc.text("Delivery charges:", labelX, summaryStartY + rowSpacing * 1);
+  doc.text(`£${deliveryTotal.toFixed(2)}`, rightColX, summaryStartY + rowSpacing * 1, { align: "right" });
+
+  // Separator before subtotal
+  doc.setDrawColor(...colors.gray);
+  doc.setLineWidth(0.4);
+  doc.line(labelX - 2, summaryStartY + rowSpacing * 1.4, rightColX + 2, summaryStartY + rowSpacing * 1.4);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Subtotal:", labelX, summaryStartY + rowSpacing * 2.4);
+  doc.text(`£${subTotal.toFixed(2)}`, rightColX, summaryStartY + rowSpacing * 2.4, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.text("VAT (20%):", labelX, summaryStartY + rowSpacing * 3.4);
+  doc.text(`£${vatAmount.toFixed(2)}`, rightColX, summaryStartY + rowSpacing * 3.4, { align: "right" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
   doc.setTextColor(...colors.primaryDark);
-  doc.text("Total Amount Due", labelX, billY + rowSpacing * 4.8);
-  doc.text(`£${grandTotal.toFixed(2)}`, rightColX, billY + rowSpacing * 4.8, { align: "right" });
+  doc.text("Total Amount Due", labelX, summaryStartY + rowSpacing * 4.8);
+  doc.text(`£${grandTotal.toFixed(2)}`, rightColX, summaryStartY + rowSpacing * 4.8, { align: "right" });
 
   return doc.output("arraybuffer") as any;
 }

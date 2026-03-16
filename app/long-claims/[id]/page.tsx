@@ -131,7 +131,7 @@ export default function LongClaimDetailPage() {
 
     // ────────────────────────────────────────────────
     // Helper: car is available if it has NO claimants OR ALL claimants have end_date
-    
+
     const getCurrentUsername = (): string | null => {
         try {
             const userData = Cookies.get("user");
@@ -319,7 +319,6 @@ export default function LongClaimDetailPage() {
         const bill = totalHire + totalDelivery;
         return await generateLongClaimInvoicePDF({ claimId, period, claimCars, claimantsByCar, totalDelivery, dailyRates, hirer_name: claim.hirer_name });
     };
-
     const handleDownloadPDF = async () => {
         setPdfLoading(true);
         try {
@@ -358,7 +357,7 @@ export default function LongClaimDetailPage() {
             await api.post(`/api/long_hire_invoice`, {
                 claim_id: claimId,
                 amount: total.toFixed(2),
-                user_name : getCurrentUsername() || "Unknown",
+                user_name: getCurrentUsername() || "Unknown",
             }, { headers: { requiresAuth: true } });
             setShowEmailModal(false);
             setEmailForm({ email: "", subject: "Long Claim Invoice" });
