@@ -57,7 +57,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
 
   // ─── Logo ─────────────────────────────────────────────────────────────────────
   try {
-    const img = await fetch("/logo.jpeg").then(res => res.blob());
+    const img = await fetch("/logo.png").then(res => res.blob());
     const imgData = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);

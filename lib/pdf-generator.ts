@@ -101,7 +101,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     pdf.setFontSize(20);
     pdf.setFont("helvetica", "bold");
     pdf.addImage(
-      "/logo.jpeg",
+      "/logo.png",
       "JPEG",
       4,
       7,

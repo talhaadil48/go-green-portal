@@ -40,7 +40,7 @@ export default function Navbar() {
             href="/"
             className="text-2xl md:text-3xl font-black tracking-tight text-emerald-800 hover:text-emerald-600 transition-colors duration-300 flex items-center gap-2"
           >
-            <img src="/image/logo.jpeg" alt="Go Green" className="h-8 md:h-10" />
+            <img src="/image/logo.png" alt="Go Green" className="h-8 md:h-10" />
           </Link>
 
           {isLoggedIn && (
