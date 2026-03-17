@@ -161,38 +161,36 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   const body: any[] = [];
   let sltCounter = 1;
   const formatSlt = (n: number) => `SLT${String(n).padStart(3, "0")}`;
-
   data.claimCars.forEach(car => {
     const claimants = data.claimantsByCar[car.id] || [];
     const dailyRate = data.dailyRates[car.id] || 0;
     const hireAmount = dailyRate * days;
-
     if (claimants.length === 0) {
       body.push([
-        car.name || "—",
-        car.model || "—",
-        car.reg_no || "—",
-        `£${dailyRate.toFixed(2)}`,      // Daily Rate
-        `£${hireAmount.toFixed(2)}`,     // Hire Total
         formatSlt(sltCounter++),         // ID
-        "No claimants",
+        car.reg_no || "—",               // Reg
+        car.name || "—",                 // Vehicle
+        car.model || "—",                // Model
+        `£${dailyRate.toFixed(2)}`,      // Daily Rate
+        "No claimants",                  // Claimant
         "—",                             // Dates
         "—",                             // Location
         "—",                             // Delivery
+        `£${hireAmount.toFixed(2)}`,     // Hire Total
       ]);
     } else {
       claimants.forEach((cl: any, idx: number) => {
         body.push([
-          idx === 0 ? (car.name || "—") : "",
-          idx === 0 ? (car.model || "—") : "",
-          idx === 0 ? (car.reg_no || "—") : "",
-          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",
-          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",
-          formatSlt(sltCounter++),
-          cl.name || "—",
-          `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`,
-          cl.location || "—",
-          `£${(cl.delivery_charges || 0).toFixed(2)}`,
+          formatSlt(sltCounter++),                                         // ID
+          idx === 0 ? (car.reg_no || "—") : "",                            // Reg
+          idx === 0 ? (car.name || "—") : "",                              // Vehicle
+          idx === 0 ? (car.model || "—") : "",                             // Model
+          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",                     // Daily Rate
+          cl.name || "—",                                                  // Claimant
+          `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`,     // Dates
+          cl.location || "—",                                              // Location
+          `£${(cl.delivery_charges || 0).toFixed(2)}`,                     // Delivery
+          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",                    // Hire Total
         ]);
       });
     }
@@ -201,7 +199,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   autoTable(doc, {
     startY: tableStartY,
     head: [
-      ["Vehicle", "Model", "Reg", "Daily Rate", "Hire Total £", "ID", "Claimant", "Dates", "Location", "Delivery £"]
+      ["ID", "Reg", "Vehicle", "Model", "Daily Rate", "Claimant", "Dates", "Location", "Delivery £", "Hire Total £"]
     ],
     body,
     theme: "grid",
@@ -221,25 +219,30 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     },
     alternateRowStyles: { fillColor: colors.lightBg },
     columnStyles: {
-      0: { cellWidth: 18 },                  // Vehicle
-      1: { cellWidth: 16 },                  // Model
-      2: { cellWidth: 13 },                  // Reg
-      3: { cellWidth: 15, halign: "right" }, // Daily Rate
-      4: { cellWidth: 17, halign: "right" }, // Hire Total
-      5: { cellWidth: 14, halign: "center" },// ID
-      6: { cellWidth: 26 },                  // Claimant
-      7: { cellWidth: 32 },                  // Dates
-      8: { cellWidth: 28 },                  // Location
-      9: { cellWidth: 16, halign: "right" }, // Delivery £
+      0: { cellWidth: 14, halign: "center" }, // ID
+      1: { cellWidth: 13 },                   // Reg
+      2: { cellWidth: 18 },                   // Vehicle
+      3: { cellWidth: 16 },                   // Model
+      4: { cellWidth: 15, halign: "right" },  // Daily Rate
+      5: { cellWidth: 26 },                   // Claimant
+      6: { cellWidth: 32 },                   // Dates
+      7: { cellWidth: 28 },                   // Location
+      8: { cellWidth: 16, halign: "right" },  // Delivery £
+      9: { cellWidth: 17, halign: "right" },  // Hire Total
     },
     didParseCell(hookData) {
-      if ([3, 4, 5, 9].includes(hookData.column.index)) {
-        hookData.cell.styles.halign = hookData.column.index === 5 ? "center" : "right";
+      if ([4, 8, 9].includes(hookData.column.index)) {
+        hookData.cell.styles.halign = "right";
+      }
+      if (hookData.column.index === 0) {
+        hookData.cell.styles.halign = "center";
       }
     },
     margin: { left: margin, right: margin },
     rowPageBreak: "avoid",
   });
+
+
   // ─── Billing Summary (SECOND TABLE COMPLETELY REMOVED + simplified billing) ───
   const tableEndY = (doc as any).lastAutoTable.finalY || 100;
   // Add this explanation note

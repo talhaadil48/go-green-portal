@@ -13,6 +13,13 @@ interface ClaimProps {
   claimId: string;
 }
 
+interface Vehicle {
+  id: number;
+  reg_no: string;
+  name: string;
+  model: string;
+}
+
 export function RentalAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
@@ -118,6 +125,13 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   // Flag to check if data already exists from API (don't ask, just show)
   const [hasApiData, setHasApiData] = useState(false);
 
+  // Vehicle search states
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
+  const [hireVehicleSearch, setHireVehicleSearch] = useState<string>("");
+  const [hireVehicleSuggestions, setHireVehicleSuggestions] = useState<Vehicle[]>([]);
+  const [changeVehicleSearch, setChangeVehicleSearch] = useState<string>("");
+  const [changeVehicleSuggestions, setChangeVehicleSuggestions] = useState<Vehicle[]>([]);
+
   // Refs for clearing signature pads (if component supports .clear())
   const hirerTermsRef = useRef<any>(null);
   const companyRef = useRef<any>(null);
@@ -205,6 +219,19 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   useEffect(() => {
     setCurrentClaimId(claimId);
   }, [claimId]);
+
+  const fetchFreeVehicles = async () => {
+    try {
+      const response = await api.get(`/api/cars/free`, {
+        headers: { requiresAuth: true },
+      });
+      if (response.data.success && response.data.data) {
+        setAllVehicles(response.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicles:", err);
+    }
+  };
 
   const fetchRentalData = async () => {
     setIsFetching(true);
@@ -311,6 +338,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   useEffect(() => {
     if (claimId) {
       fetchRentalData();
+      fetchFreeVehicles();
     }
   }, [claimId]);
 
@@ -321,6 +349,58 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     // Mark as changed when user modifies form
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
+  };
+
+  const handleHireVehicleSearch = (value: string) => {
+    setHireVehicleSearch(value);
+    if (value.trim()) {
+      const filtered = allVehicles.filter((vehicle) =>
+        vehicle.reg_no.toUpperCase().includes(value.toUpperCase())
+      );
+      setHireVehicleSuggestions(filtered);
+    } else {
+      setHireVehicleSuggestions([]);
+    }
+  };
+
+  const selectHireVehicle = (vehicle: Vehicle) => {
+    setFormData((prev) => ({
+      ...prev,
+      hire_vehicle_reg: vehicle.reg_no,
+      hire_vehicle_make: vehicle.name,
+      hire_vehicle_model: vehicle.model,
+    }));
+    setHireVehicleSearch("");
+    setHireVehicleSuggestions([]);
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
+  };
+
+  const handleChangeVehicleSearch = (value: string) => {
+    setChangeVehicleSearch(value);
+    if (value.trim()) {
+      const filtered = allVehicles.filter((vehicle) =>
+        vehicle.reg_no.toUpperCase().includes(value.toUpperCase())
+      );
+      setChangeVehicleSuggestions(filtered);
+    } else {
+      setChangeVehicleSuggestions([]);
+    }
+  };
+
+  const selectChangeVehicle = (vehicle: Vehicle) => {
+    setFormData((prev) => ({
+      ...prev,
+      change_vehicle_reg: vehicle.reg_no,
+      change_vehicle_make: vehicle.name,
+      change_vehicle_model: vehicle.model,
+    }));
+    setChangeVehicleSearch("");
+    setChangeVehicleSuggestions([]);
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -553,15 +633,38 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
-                      <input
-                        type="text"
-                        name="hire_vehicle_reg"
-                        value={formData.hire_vehicle_reg}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
+                      {formData.hire_vehicle_reg ? (
+                        <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
+                          {formData.hire_vehicle_reg}
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            type="text"
+                            value={hireVehicleSearch}
+                            onChange={(e) => handleHireVehicleSearch(e.target.value)}
+                            placeholder="Search by reg..."
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                          />
+                          {hireVehicleSuggestions.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                              {hireVehicleSuggestions.map((vehicle) => (
+                                <button
+                                  key={vehicle.id}
+                                  type="button"
+                                  onClick={() => selectHireVehicle(vehicle)}
+                                  className="w-full text-left px-4 py-2 hover:bg-green-50 border-b border-gray-200 last:border-b-0"
+                                >
+                                  <div className="font-medium text-gray-900">{vehicle.reg_no}</div>
+                                  <div className="text-sm text-gray-600">{vehicle.name} {vehicle.model}</div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     <div>
@@ -571,7 +674,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         name="hire_vehicle_make"
                         value={formData.hire_vehicle_make}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        readOnly
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                       />
                     </div>
 
@@ -582,7 +686,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         name="hire_vehicle_model"
                         value={formData.hire_vehicle_model}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        readOnly
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                       />
                     </div>
 
@@ -1374,17 +1479,40 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   Change of Hire Vehicle
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Reg:
                     </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_reg"
-                      value={formData.change_vehicle_reg}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
+                    {formData.change_vehicle_reg ? (
+                      <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
+                        {formData.change_vehicle_reg}
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="text"
+                          value={changeVehicleSearch}
+                          onChange={(e) => handleChangeVehicleSearch(e.target.value)}
+                          placeholder="Search by reg..."
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                        {changeVehicleSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                            {changeVehicleSuggestions.map((vehicle) => (
+                              <button
+                                key={vehicle.id}
+                                type="button"
+                                onClick={() => selectChangeVehicle(vehicle)}
+                                className="w-full text-left px-4 py-2 hover:bg-green-50 border-b border-gray-200 last:border-b-0"
+                              >
+                                <div className="font-medium text-gray-900">{vehicle.reg_no}</div>
+                                <div className="text-sm text-gray-600">{vehicle.name} {vehicle.model}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1395,7 +1523,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       name="change_vehicle_make"
                       value={formData.change_vehicle_make}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      readOnly
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -1407,7 +1536,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       name="change_vehicle_model"
                       value={formData.change_vehicle_model}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      readOnly
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                     />
                   </div>
                   <div>
