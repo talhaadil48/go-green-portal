@@ -288,9 +288,6 @@ export default function CarsPage() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">
-                    ID
-                  </th>
-                  <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">
                     Make
                   </th>
                   <th className="text-left px-4 py-2 font-semibold text-slate-500 uppercase tracking-wide">
@@ -308,7 +305,6 @@ export default function CarsPage() {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((car) => (
                   <tr key={car.id} className="hover:bg-slate-50 transition">
-                    <td className="px-4 py-1.5 text-slate-400 font-mono">{car.id}</td>
 
                     {editingId === car.id ? (
                       <>
