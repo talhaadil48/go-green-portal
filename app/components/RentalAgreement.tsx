@@ -125,6 +125,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   // Flag to check if data already exists from API (don't ask, just show)
   const [hasApiData, setHasApiData] = useState(false);
 
+  // Track if vehicle reg values came from API (locked/non-editable)
+  const [hireVehicleFromApi, setHireVehicleFromApi] = useState(false);
+  const [changeVehicleFromApi, setChangeVehicleFromApi] = useState(false);
+
   // Vehicle search states
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
   const [hireVehicleSearch, setHireVehicleSearch] = useState<string>("");
@@ -254,6 +258,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       });
 
       setFormData(updatedFormData);
+
+      // Set flags for vehicle reg values from API (locked)
+      if (data.hire_vehicle_reg) {
+        setHireVehicleFromApi(true);
+      }
+      if (data.change_vehicle_reg) {
+        setChangeVehicleFromApi(true);
+      }
 
       // Check if API data exists for conditional sections
       const hasAdditionalDriverData = data.additional_driver_name || data.licence_no || data.dob || data.occupation;
@@ -401,6 +413,38 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }));
     setChangeVehicleSearch("");
     setChangeVehicleSuggestions([]);
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
+  };
+
+  // Clear hire vehicle selection to allow reselection
+  const clearHireVehicle = () => {
+    setFormData((prev) => ({
+      ...prev,
+      hire_vehicle_reg: "",
+      hire_vehicle_make: "",
+      hire_vehicle_model: "",
+    }));
+    setHireVehicleSearch("");
+    setHireVehicleSuggestions([]);
+    setHireVehicleFromApi(false);
+    if (unsavedChangesContext) {
+      unsavedChangesContext.setHasUnsavedChanges(true);
+    }
+  };
+
+  // Clear change vehicle selection to allow reselection
+  const clearChangeVehicle = () => {
+    setFormData((prev) => ({
+      ...prev,
+      change_vehicle_reg: "",
+      change_vehicle_make: "",
+      change_vehicle_model: "",
+    }));
+    setChangeVehicleSearch("");
+    setChangeVehicleSuggestions([]);
+    setChangeVehicleFromApi(false);
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -636,8 +680,27 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                       {formData.hire_vehicle_reg ? (
-                        <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
-                          {formData.hire_vehicle_reg}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            {hireVehicleFromApi ? (
+                              <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-600">
+                                <div className="font-medium text-gray-800">{formData.hire_vehicle_reg}</div>
+                              </div>
+                            ) : (
+                              <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 flex items-center justify-between">
+                                <span>{formData.hire_vehicle_reg}</span>
+                              </div>
+                            )}
+                          </div>
+                          {!hireVehicleFromApi && (
+                            <button
+                              type="button"
+                              onClick={clearHireVehicle}
+                              className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition"
+                            >
+                              Change
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <>
@@ -1484,8 +1547,27 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       Reg:
                     </label>
                     {formData.change_vehicle_reg ? (
-                      <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
-                        {formData.change_vehicle_reg}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          {changeVehicleFromApi ? (
+                            <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-600">
+                              <div className="font-medium text-gray-800">{formData.change_vehicle_reg}</div>
+                            </div>
+                          ) : (
+                            <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 flex items-center justify-between">
+                              <span>{formData.change_vehicle_reg}</span>
+                            </div>
+                          )}
+                        </div>
+                        {!changeVehicleFromApi && (
+                          <button
+                            type="button"
+                            onClick={clearChangeVehicle}
+                            className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition"
+                          >
+                            Change
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <>
