@@ -32,7 +32,9 @@ interface AvailableVehicle {
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [availableLongHireIds, setAvailableLongHireIds] = useState<Set<number>>(new Set());
+  const [availableLongHireIds, setAvailableLongHireIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +52,9 @@ export default function VehiclesPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
+  const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(
+    null,
+  );
 
   const [search, setSearch] = useState("");
 
@@ -59,11 +63,19 @@ export default function VehiclesPage() {
     setError(null);
 
     try {
-      const res = await api.get("/api/cars", { headers: { requiresAuth: true } });
+      const res = await api.get("/api/cars", {
+        headers: { requiresAuth: true },
+      });
       setVehicles(res.data.data || res.data || []);
 
-      const availRes = await api.get("/api/cars/available", { headers: { requiresAuth: true } });
-      const ids = new Set((availRes.data.data || availRes.data || []).map((v: AvailableVehicle) => v.id));
+      const availRes = await api.get("/api/cars/available", {
+        headers: { requiresAuth: true },
+      });
+      const ids = new Set(
+        (availRes.data.data || availRes.data || []).map(
+          (v: AvailableVehicle) => v.id,
+        ),
+      );
       setAvailableLongHireIds(ids);
     } catch (err) {
       setError("Failed to load vehicles. Please try again.");
@@ -102,7 +114,11 @@ export default function VehiclesPage() {
 
   const startEdit = (vehicle: Vehicle) => {
     setEditingId(vehicle.id);
-    setEditData({ model: vehicle.model, name: vehicle.name, reg_no: vehicle.reg_no });
+    setEditData({
+      model: vehicle.model,
+      name: vehicle.name,
+      reg_no: vehicle.reg_no,
+    });
   };
 
   const cancelEdit = () => {
@@ -119,9 +135,13 @@ export default function VehiclesPage() {
         reg_no: editData.reg_no.trim(),
       };
 
-      await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
+      await api.put(`/api/car/${id}`, payload, {
+        headers: { requiresAuth: true },
+      });
 
-      setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, ...payload } : v)));
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, ...payload } : v)),
+      );
       setEditingId(null);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to update vehicle.");
@@ -135,9 +155,15 @@ export default function VehiclesPage() {
     setTogglingLongHireId(id);
 
     try {
-      await api.put(`/api/cars/${id}/long`, { value: newValue }, { headers: { requiresAuth: true } });
+      await api.put(
+        `/api/cars/${id}/long`,
+        { value: newValue },
+        { headers: { requiresAuth: true } },
+      );
 
-      setVehicles((prev) => prev.map((v) => (v.id === id ? { ...v, is_long_hire: newValue } : v)));
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, is_long_hire: newValue } : v)),
+      );
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to update long hire status.");
     } finally {
@@ -172,21 +198,29 @@ export default function VehiclesPage() {
   const longHire = vehicles.filter((v) => v.is_long_hire);
 
   const displayed =
-    activeTab === "all" ? allVehicles : activeTab === "normal" ? normalHire : longHire;
+    activeTab === "all"
+      ? allVehicles
+      : activeTab === "normal"
+        ? normalHire
+        : longHire;
 
   const filtered = displayed.filter(
     (v) =>
       v.name?.toLowerCase().includes(search.toLowerCase()) ||
       v.reg_no?.toLowerCase().includes(search.toLowerCase()) ||
-      v.model?.toLowerCase().includes(search.toLowerCase())
+      v.model?.toLowerCase().includes(search.toLowerCase()),
   );
 
   // Stats
   const total = vehicles.length;
   const totalNormal = normalHire.length;
   const totalLong = longHire.length;
-  const availNormal = vehicles.filter((v) => !v.is_long_hire && v.is_available).length;
-  const availLong = longHire.filter((v) => availableLongHireIds.has(v.id)).length;
+  const availNormal = vehicles.filter(
+    (v) => !v.is_long_hire && v.is_available,
+  ).length;
+  const availLong = longHire.filter((v) =>
+    availableLongHireIds.has(v.id),
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50/30">
@@ -195,8 +229,12 @@ export default function VehiclesPage() {
         <div className="mb-10 space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Vehicle Fleet</h1>
-              <p className="mt-2 text-gray-600">Manage claim vehicles and long-hire fleet</p>
+              <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+                Vehicle Fleet
+              </h1>
+              <p className="mt-2 text-gray-600">
+                Manage claim vehicles and long-hire fleet
+              </p>
             </div>
             <div className="flex gap-4">
               <button
@@ -204,7 +242,10 @@ export default function VehiclesPage() {
                 disabled={loading}
                 className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium shadow-sm disabled:opacity-60"
               >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={16}
+                  className={loading ? "animate-spin" : ""}
+                />
                 Refresh
               </button>
               <button
@@ -222,8 +263,12 @@ export default function VehiclesPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{total}</p>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                    Total
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {total}
+                  </p>
                 </div>
                 <Car size={28} className="text-emerald-600 opacity-80" />
               </div>
@@ -232,8 +277,12 @@ export default function VehiclesPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Claim</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{totalNormal}</p>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                    Daily Hire
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {totalNormal}
+                  </p>
                 </div>
                 <Clock size={28} className="text-blue-600 opacity-80" />
               </div>
@@ -242,8 +291,12 @@ export default function VehiclesPage() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Long Hire</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{totalLong}</p>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                    Long Hire
+                  </p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">
+                    {totalLong}
+                  </p>
                 </div>
                 <Calendar size={28} className="text-purple-600 opacity-80" />
               </div>
@@ -252,8 +305,12 @@ export default function VehiclesPage() {
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Claim Avail</p>
-                  <p className="text-3xl font-bold text-emerald-700 mt-1">{availNormal}</p>
+                  <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">
+                    Daily Hire Avail
+                  </p>
+                  <p className="text-3xl font-bold text-emerald-700 mt-1">
+                    {availNormal}
+                  </p>
                 </div>
                 <div className="bg-emerald-100 p-2 rounded-full">
                   <Check size={24} className="text-emerald-600" />
@@ -264,8 +321,12 @@ export default function VehiclesPage() {
             <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-teal-700 uppercase tracking-wide">Long Avail</p>
-                  <p className="text-3xl font-bold text-teal-700 mt-1">{availLong}</p>
+                  <p className="text-sm font-semibold text-teal-700 uppercase tracking-wide">
+                    Long Hire Avail
+                  </p>
+                  <p className="text-3xl font-bold text-teal-700 mt-1">
+                    {availLong}
+                  </p>
                 </div>
                 <div className="bg-teal-100 p-2 rounded-full">
                   <Check size={24} className="text-teal-600" />
@@ -291,8 +352,8 @@ export default function VehiclesPage() {
                 {tab === "all"
                   ? "All Vehicles"
                   : tab === "normal"
-                  ? "Claim Vehicles"
-                  : "Long Hire Vehicles"}
+                    ? "Claim Vehicles"
+                    : "Long Hire Vehicles"}
               </button>
             ))}
           </div>
@@ -301,8 +362,13 @@ export default function VehiclesPage() {
         {/* Add Form - unchanged */}
         {showForm && (
           <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-xl p-7">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">Add New Vehicle</h2>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">
+              Add New Vehicle
+            </h2>
+            <form
+              onSubmit={handleCreate}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-5"
+            >
               {/* ... form fields remain the same ... */}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
@@ -311,7 +377,9 @@ export default function VehiclesPage() {
                 <input
                   required
                   value={formData.name}
-                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, name: e.target.value }))
+                  }
                   placeholder="e.g. Go Green Car 1"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
@@ -323,7 +391,9 @@ export default function VehiclesPage() {
                 <input
                   required
                   value={formData.model}
-                  onChange={(e) => setFormData((p) => ({ ...p, model: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, model: e.target.value }))
+                  }
                   placeholder="e.g. Toyota Prius"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
@@ -335,7 +405,12 @@ export default function VehiclesPage() {
                 <input
                   required
                   value={formData.reg_no}
-                  onChange={(e) => setFormData((p) => ({ ...p, reg_no: e.target.value.toUpperCase() }))}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      reg_no: e.target.value.toUpperCase(),
+                    }))
+                  }
                   placeholder="e.g. AB12CDE"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 uppercase transition"
                 />
@@ -403,10 +478,10 @@ export default function VehiclesPage() {
               {search
                 ? "No vehicles match your search"
                 : activeTab === "all"
-                ? "No vehicles yet. Add one above."
-                : activeTab === "normal"
-                ? "No claim vehicles registered"
-                : "No long hire vehicles registered"}
+                  ? "No vehicles yet. Add one above."
+                  : activeTab === "normal"
+                    ? "No claim vehicles registered"
+                    : "No long hire vehicles registered"}
             </p>
           </div>
         ) : (
@@ -440,7 +515,7 @@ export default function VehiclesPage() {
                   const isAvail =
                     activeTab === "long"
                       ? availableLongHireIds.has(v.id)
-                      : v.is_available ?? false;
+                      : (v.is_available ?? false);
 
                   const isToggling = togglingLongHireId === v.id;
 
@@ -451,14 +526,24 @@ export default function VehiclesPage() {
                           <td className="px-5 py-2">
                             <input
                               value={editData.name}
-                              onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
+                              onChange={(e) =>
+                                setEditData((p) => ({
+                                  ...p,
+                                  name: e.target.value,
+                                }))
+                              }
                               className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             />
                           </td>
                           <td className="px-5 py-2">
                             <input
                               value={editData.model}
-                              onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
+                              onChange={(e) =>
+                                setEditData((p) => ({
+                                  ...p,
+                                  model: e.target.value,
+                                }))
+                              }
                               className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             />
                           </td>
@@ -474,7 +559,9 @@ export default function VehiclesPage() {
                               className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             />
                           </td>
-                          {activeTab !== "all" && <td className="px-5 py-2 text-center">-</td>}
+                          {activeTab !== "all" && (
+                            <td className="px-5 py-2 text-center">-</td>
+                          )}
                           <td className="px-5 py-2 text-right">
                             <div className="flex justify-end gap-1.5">
                               <button
@@ -482,7 +569,11 @@ export default function VehiclesPage() {
                                 disabled={saving}
                                 className="p-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
                               >
-                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                {saving ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Check size={14} />
+                                )}
                               </button>
                               <button
                                 onClick={cancelEdit}
@@ -495,8 +586,12 @@ export default function VehiclesPage() {
                         </>
                       ) : (
                         <>
-                          <td className="px-5 py-2.5 font-medium text-gray-900">{v.name || "—"}</td>
-                          <td className="px-5 py-2.5 text-gray-700">{v.model || "—"}</td>
+                          <td className="px-5 py-2.5 font-medium text-gray-900">
+                            {v.name || "—"}
+                          </td>
+                          <td className="px-5 py-2.5 text-gray-700">
+                            {v.model || "—"}
+                          </td>
                           <td className="px-5 py-2.5">
                             <span className="inline-flex px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded font-mono text-xs">
                               {v.reg_no || "—"}
@@ -533,14 +628,27 @@ export default function VehiclesPage() {
                                   onClick={() => toggleLongHire(v.id, isLong)}
                                   disabled={isToggling}
                                   className="p-1.5 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
-                                  title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
+                                  title={
+                                    isLong
+                                      ? "Remove from Long Hire"
+                                      : "Add to Long Hire"
+                                  }
                                 >
                                   {isToggling ? (
-                                    <Loader2 size={16} className="animate-spin text-purple-600" />
+                                    <Loader2
+                                      size={16}
+                                      className="animate-spin text-purple-600"
+                                    />
                                   ) : isLong ? (
-                                    <ToggleRight size={20} className="text-emerald-600" />
+                                    <ToggleRight
+                                      size={20}
+                                      className="text-emerald-600"
+                                    />
                                   ) : (
-                                    <ToggleLeft size={20} className="text-gray-400" />
+                                    <ToggleLeft
+                                      size={20}
+                                      className="text-gray-400"
+                                    />
                                   )}
                                 </button>
                               )}
@@ -552,7 +660,10 @@ export default function VehiclesPage() {
                                 title="Delete vehicle"
                               >
                                 {deleteLoading && deletingId === v.id ? (
-                                  <Loader2 size={14} className="animate-spin text-red-600" />
+                                  <Loader2
+                                    size={14}
+                                    className="animate-spin text-red-600"
+                                  />
                                 ) : (
                                   <Trash2 size={14} />
                                 )}
