@@ -202,7 +202,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   autoTable(doc, {
     startY: tableStartY,
     head: [
-      ["ID", "Reg", "Vehicle", "Model", "Daily Rate", "Ref No", "Claimant", "Dates", "Location", "Delivery £", "Hire Total £"]
+      ["ID", "Reg", "Vehicle", "Model", "Daily Rate", "Your Ref No", "Claimant", "Dates", "Location", "Delivery £", "Hire Total £"]
     ],
     body,
     theme: "grid",

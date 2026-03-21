@@ -686,7 +686,7 @@ export default function LongClaimDetailPage() {
                                                             <thead className="bg-slate-100/70">
                                                                 <tr>
                                                                     <th className="px-3 py-1.5 text-left font-medium text-slate-600">Claimant ID</th>
-                                                                    <th className="px-3 py-1.5 text-left font-medium text-slate-600">Ref No</th>
+                                                                    <th className="px-3 py-1.5 text-left font-medium text-slate-600">Your Ref No</th>
                                                                     <th className="px-3 py-1.5 text-left font-medium text-slate-600">Name</th>
                                                                     <th className="px-3 py-1.5 text-left font-medium text-slate-600">Location</th>
                                                                     <th className="px-2 py-1.5 text-left font-medium text-slate-600">Period</th>
