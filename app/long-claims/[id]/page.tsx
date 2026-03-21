@@ -42,6 +42,8 @@ interface Claimant {
     id: number;
     long_claim_id: string;
     car_id: number;
+    claimant_id: string | null;
+    ref_no: string | null;
     start_date: string | null;
     end_date: string | null;
     miles: number | null;
@@ -103,6 +105,7 @@ export default function LongClaimDetailPage() {
     const [editingClaimantId, setEditingClaimantId] = useState<number | null>(null);
     const [editedClaimant, setEditedClaimant] = useState<Partial<Claimant>>({});
     const [savingClaimantId, setSavingClaimantId] = useState<number | null>(null);
+    const [claimantError, setClaimantError] = useState<string | null>(null);
 
     const [editingDailyRateCarId, setEditingDailyRateCarId] = useState<number | null>(null);
     const [editedDailyRate, setEditedDailyRate] = useState<number>(0);
@@ -113,6 +116,8 @@ export default function LongClaimDetailPage() {
     const [showNewClaimantModal, setShowNewClaimantModal] = useState(false);
     const [newClaimantCarId, setNewClaimantCarId] = useState<number | null>(null);
     const [newClaimantForm, setNewClaimantForm] = useState({
+        claimant_id: "",
+        ref_no: "",
         start_date: "",
         end_date: "",
         miles: "",
@@ -121,6 +126,7 @@ export default function LongClaimDetailPage() {
         delivery_charges: "0",
     });
     const [savingNewClaimant, setSavingNewClaimant] = useState(false);
+    const [newClaimantError, setNewClaimantError] = useState<string | null>(null);
 
     const [deletingClaimantId, setDeletingClaimantId] = useState<number | null>(null);
 
@@ -236,14 +242,22 @@ export default function LongClaimDetailPage() {
     const startEditing = (claimant: Claimant) => {
         setEditingClaimantId(claimant.id);
         setEditedClaimant({ ...claimant });
+        setClaimantError(null);
     };
-    const cancelEdit = () => { setEditingClaimantId(null); setEditedClaimant({}); };
+    const cancelEdit = () => {
+        setEditingClaimantId(null);
+        setEditedClaimant({});
+        setClaimantError(null);
+    };
     const handleEditChange = (field: keyof Claimant, value: any) => setEditedClaimant((prev) => ({ ...prev, [field]: value }));
 
     const saveEdit = async (carId: number, claimantId: number) => {
         setSavingClaimantId(claimantId);
+        setClaimantError(null);
         try {
             const payload = {
+                claimant_id: editedClaimant.claimant_id || null,
+                ref_no: editedClaimant.ref_no || null,
                 start_date: editedClaimant.start_date || null,
                 end_date: editedClaimant.end_date || null,
                 miles: editedClaimant.miles ? Number(editedClaimant.miles) : null,
@@ -255,8 +269,9 @@ export default function LongClaimDetailPage() {
             const res = await api.get(`/api/car/${carId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
             setClaimantsByCar((prev) => ({ ...prev, [carId]: res.data.data || [] }));
             cancelEdit();
-        } catch {
-            alert("Failed to update claimant.");
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.detail || "Failed to update claimant.";
+            setClaimantError(errorMessage);
         } finally {
             setSavingClaimantId(null);
         }
@@ -286,26 +301,43 @@ export default function LongClaimDetailPage() {
 
     const openNewClaimantModal = (carId: number) => {
         setNewClaimantCarId(carId);
-        setNewClaimantForm({ start_date: "", end_date: "", miles: "", name: "", location: "", delivery_charges: "0" });
+        setNewClaimantForm({ claimant_id: "", ref_no: "", start_date: "", end_date: "", miles: "", name: "", location: "", delivery_charges: "0" });
+        setNewClaimantError(null);
         setShowNewClaimantModal(true);
     };
 
     const handleNewClaimantSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!newClaimantCarId) return;
+
+        setNewClaimantError(null);
         const milesNum = Number(newClaimantForm.miles);
         const deliveryNum = Number(newClaimantForm.delivery_charges);
         if (newClaimantForm.miles && isNaN(milesNum)) { alert("Miles must be a number."); return; }
         if (newClaimantForm.delivery_charges && isNaN(deliveryNum)) { alert("Delivery charges must be a number."); return; }
+
         setSavingNewClaimant(true);
         try {
-            const payload = { ...newClaimantForm, miles: newClaimantForm.miles ? milesNum : null, delivery_charges: newClaimantForm.delivery_charges ? deliveryNum : 0, long_claim_id: claimId, car_id: newClaimantCarId };
-            await api.post("/api/claimant", payload, { headers: { requiresAuth: true } });
+            const payload = {
+                claimant_id: newClaimantForm.claimant_id || null,
+                ref_no: newClaimantForm.ref_no || null,
+                start_date: newClaimantForm.start_date || null,
+                end_date: newClaimantForm.end_date || null,
+                miles: newClaimantForm.miles ? milesNum : null,
+                name: newClaimantForm.name || null,
+                location: newClaimantForm.location || null,
+                delivery_charges: newClaimantForm.delivery_charges ? deliveryNum : 0,
+                long_claim_id: claimId,
+                car_id: newClaimantCarId
+            };
+            const result = await api.post("/api/claimant", payload, { headers: { requiresAuth: true } });
+            console.log("Add claimant result:", result);
             const res = await api.get(`/api/car/${newClaimantCarId}/claimants/${claimId}`, { headers: { requiresAuth: true } });
             setClaimantsByCar((prev) => ({ ...prev, [newClaimantCarId]: res.data.data || [] }));
             setShowNewClaimantModal(false);
-        } catch {
-            alert("Failed to add claimant.");
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.detail || "Failed to add claimant.";
+            setNewClaimantError(errorMessage);
         } finally {
             setSavingNewClaimant(false);
         }
@@ -653,6 +685,8 @@ export default function LongClaimDetailPage() {
                                                         <table className="min-w-full divide-y divide-slate-200 text-xs">
                                                             <thead className="bg-slate-100/70">
                                                                 <tr>
+                                                                    <th className="px-3 py-1.5 text-left font-medium text-slate-600">Claimant ID</th>
+                                                                    <th className="px-3 py-1.5 text-left font-medium text-slate-600">Ref No</th>
                                                                     <th className="px-3 py-1.5 text-left font-medium text-slate-600">Name</th>
                                                                     <th className="px-3 py-1.5 text-left font-medium text-slate-600">Location</th>
                                                                     <th className="px-2 py-1.5 text-left font-medium text-slate-600">Period</th>
@@ -674,6 +708,25 @@ export default function LongClaimDetailPage() {
                                                                         >
                                                                             {isEditing ? (
                                                                                 <>
+                                                                                    <td className="px-3 py-1.5">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={editedClaimant.claimant_id ?? ""}
+                                                                                            onChange={(e) =>
+                                                                                                handleEditChange("claimant_id", e.target.value.toUpperCase())
+                                                                                            }
+                                                                                            style={{ textTransform: "uppercase" }}
+                                                                                            className="w-full px-1.5 py-0.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                                                                        />
+                                                                                    </td>
+                                                                                    <td className="px-3 py-1.5">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={editedClaimant.ref_no ?? ""}
+                                                                                            onChange={(e) => handleEditChange("ref_no", e.target.value)}
+                                                                                            className="w-full px-1.5 py-0.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                                                                        />
+                                                                                    </td>
                                                                                     <td className="px-3 py-1.5">
                                                                                         <input
                                                                                             type="text"
@@ -745,6 +798,12 @@ export default function LongClaimDetailPage() {
                                                                             ) : (
                                                                                 <>
                                                                                     <td className="px-3 py-1.5 font-medium text-slate-800">
+                                                                                        {cl.claimant_id || <span className="text-slate-400 italic">—</span>}
+                                                                                    </td>
+                                                                                    <td className="px-3 py-1.5 font-medium text-slate-800">
+                                                                                        {cl.ref_no || <span className="text-slate-400 italic">—</span>}
+                                                                                    </td>
+                                                                                    <td className="px-3 py-1.5 font-medium text-slate-800">
                                                                                         {cl.name || <span className="text-slate-400 italic">Unnamed</span>}
                                                                                     </td>
                                                                                     <td className="px-3 py-1.5 text-slate-600">
@@ -801,6 +860,11 @@ export default function LongClaimDetailPage() {
                                                         </table>
                                                     </div>
                                                 )}
+                                                {claimantError && (
+                                                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
+                                                        {claimantError}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -855,6 +919,8 @@ export default function LongClaimDetailPage() {
                         <form onSubmit={handleNewClaimantSubmit} className="p-5">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                                 {[
+                                    { label: "Claimant ID", key: "claimant_id", type: "text", placeholder: "Claimant ID" },
+                                    { label: "Ref No", key: "ref_no", type: "text", placeholder: "Reference number" },
                                     { label: "Name", key: "name", type: "text", placeholder: "Claimant name" },
                                     { label: "Location", key: "location", type: "text", placeholder: "Collection location" },
                                     { label: "Start Date", key: "start_date", type: "date", placeholder: "" },
@@ -869,12 +935,23 @@ export default function LongClaimDetailPage() {
                                             placeholder={placeholder}
                                             step={step}
                                             value={(newClaimantForm as any)[key]}
-                                            onChange={(e) => setNewClaimantForm((p) => ({ ...p, [key]: e.target.value }))}
+                                            onChange={(e) =>
+                                                setNewClaimantForm((p) => ({
+                                                    ...p,
+                                                    [key]: key === "claimant_id" ? e.target.value.toUpperCase() : e.target.value
+                                                }))
+                                            }
                                             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50 focus:bg-white transition-colors"
                                         />
                                     </div>
                                 ))}
                             </div>
+
+                            {newClaimantError && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs">
+                                    {newClaimantError}
+                                </div>
+                            )}
 
                             <div className="flex gap-2">
                                 <button type="button" onClick={() => setShowNewClaimantModal(false)} className="flex-1 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
