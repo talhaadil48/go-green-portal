@@ -37,7 +37,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-18">
           <Link
-            href="/"
+            href="/claim"
             className="text-2xl md:text-3xl font-black tracking-tight text-emerald-800 hover:text-emerald-600 transition-colors duration-300 flex items-center gap-2"
           >
             <img src="/image/logo.png" alt="Go Green" className="h-8 md:h-10" />

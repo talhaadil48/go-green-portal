@@ -33,6 +33,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     date_in: string;
     fuel_out: string;
     fuel_in: string;
+    miles_out: string;
+    miles_in: string;
   }
 
   const initialFormData = {
@@ -87,6 +89,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     hire_vehicle_date_in: "",
     hire_vehicle_fuel_out: "",
     hire_vehicle_fuel_in: "",
+    hire_vehicle_miles_out: "",
+    hire_vehicle_miles_in: "",
     // Change of Hire Vehicle - Now using JSONB array
     change_vehicle_history: [] as ChangeVehicleRecord[],
     // Charges Summary
@@ -838,6 +842,28 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Miles out</label>
+                      <input
+                        type="number"
+                        name="hire_vehicle_miles_out"
+                        value={formData.hire_vehicle_miles_out}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Miles in</label>
+                      <input
+                        type="number"
+                        name="hire_vehicle_miles_in"
+                        value={formData.hire_vehicle_miles_in}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
                   </div>
                 </section>
               </div>
@@ -861,6 +887,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       date_in: "",
                       fuel_out: "",
                       fuel_in: "",
+                      miles_out: "",
+                      miles_in: "",
                     }];
                     setFormData((prev) => ({
                       ...prev,
@@ -896,7 +924,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         <div className="relative">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                           {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
@@ -1019,6 +1047,26 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             placeholder="e.g. Full / 3/4 / 1/2"
                             value={vehicle.fuel_in}
                             onChange={(e) => updateChangeVehicleField(index, "fuel_in", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Miles out</label>
+                          <input
+                            type="number"
+                            value={vehicle.miles_out}
+                            onChange={(e) => updateChangeVehicleField(index, "miles_out", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Miles in</label>
+                          <input
+                            type="number"
+                            value={vehicle.miles_in}
+                            onChange={(e) => updateChangeVehicleField(index, "miles_in", e.target.value)}
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
                           />
                         </div>

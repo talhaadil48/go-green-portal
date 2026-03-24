@@ -2,6 +2,20 @@
 
 import React, { useEffect, useState } from 'react';
 import api from "@/lib/axios";
+import {
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Car,
+  Hash,
+  Loader2,
+  AlertCircle,
+  Building2,
+  FileText,
+  Gauge
+} from 'lucide-react';
 
 interface SummaryData {
   claim: {
@@ -14,25 +28,65 @@ interface SummaryData {
     closed_by: string | null;
     recently_deleted: boolean;
   };
-  accident_claim?: { checklist_vd?: boolean };
+  accident_claim?: {
+    checklist_vd?: boolean;
+    driver_full_name?: string;
+    driver_email?: string;
+    driver_telephone?: string;
+    driver_address?: string;
+    driver_postcode?: string;
+    driver_dob?: string;
+    driver_ni_number?: string;
+    driver_occupation?: string;
+    client_vehicle_make?: string;
+    client_vehicle_model?: string;
+    client_registration?: string;
+    client_policy_no?: string;
+    client_cover_type?: string;
+    client_policy_holder?: string;
+  };
   rental_agreement?: {
-    hire_vehicle_reg: string;
-    hire_vehicle_make: string;
-    hire_vehicle_model: string;
-    hire_vehicle_date_out: string;
-    hire_vehicle_date_in: string;
+    hire_vehicle_reg?: string;
+    hire_vehicle_make?: string;
+    hire_vehicle_model?: string;
+    hire_vehicle_date_out?: string;
+    hire_vehicle_date_in?: string;
+    hire_vehicle_miles_out?: number;
+    hire_vehicle_miles_in?: number;
     change_vehicle_history?: Array<{
-      date_in: string; date_out: string;
-      vehicle_reg: string; vehicle_make: string; vehicle_model: string;
+      date_in?: string;
+      fuel_in?: string;
+      date_out?: string;
+      fuel_out?: string;
+      vehicle_reg?: string;
+      vehicle_make?: string;
+      vehicle_group?: string;
+      vehicle_model?: string;
+      miles_out?: string;
+      miles_in?: string;
     }>;
   };
-  storage_form?: { storage_location_key: string | null };
-  invoices?: Array<{ id: number; invoice_datetime: string; info: string; storage_bill: any; rent_bill: any }>;
+  storage_form?: { storage_location_key?: string | null } | null;
+  invoices?: Array<{
+    id: number;
+    invoice_datetime: string;
+    info: string;
+    storage_bill: number | null;
+    rent_bill: number | null;
+  }>;
 }
 
 const storageLocations: Record<string, { name: string; city: string; postcode: string }> = {
-  addr1: { name: "LITTLE BURTON EAST", city: "Burton-on-Trent, Staffordshire", postcode: "DE14 1PS" },
-  addr2: { name: "Placeholder Location", city: "City, County", postcode: "XX00 0XX" },
+  addr1: {
+    name: "LITTLE BURTON EAST",
+    city: "Burton-on-Trent, Staffordshire",
+    postcode: "DE14 1PS",
+  },
+  addr2: {
+    name: "Placeholder Location",
+    city: "City, County",
+    postcode: "XX00 0XX",
+  },
 };
 
 const styles = `
@@ -68,572 +122,870 @@ const styles = `
     min-height: 100vh;
     padding: 48px 32px 80px;
     color: var(--sr-text-body);
-    position: relative;
-    box-sizing: border-box;
-  }
-  .sr-root *, .sr-root *::before, .sr-root *::after {
-    box-sizing: border-box;
-  }
-  .sr-root::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image: radial-gradient(circle, rgba(27,122,76,0.10) 1px, transparent 1px);
-    background-size: 30px 30px;
-    pointer-events: none; z-index: 0;
-    opacity: 0.45;
   }
 
-  .sr-inner { max-width: 1160px; margin: 0 auto; position: relative; z-index: 1; }
+  .sr-inner {
+    max-width: 1440px;
+    margin: 0 auto;
+  }
 
-  /* ── HEADER ── */
+  .sr-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    height: 400px;
+    text-align: center;
+    font-size: 16px;
+  }
+
+  /* Header, Cards, Grid, etc. — all your original styles */
   .sr-header {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 44px;
-    flex-wrap: wrap;
+    margin-bottom: 40px;
+    gap: 20px;
   }
+
   .sr-logo {
-    width: 44px; height: 44px;
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
     background: var(--sr-em);
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 14px;
-    box-shadow: 0 4px 14px rgba(27,122,76,0.30);
-    flex-shrink: 0;
+    border-radius: var(--sr-r-sm);
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
   }
-  .sr-logo svg {
-    width: 22px; height: 22px;
-    fill: none; stroke: #fff;
-    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
-  }
+
   .sr-title {
     font-family: 'Sora', sans-serif;
-    font-size: 42px; font-weight: 800; line-height: 1.05;
-    color: var(--sr-text-head); letter-spacing: -0.02em;
-    margin: 0; padding: 0;
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--sr-text-head);
+    margin: 0;
+    padding: 0;
+    letter-spacing: -0.02em;
   }
+
   .sr-ref {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 13px; font-weight: 500;
-    color: var(--sr-text-muted); margin-top: 8px; letter-spacing: 0.04em;
-    margin-bottom: 0; padding: 0;
+    font-size: 14px;
+    color: var(--sr-text-muted);
+    margin: 8px 0 0;
+    padding: 0;
+    font-weight: 500;
   }
-  .sr-ref em { font-style: normal; color: var(--sr-em); font-weight: 600; }
+
+  .sr-ref em {
+    font-style: normal;
+    color: var(--sr-em);
+    font-weight: 700;
+    font-family: 'Roboto Mono', monospace;
+  }
 
   .sr-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 20px; border-radius: 100px;
-    font-family: 'Inter', sans-serif;
-    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    border: 2px solid; align-self: flex-start; flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--sr-em-pale);
+    border: 1.5px solid var(--sr-em-border);
+    color: var(--sr-em);
+    padding: 10px 16px;
+    border-radius: var(--sr-r-sm);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: capitalize;
   }
-  .sr-badge-active  { background: var(--sr-em-pale);    color: var(--sr-em);      border-color: var(--sr-em-border); }
-  .sr-badge-deleted { background: var(--sr-danger-pale); color: var(--sr-danger);  border-color: var(--sr-danger-border); }
-  .sr-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: currentColor;
-    animation: sr-blink 2.4s ease-in-out infinite;
-    flex-shrink: 0;
-  }
-  @keyframes sr-blink { 0%,100%{opacity:1} 50%{opacity:.15} }
 
-  /* ── GRID ── */
+  .sr-badge.sr-badge-deleted {
+    background: var(--sr-danger-pale);
+    border-color: var(--sr-danger-border);
+    color: var(--sr-danger);
+  }
+
   .sr-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .sr-section {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
   }
-  @media(max-width:1024px) {
-    .sr-grid { grid-template-columns: repeat(2, 1fr); }
-    .sr-w2   { grid-column: span 2; }
-    .sr-tall { grid-row: span 1; }
+
+  @media (max-width: 1024px) {
+    .sr-section { grid-template-columns: 1fr; }
   }
-  @media(max-width:640px) {
-    .sr-grid  { grid-template-columns: 1fr; }
-    .sr-w2    { grid-column: span 1; }
+
+  @media (max-width: 640px) {
+    .sr-section { grid-template-columns: 1fr; }
     .sr-title { font-size: 28px; }
   }
 
-  /* ── CARD ── */
+  .sr-section-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sr-text-head);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--sr-em-border);
+  }
+
   .sr-card {
     background: var(--sr-white);
-    border: 1.5px solid rgba(27,122,76,0.12);
+    border: 1px solid #e0e6e3;
     border-radius: var(--sr-r);
-    padding: 26px 28px;
+    padding: 24px;
     box-shadow: var(--sr-shadow-sm);
-    transition: box-shadow .25s ease, transform .2s ease;
-    position: relative; overflow: hidden;
-    animation: sr-fadeUp .35s ease both;
   }
-  .sr-card:hover { box-shadow: var(--sr-shadow-md); transform: translateY(-2px); }
-  .sr-card-em::after {
-    content: ''; position: absolute;
-    top: 0; left: 20px; right: 20px; height: 3px;
-    background: linear-gradient(90deg, var(--sr-em), var(--sr-em-mid));
-    border-radius: 0 0 4px 4px;
+
+  .sr-card-em {
+    border-color: var(--sr-em-border);
+    background: linear-gradient(135deg, rgba(232, 247, 241, 0.5), var(--sr-white));
   }
-  .sr-w2   { grid-column: span 2; }
-  .sr-tall { grid-row: span 2; }
 
-  @keyframes sr-fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-  .sr-card:nth-child(1){animation-delay:.04s}
-  .sr-card:nth-child(2){animation-delay:.09s}
-  .sr-card:nth-child(3){animation-delay:.14s}
-  .sr-card:nth-child(4){animation-delay:.19s}
-  .sr-card:nth-child(5){animation-delay:.24s}
-
-  /* ── CARD HEADER ── */
   .sr-chead {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 22px; gap: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
   }
-  .sr-clabel { display: flex; align-items: center; gap: 10px; }
+
+  .sr-clabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .sr-cicon {
-    width: 32px; height: 32px; border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     background: var(--sr-em-light);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0;
-  }
-  .sr-ctitle {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
-    text-transform: uppercase; color: var(--sr-text-muted);
-    margin: 0; padding: 0;
-  }
-
-  /* ── FIELDS GRID ── */
-  .sr-fields     { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; }
-  .sr-fields-one { display: grid; grid-template-columns: 1fr;     gap: 16px; }
-
-  /* ── FIELD LABEL ── */
-  .sr-flabel {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.20em;
-    text-transform: uppercase; color: var(--sr-text-faint);
-    display: block; margin: 0 0 5px 0; padding: 0;
-  }
-
-  /* ── FIELD VALUES — all fully namespaced, no inheritance dependency ── */
-  .sr-fv {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 18px !important; font-weight: 700 !important;
-    color: var(--sr-text-head) !important; line-height: 1.25 !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-fv-nm {
-    font-family: 'Sora', sans-serif !important;
-    font-size: 28px !important; font-weight: 700 !important;
-    color: var(--sr-text-head) !important; line-height: 1.2 !important;
-    letter-spacing: -0.01em !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-fv-mn {
-    font-family: 'Roboto Mono', monospace !important;
-    font-size: 22px !important; font-weight: 600 !important;
-    color: var(--sr-em) !important; letter-spacing: 0.05em !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-fv-sm {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 15px !important; font-weight: 600 !important;
-    color: var(--sr-text-body) !important; line-height: 1.3 !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-fv-err {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 15px !important; font-weight: 600 !important;
-    color: var(--sr-danger) !important; line-height: 1.3 !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-
-  /* ── DIVIDER ── */
-  .sr-div { height: 1.5px; background: var(--sr-bg2); margin: 20px 0; border: none; }
-
-  /* ── STORAGE BOX ── */
-  .sr-store {
-    background: var(--sr-em-pale);
-    border: 1.5px solid var(--sr-em-border);
-    border-radius: var(--sr-r-sm);
-    padding: 18px 20px;
-  }
-  .sr-store-name {
-    font-family: 'Sora', sans-serif !important;
-    font-size: 18px !important; font-weight: 700 !important;
-    color: var(--sr-em) !important; letter-spacing: -0.01em !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-store-city {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 14px !important; font-weight: 500 !important;
-    color: var(--sr-text-body) !important; margin: 5px 0 0 !important; padding: 0 !important;
-  }
-  .sr-store-post {
-    font-family: 'Roboto Mono', monospace !important;
-    font-size: 12px !important; font-weight: 600 !important;
-    color: var(--sr-text-muted) !important; margin: 9px 0 0 !important;
-    letter-spacing: 0.07em !important; padding: 0 !important;
-  }
-
-  /* ── CHECKLIST ── */
-  .sr-check {
-    display: flex; align-items: center; gap: 12px;
-    padding: 14px 16px;
-    background: var(--sr-bg);
-    border: 1.5px solid rgba(27,122,76,0.12);
-    border-radius: var(--sr-r-sm);
-  }
-  .sr-cdot        { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .sr-cdot-ok     { background: var(--sr-em-mid);  box-shadow: 0 0 0 3px rgba(40,163,98,.20); }
-  .sr-cdot-pnd    { background: var(--sr-amber);    box-shadow: 0 0 0 3px rgba(196,127,23,.20); }
-  .sr-ctext {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 14px !important; font-weight: 700 !important;
-    color: var(--sr-text-head) !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-csub {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 12px !important; font-weight: 500 !important;
-    color: var(--sr-text-muted) !important; margin: 2px 0 0 !important; padding: 0 !important;
-  }
-
-  /* ── VEHICLE HISTORY ── */
-  .sr-hrow {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 14px;
-    background: var(--sr-bg);
-    border: 1.5px solid rgba(27,122,76,0.10);
-    border-radius: var(--sr-r-sm);
-    margin-bottom: 8px;
-    transition: border-color .2s;
-  }
-  .sr-hrow:hover { border-color: var(--sr-em-border); }
-  .sr-hreg {
-    font-family: 'Roboto Mono', monospace !important;
-    font-size: 14px !important; font-weight: 600 !important;
-    color: var(--sr-em) !important;
-    margin: 0 !important; padding: 0 !important;
-  }
-  .sr-hveh {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 13px !important; font-weight: 500 !important;
-    color: var(--sr-text-muted) !important; margin: 3px 0 0 !important; padding: 0 !important;
-  }
-  .sr-hdt {
-    text-align: right;
-    font-family: 'Roboto Mono', monospace;
-    font-size: 12px; font-weight: 500; color: var(--sr-text-faint); line-height: 1.8;
-  }
-
-  /* ── PILL ── */
-  .sr-pill {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 12px; font-weight: 600;
-    padding: 4px 12px;
-    background: var(--sr-em-light);
+    border-radius: 8px;
     color: var(--sr-em);
-    border: 1.5px solid var(--sr-em-border);
-    border-radius: 100px;
-    flex-shrink: 0;
   }
 
-  /* ── INVOICE SCROLL ── */
-  .sr-iscroll {
-    max-height: 400px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 8px;
-    padding-right: 2px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--sr-em-border) transparent;
-  }
-  .sr-iscroll::-webkit-scrollbar       { width: 3px; }
-  .sr-iscroll::-webkit-scrollbar-thumb { background: var(--sr-em-border); border-radius: 4px; }
-
-  .sr-iitem {
-    padding: 14px 16px;
-    background: var(--sr-white);
-    border: 1.5px solid rgba(27,122,76,0.10);
-    border-radius: var(--sr-r-sm);
-    transition: border-color .2s, box-shadow .2s;
-    cursor: default;
-  }
-  .sr-iitem:hover { border-color: var(--sr-em-border); box-shadow: var(--sr-shadow-sm); }
-  .sr-itop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .sr-idt {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 11px; font-weight: 500; color: var(--sr-text-faint);
-  }
-  .sr-itag {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-    padding: 3px 9px; border-radius: 5px; flex-shrink: 0;
-    background: var(--sr-em-light); color: var(--sr-em); border: 1.5px solid var(--sr-em-border);
-  }
-  .sr-iinfo {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 14px !important; font-weight: 600 !important;
-    color: var(--sr-text-head) !important; margin: 7px 0 0 !important; padding: 0 !important;
+  .sr-ctitle {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sr-text-head);
   }
 
-  /* ── EMPTY ── */
-  .sr-empty {
-    text-align: center; padding: 40px 0;
-    font-family: 'Inter', sans-serif;
-    font-size: 13px; font-weight: 500;
-    letter-spacing: 0.06em; color: var(--sr-text-faint);
-  }
-
-  /* ── SUB LABEL ── */
   .sr-sublabel {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 10px !important; font-weight: 700 !important; letter-spacing: .18em !important;
-    text-transform: uppercase !important; color: var(--sr-text-faint) !important;
-    margin: 0 0 10px 0 !important; padding: 0 !important;
-    display: block !important;
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sr-text-faint);
+    margin-bottom: 10px;
   }
 
-  /* ── LOADING / ERROR ── */
-  .sr-center {
-    min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 14px;
-    font-family: 'Inter', sans-serif;
-    background: var(--sr-bg); color: var(--sr-text-muted);
+  .sr-div {
+    height: 1px;
+    background: var(--sr-em-border);
+    margin: 16px 0;
   }
-  .sr-center p {
-    font-family: 'Inter', sans-serif !important;
-    font-size: 12px !important; font-weight: 600 !important;
-    letter-spacing: 0.12em !important; text-transform: uppercase !important;
-    margin: 0 !important; padding: 0 !important;
-    color: var(--sr-text-muted) !important;
+
+  .sr-flabel {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sr-text-faint);
+    margin-bottom: 6px;
   }
+
+  .sr-fv-nm {
+    font-family: 'Sora', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--sr-text-head);
+    letter-spacing: -0.01em;
+    word-break: break-word;
+  }
+
+  .sr-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sr-compact-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .sr-compact-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--sr-text-faint);
+    margin: 0;
+  }
+
+  .sr-compact-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sr-text-body);
+    word-break: break-word;
+  }
+
+  .sr-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+  }
+
+  .sr-invoice-table thead {
+    background: var(--sr-em-pale);
+    border: 1px solid var(--sr-em-border);
+  }
+
+  .sr-invoice-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sr-text-faint);
+    border-bottom: 1px solid var(--sr-em-border);
+  }
+
+  .sr-invoice-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--sr-text-body);
+    border-bottom: 1px solid #e0e6e3;
+  }
+
+  .sr-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: var(--sr-em-pale);
+    border-radius: 8px;
+    border: 1px solid var(--sr-em-border);
+  }
+
+  .sr-cdot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+    background: var(--sr-em);
+  }
+
+  .sr-ctext {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sr-text-body);
+  }
+
+  .sr-csub {
+    font-size: 11px;
+    color: var(--sr-text-faint);
+    margin-top: 2px;
+  }
+
   .sr-spin {
-    width: 32px; height: 32px;
-    border: 2.5px solid var(--sr-em-border);
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(27, 122, 76, 0.1);
     border-top-color: var(--sr-em);
     border-radius: 50%;
-    animation: sr-spin .7s linear infinite;
+    animation: spin 0.8s linear infinite;
   }
-  @keyframes sr-spin { to { transform: rotate(360deg); } }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 `;
 
 export default function SummaryPage({ claimId }: { claimId: string }) {
-  const [data, setData]       = useState<SummaryData | null>(null);
+  const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get(`/api/summary/${claimId}`, { headers: { requiresAuth: true } });
+        const res = await api.get(`/api/summary/${claimId}`, {
+          headers: { requiresAuth: true }
+        });
         setData(res.data);
       } catch (e) {
-        console.error(e);
+        console.error("[SummaryPage] API Error:", e);
         setError("Failed to load summary");
       } finally {
         setLoading(false);
       }
-    })();
+    };
+
+    fetchData();
   }, [claimId]);
 
-  const fmt = (d: string | null) =>
-    d ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d)) : "—";
-
-  const calculateDuration = (dateOut: string | null, dateIn: string | null) => {
-    if (!dateOut) return "—";
-    const outDate = new Date(dateOut);
-    const inDate = dateIn ? new Date(dateIn) : new Date();
-    const diffMs = inDate.getTime() - outDate.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+  const fmt = (d: string | null | undefined): string => {
+    if (!d) return "—";
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }).format(new Date(d));
+    } catch {
+      return "—";
+    }
   };
 
-  if (loading) return (
-    <>
-      <style>{styles}</style>
-      <div className="sr-center">
-        <div className="sr-spin" />
-        <p>Loading summary</p>
-      </div>
-    </>
-  );
+  if (loading) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="sr-center">
+          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--sr-em)' }} />
+          <p>Loading summary...</p>
+        </div>
+      </>
+    );
+  }
 
-  if (error || !data) return (
-    <>
-      <style>{styles}</style>
-      <div className="sr-center" style={{ color: 'var(--sr-danger)' }}>
-        {error || "Unable to load summary"}
-      </div>
-    </>
-  );
+  if (error || !data) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="sr-center" style={{ color: 'var(--sr-danger)' }}>
+          <AlertCircle size={32} />
+          <p>{error || "Unable to load summary"}</p>
+        </div>
+      </>
+    );
+  }
 
-  const claim   = data.claim;
-  const rental  = data.rental_agreement;
-  const sk      = data.storage_form?.storage_location_key || "addr1";
-  const storage = storageLocations[sk] || storageLocations.addr1;
+  const claim = data.claim;
+  const accident = data.accident_claim;
+  const rental = data.rental_agreement;
+  const storageKey = data.storage_form?.storage_location_key || "addr1";
+  const storage = storageLocations[storageKey] || storageLocations.addr1;
+  const invoices = data.invoices || [];
 
   return (
     <>
       <style>{styles}</style>
       <div className="sr-root">
         <div className="sr-inner">
-
-          {/* ── HEADER ── */}
+          {/* HEADER */}
           <header className="sr-header">
             <div>
               <div className="sr-logo">
-                <svg viewBox="0 0 24 24">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
               </div>
               <h1 className="sr-title">Claim Summary</h1>
-              <p className="sr-ref">Reference <em>#{claim.claim_id}</em></p>
+              <p className="sr-ref">Reference <em>#{claim.claim_id || "—"}</em></p>
             </div>
-            <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : 'sr-badge-active'}`}>
+
+            <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
               <span className="sr-dot" />
-              {claim.recently_deleted ? 'Recently Deleted' : claim.status}
+              {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
             </div>
           </header>
 
-          {/* ── GRID ── */}
+          {/* MAIN GRID */}
           <div className="sr-grid">
 
-            {/* 1 — Claimant */}
-            <div className="sr-card sr-card-em">
-              <div className="sr-chead">
-                <div className="sr-clabel">
-                  <div className="sr-cicon">👤</div>
-                  <span className="sr-ctitle">Claimant</span>
-                </div>
-              </div>
-              <div className="sr-fields-one">
-                <div>
-                  <span className="sr-flabel">Full Name</span>
-                  <div className="sr-fv-nm">{claim.claimant_name}</div>
-                </div>
-                <div className="sr-fields">
-                  <div>
-                    <span className="sr-flabel">Claim Type</span>
-                    <div className="sr-fv-sm" style={{ textTransform: 'capitalize' }}>{claim.claim_type}</div>
-                  </div>
-                  <div>
-                    <span className="sr-flabel">Start Date</span>
-                    <div className="sr-fv-sm">{fmt(claim.claim_start_date)}</div>
-                  </div>
-                  {claim.closed_date && (
-                    <div>
-                      <span className="sr-flabel">Closed</span>
-                      <div className="sr-fv-err">{fmt(claim.closed_date)}</div>
+            {/* ===== SECTION 1: CLAIMANT & VEHICLE DETAILS ===== */}
+            <div>
+              <h2 className="sr-section-title">Claimant & Vehicle Details</h2>
+              <div className="sr-section">
+                {/* Claimant Details Card */}
+                <div className="sr-card sr-card-em">
+                  <div className="sr-chead">
+                    <div className="sr-clabel">
+                      <div className="sr-cicon">
+                        <User size={18} />
+                      </div>
+                      <span className="sr-ctitle">Claimant Details</span>
                     </div>
+                  </div>
+
+                  {accident ? (
+                    <div className="sr-compact" style={{ gap: '16px' }}>
+                      <div>
+                        <span className="sr-flabel">Full Name</span>
+                        <div className="sr-fv-nm" style={{ textTransform: 'uppercase' }}>
+                          {accident.driver_full_name || "—"}
+                        </div>
+                      </div>
+
+                      <div className="sr-compact">
+                        {accident.driver_email && (
+                          <div className="sr-compact-row">
+                            <Mail size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Email</span>
+                              <div className="sr-compact-value">{accident.driver_email}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_telephone && (
+                          <div className="sr-compact-row">
+                            <Phone size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Phone</span>
+                              <div className="sr-compact-value">{accident.driver_telephone}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_dob && (
+                          <div className="sr-compact-row">
+                            <Calendar size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">DOB</span>
+                              <div className="sr-compact-value">{fmt(accident.driver_dob)}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_address && (
+                          <div className="sr-compact-row">
+                            <MapPin size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Address</span>
+                              <div className="sr-compact-value">{accident.driver_address}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_postcode && (
+                          <div className="sr-compact-row">
+                            <Hash size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Postcode</span>
+                              <div className="sr-compact-value">{accident.driver_postcode}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_occupation && (
+                          <div className="sr-compact-row">
+                            <User size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Occupation</span>
+                              <div className="sr-compact-value">{accident.driver_occupation}</div>
+                            </div>
+                          </div>
+                        )}
+                        {accident.driver_ni_number && (
+                          <div className="sr-compact-row">
+                            <Hash size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">NI Number</span>
+                              <div className="sr-compact-value">{accident.driver_ni_number}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
+                      No claimant details available
+                    </p>
+                  )}
+                </div>
+
+                {/* Client Vehicle Details Card */}
+                <div className="sr-card">
+                  <div className="sr-chead">
+                    <div className="sr-clabel">
+                      <div className="sr-cicon">
+                        <Car size={18} />
+                      </div>
+                      <span className="sr-ctitle">Client Vehicle Details</span>
+                    </div>
+                  </div>
+
+                  {accident ? (
+                    <div className="sr-compact" style={{ gap: '16px' }}>
+                      <div>
+                        <span className="sr-sublabel">Vehicle Information</span>
+                        <div className="sr-compact">
+                          {accident.client_vehicle_make && (
+                            <div className="sr-compact-row">
+                              <Car size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Make</span>
+                                <div className="sr-compact-value">{accident.client_vehicle_make}</div>
+                              </div>
+                            </div>
+                          )}
+                          {accident.client_vehicle_model && (
+                            <div className="sr-compact-row">
+                              <Car size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Model</span>
+                                <div className="sr-compact-value">{accident.client_vehicle_model}</div>
+                              </div>
+                            </div>
+                          )}
+                          {accident.client_registration && (
+                            <div className="sr-compact-row">
+                              <Hash size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Registration</span>
+                                <div className="sr-compact-value">{accident.client_registration}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="sr-div" />
+
+                      <div>
+                        <span className="sr-sublabel">Policy Information</span>
+                        <div className="sr-compact">
+                          {accident.client_policy_no && (
+                            <div className="sr-compact-row">
+                              <Hash size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Policy No</span>
+                                <div className="sr-compact-value">{accident.client_policy_no}</div>
+                              </div>
+                            </div>
+                          )}
+                          {accident.client_policy_holder && (
+                            <div className="sr-compact-row">
+                              <User size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Policy Holder</span>
+                                <div className="sr-compact-value">{accident.client_policy_holder}</div>
+                              </div>
+                            </div>
+                          )}
+                          {accident.client_cover_type && (
+                            <div className="sr-compact-row">
+                              <FileText size={14} className="sr-icon-sm" />
+                              <div>
+                                <span className="sr-compact-label">Cover Type</span>
+                                <div className="sr-compact-value">{accident.client_cover_type}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
+                      No vehicle details available
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* 2 — Storage + Accident */}
-            <div className="sr-card">
-              <div className="sr-chead">
-                <div className="sr-clabel">
-                  <div className="sr-cicon">📦</div>
-                  <span className="sr-ctitle">Storage Location</span>
-                </div>
-              </div>
-              <div className="sr-store">
-                <div className="sr-store-name">{storage.name}</div>
-                <div className="sr-store-city">{storage.city}</div>
-                <div className="sr-store-post">{storage.postcode}</div>
-              </div>
-              {data.accident_claim && (
-                <>
-                  <div className="sr-div" />
-                  <span className="sr-sublabel">Accident Checklist</span>
-                  <div className="sr-check">
-                    <div className={`sr-cdot ${data.accident_claim.checklist_vd ? 'sr-cdot-ok' : 'sr-cdot-pnd'}`} />
-                    <div>
-                      <div className="sr-ctext">Vehicle Damage</div>
-                      <div className="sr-csub">{data.accident_claim.checklist_vd ? 'Yes' : 'No'}</div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* 3 — Invoices */}
-            <div className="sr-card sr-tall">
-              <div className="sr-chead">
-                <div className="sr-clabel">
-                  <div className="sr-cicon">🧾</div>
-                  <span className="sr-ctitle">Invoices</span>
-                </div>
-                <span className="sr-pill">{data.invoices?.length ?? 0} total</span>
-              </div>
-              {data.invoices && data.invoices.length > 0 ? (
-                <div className="sr-iscroll">
-                  {data.invoices.map(inv => (
-                    <div key={inv.id} className="sr-iitem">
-                      <div className="sr-itop">
-                        <span className="sr-idt">{new Date(inv.invoice_datetime).toLocaleString('en-GB')}</span>
-                        <span className="sr-itag">Invoice</span>
-                      </div>
-                      <div className="sr-iinfo">{inv.info || "Invoice Entry"}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="sr-empty">No invoices yet</div>
-              )}
-            </div>
-
-            {/* 4 — Rental */}
+            {/* ===== SECTION 2: HIRE VEHICLES ===== */}
             {rental && (
-              <div className="sr-card sr-w2">
-                <div className="sr-chead">
-                  <div className="sr-clabel">
-                    <div className="sr-cicon">🚗</div>
-                    <span className="sr-ctitle">Rental Agreement</span>
-                  </div>
-                </div>
-                <div className="sr-fields">
-                  <div>
-                    <span className="sr-flabel">Registration</span>
-                    <div className="sr-fv-mn">{rental.hire_vehicle_reg}</div>
-                  </div>
-                  <div>
-                    <span className="sr-flabel">Vehicle</span>
-                    <div className="sr-fv">{rental.hire_vehicle_make} {rental.hire_vehicle_model}</div>
-                  </div>
-                  <div>
-                    <span className="sr-flabel">Hire Out</span>
-                    <div className="sr-fv-sm">{fmt(rental.hire_vehicle_date_out)}</div>
-                  </div>
-                  <div>
-                    <span className="sr-flabel">Hire In</span>
-                    <div className="sr-fv-sm">{fmt(rental.hire_vehicle_date_in)}</div>
-                  </div>
-                  <div>
-                    <span className="sr-flabel">Duration</span>
-                    <div className="sr-fv-sm">{calculateDuration(rental.hire_vehicle_date_out, rental.hire_vehicle_date_in)}</div>
-                  </div>
-                </div>
-                {rental.change_vehicle_history && rental.change_vehicle_history.length > 0 && (
-                  <>
-                    <div className="sr-div" />
-                    <span className="sr-sublabel">Vehicle Change History</span>
-                    {rental.change_vehicle_history.map((c, i) => (
-                      <div key={i} className="sr-hrow">
-                        <div>
-                          <div className="sr-hreg">{c.vehicle_reg}</div>
-                          <div className="sr-hveh">{c.vehicle_make} {c.vehicle_model}</div>
+              <div>
+                <h2 className="sr-section-title">Hire Vehicles</h2>
+                <div className="sr-section">
+                  {/* Main Hire Vehicle */}
+                  <div className="sr-card sr-card-em">
+                    <div className="sr-chead">
+                      <div className="sr-clabel">
+                        <div className="sr-cicon">
+                          <Car size={18} />
                         </div>
-                        <div className="sr-hdt">
-                          <div>Out {fmt(c.date_out)}</div>
-                          <div>In&nbsp;&nbsp;{fmt(c.date_in)}</div>
-                        </div>
+                        <span className="sr-ctitle">Hire Vehicle Details</span>
                       </div>
-                    ))}
-                  </>
-                )}
+                    </div>
+
+                    <div className="sr-compact" style={{ gap: '16px' }}>
+                      {rental.hire_vehicle_reg && (
+                        <div>
+                          <span className="sr-flabel">Registration</span>
+                          <div className="sr-fv-nm">{rental.hire_vehicle_reg}</div>
+                        </div>
+                      )}
+
+                      <div className="sr-compact">
+                        {(rental.hire_vehicle_make || rental.hire_vehicle_model) && (
+                          <div className="sr-compact-row">
+                            <Car size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Vehicle</span>
+                              <div className="sr-compact-value">
+                                {rental.hire_vehicle_make} {rental.hire_vehicle_model}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {rental.hire_vehicle_date_out && (
+                          <div className="sr-compact-row">
+                            <Calendar size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Date Out</span>
+                              <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_out)}</div>
+                            </div>
+                          </div>
+                        )}
+                        {rental.hire_vehicle_date_in && (
+                          <div className="sr-compact-row">
+                            <Calendar size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Date In</span>
+                              <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_in)}</div>
+                            </div>
+                          </div>
+                        )}
+                        {rental.hire_vehicle_miles_out && (
+                          <div className="sr-compact-row">
+                            <Hash size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Miles Out</span>
+                              <div className="sr-compact-value">{rental.hire_vehicle_miles_out}</div>
+                            </div>
+                          </div>
+                        )}
+                        {rental.hire_vehicle_miles_in && (
+                          <div className="sr-compact-row">
+                            <Hash size={14} className="sr-icon-sm" />
+                            <div>
+                              <span className="sr-compact-label">Miles In</span>
+                              <div className="sr-compact-value">{rental.hire_vehicle_miles_in}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Change of Hire Vehicles */}
+                  <div className="sr-card">
+                    <div className="sr-chead">
+                      <div className="sr-clabel">
+                        <div className="sr-cicon">
+                          <Car size={18} />
+                        </div>
+                        <span className="sr-ctitle">Vehicle Changes</span>
+                      </div>
+                    </div>
+
+                    {rental.change_vehicle_history && rental.change_vehicle_history.length > 0 ? (
+                      <div className="sr-compact" style={{ gap: '20px' }}>
+                        {rental.change_vehicle_history.map((change, idx) => (
+                          <div key={idx}>
+                            {/* Vehicle Header */}
+                            <div style={{
+                              background: 'var(--sr-em-pale)',
+                              padding: '12px',
+                              borderRadius: '8px',
+                              borderLeft: '3px solid var(--sr-em)',
+                              marginBottom: '12px'
+                            }}>
+                              <div className="sr-flabel">Change #{idx + 1}</div>
+                              <div className="sr-fv-nm" style={{ fontSize: '16px', marginTop: '6px' }}>
+                                {change.vehicle_make} {change.vehicle_model}
+                              </div>
+                              {change.vehicle_reg && (
+                                <div style={{
+                                  fontFamily: "'Roboto Mono', monospace",
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: 'var(--sr-em)',
+                                  marginTop: '4px'
+                                }}>
+                                  {change.vehicle_reg}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Compact Details - Only Date & Miles */}
+                            <div className="sr-compact" style={{ fontSize: '12.5px', marginLeft: '8px', gap: '10px' }}>
+                              {change.date_out && (
+                                <div className="sr-compact-row">
+                                  <Calendar size={12} className="sr-icon-sm" />
+                                  <div>
+                                    <span className="sr-compact-label">Date Out</span>
+                                    <div className="sr-compact-value">{fmt(change.date_out)}</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {change.date_in && (
+                                <div className="sr-compact-row">
+                                  <Calendar size={12} className="sr-icon-sm" />
+                                  <div>
+                                    <span className="sr-compact-label">Date In</span>
+                                    <div className="sr-compact-value">{fmt(change.date_in)}</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {change.miles_out && (
+                                <div className="sr-compact-row">
+                                  <Gauge size={12} className="sr-icon-sm" />
+                                  <div>
+                                    <span className="sr-compact-label">Miles Out</span>
+                                    <div className="sr-compact-value">{change.miles_out.toLocaleString()}</div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {change.miles_in && (
+                                <div className="sr-compact-row">
+                                  <Gauge size={12} className="sr-icon-sm" />
+                                  <div>
+                                    <span className="sr-compact-label">Miles In</span>
+                                    <div className="sr-compact-value">{change.miles_in.toLocaleString()}</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Divider between changes */}
+                            {idx < rental.change_vehicle_history.length - 1 && (
+                              <div className="sr-div" style={{ margin: '20px 0' }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
+                        No vehicle changes recorded
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
+            {/* ===== SECTION 3: STORAGE, INVOICES & CHECKLIST ===== */}
+            <div>
+              <h2 className="sr-section-title">Storage, Invoices & Checklist</h2>
+
+              <div className="sr-section">
+                {/* Storage Location */}
+                <div className="sr-card">
+                  <div className="sr-chead">
+                    <div className="sr-clabel">
+                      <div className="sr-cicon">
+                        <Building2 size={16} />
+                      </div>
+                      <span className="sr-ctitle">Storage Location</span>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'var(--sr-em-pale)',
+                    border: '1px solid var(--sr-em-border)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                  }}>
+                    <div className="sr-fv-nm" style={{ fontSize: '17px', marginBottom: '4px', color: 'var(--sr-em)' }}>
+                      {storage.name}
+                    </div>
+                    <div style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--sr-text-body)' }}>
+                      {storage.city}
+                    </div>
+                    <div style={{
+                      fontFamily: "'Roboto Mono', monospace",
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: 'var(--sr-em)',
+                      letterSpacing: '0.05em'
+                    }}>
+                      {storage.postcode}
+                    </div>
+                  </div>
+                  {accident?.checklist_vd && (
+                    <>
+                      <div className="sr-div" />
+                      <div>
+                        <div className="sr-chead" style={{ marginBottom: '8px' }}>
+                          <div className="sr-clabel">
+                            <div className="sr-cicon">
+                              <FileText size={16} />
+                            </div>
+                            <span className="sr-ctitle">Checklist</span>
+                          </div>
+                        </div>
+                        <div className="sr-check">
+                          <div className="sr-cdot" />
+                          <div>
+                            <div className="sr-ctext">Vehicle Damage </div>
+                            <div className="sr-csub text-xs">Yes</div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                </div>
+
+                {/* Invoices & Checklist */}
+                <div className="sr-card">
+                  <div className="sr-compact" style={{ gap: '16px' }}>
+                    {/* Invoices */}
+                    <div>
+                      <div className="sr-chead" style={{ marginBottom: '8px' }}>
+                        <div className="sr-clabel">
+                          <div className="sr-cicon">
+                            <FileText size={16} />
+                          </div>
+                          <span className="sr-ctitle">Invoices</span>
+                        </div>
+                      </div>
+
+                      {invoices.length > 0 ? (
+                        <table className="sr-invoice-table text-sm">
+                          <thead>
+                            <tr>
+                              <th>Date</th>
+                              <th>Info</th>
+                              <th>Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {invoices.map((inv) => (
+                              <tr key={inv.id}>
+                                <td className="py-1">{fmt(inv.invoice_datetime)}</td>
+                                <td className="py-1">{inv.info || "—"}</td>
+                                <td className="py-1 font-medium">
+                                  <td className="py-1 font-medium">
+                                    £{(
+                                      Number(inv.storage_bill || 0) + Number(inv.rent_bill || 0)
+                                    ).toFixed(2)}
+                                  </td>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px', marginTop: '6px' }}>
+                          No invoices available
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Checklist VD */}
+                  </div>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>

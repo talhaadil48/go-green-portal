@@ -1154,6 +1154,16 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   pdf.text(up(data.hire_vehicle_fuel_in), margin + half + 80, y + 1);
 
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Miles Out", margin + half + 8, y + 5);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.hire_vehicle_miles_out || "", margin + half + 30, y + 5);
+
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Miles In", margin + half + 65, y + 5);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.hire_vehicle_miles_in || "", margin + half + 80, y + 5);
+
   y += Math.max(addrHeight, 6) + 4;
 
   pdf.setDrawColor(100, 100, 100);
@@ -1584,7 +1594,7 @@ async function generateRentalPDF(
       // Heading for multiple changes
       if (multiple) {
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(7);          
+        pdf.setFontSize(7);
         pdf.setTextColor(0, 128, 0); // green heading
         pdf.text(`Vehicle ${index + 1}`, margin, y);
         y += 3;
@@ -1636,6 +1646,20 @@ async function generateRentalPDF(
       pdf.text("Fuel In", margin + half, y);
       pdf.setTextColor(0, 0, 0);
       pdf.text(up(vehicle.fuel_in), margin + half + 25, y);
+     y += 2.5
+      if (vehicle.miles_out) {
+        pdf.setTextColor(80, 80, 80);
+        pdf.text("Miles Out", margin, y);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(up(vehicle.miles_out), margin + 25, y);
+      }
+
+      if (vehicle.miles_in) {
+        pdf.setTextColor(80, 80, 80);
+        pdf.text("Miles In", margin + half, y);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(up(vehicle.miles_in), margin + half + 25, y);
+      }
 
       y += 5;
     });

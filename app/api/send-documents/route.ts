@@ -104,16 +104,15 @@ export async function POST(request: NextRequest) {
                 <strong>Total files:</strong> ${documents.length}
               </p>
 
-              ${
-                message
-                  ? `
+              ${message
+        ? `
               <div style="background:#f8f9fa; border-left:4px solid #3498db; padding:16px 20px; margin:24px 0; border-radius:4px;">
                 <strong>Message:</strong><br>
                 ${message.replace(/\n/g, "<br>")}
               </div>
               `
-                  : ""
-              }
+        : ""
+      }
 
               <p style="margin:32px 0 16px; font-size:16px; font-weight:500;">
                 Documents:

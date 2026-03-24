@@ -22,6 +22,7 @@ interface Claim {
     closed_by: string | null;
     deleted_by: string | null;
     status: string;
+    hire_end_date: string | null;
 }
 
 type SortColumn =
@@ -32,7 +33,8 @@ type SortColumn =
     | "invoice_sent"
     | "council"
     | "status"
-    | "closed";
+    | "closed"
+    | "hire_end_date";
 
 type SortDirection = "asc" | "desc" | null;
 
@@ -47,14 +49,13 @@ const COUNCIL_OPTIONS = [
     { value: "North West Leicestershire", label: "North West Leicestershire" },
 ];
 
-// Updated STATUS_COLORS with stage numbers
+// Updated STATUS_COLORS with stage numbers - Stage 6 removed
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
-    "claim created": { color: "bg-green-600", number: 1, label: "Claim Created", badgeBg: "bg-green-600", badgeText: "text-white" },
-    "hire start": { color: "bg-purple-600", number: 2, label: "Hire Started", badgeBg: "bg-purple-600", badgeText: "text-white" },
-    "client paid": { color: "bg-blue-600", number: 3, label: "Client Paid", badgeBg: "bg-blue-600", badgeText: "text-white" },
-    "hire end": { color: "bg-yellow-600", number: 4, label: "Hire End", badgeBg: "bg-yellow-600", badgeText: "text-white" },
-    "invoice sent": { color: "bg-pink-300", number: 5, label: "Invoice Sent", badgeBg: "bg-pink-300", badgeText: "text-white" },
-    "close claim": { color: "bg-rose-600", number: 6, label: "Closed", badgeBg: "bg-rose-600", badgeText: "text-white" },
+    "claim created": { color: "bg-gray-900", number: 1, label: "Claim Created", badgeBg: "bg-gray-900", badgeText: "text-white" },
+    "hire start": { color: "bg-gray-900", number: 2, label: "Hire Start", badgeBg: "bg-gray-900", badgeText: "text-white" },
+    "client paid": { color: "bg-gray-900", number: 3, label: "Client Paid", badgeBg: "bg-gray-900", badgeText: "text-white" },
+    "hire end": { color: "bg-red-600", number: 4, label: "Hire End", badgeBg: "bg-red-600", badgeText: "text-white" },
+    "invoice sent": { color: "bg-green-600", number: 5, label: "Invoice Sent", badgeBg: "bg-green-600", badgeText: "text-white" },
     default: { color: "bg-gray-500", number: 0, label: "Unknown", badgeBg: "bg-gray-100", badgeText: "text-gray-700" },
 };
 
@@ -74,9 +75,9 @@ export default function ClaimsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
-    const [selectedStatus, setSelectedStatus] = useState("");
-    // Default: show active only
-    const [activeFilter, setActiveFilter] = useState<"all" | "active" | "closed">("active");
+    const [selectedStage, setSelectedStage] = useState("");
+    // Status filter: "all" | "Active" | "Non Active" | "Closed"
+    const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Non Active" | "Closed">("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -110,7 +111,7 @@ export default function ClaimsPage() {
             }
         };
 
-        const currentUser = userName || 'Unknown'; 
+        const currentUser = getCurrentUsername(); 
         setUsername(currentUser);
     }, []); // empty dependency array → runs once on mount
 
@@ -155,15 +156,23 @@ export default function ClaimsPage() {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
 
-        if (selectedStatus) {
-            filtered = filtered.filter((claim) => claim.status === selectedStatus);
+        if (selectedStage) {
+            filtered = filtered.filter((claim) => claim.status === selectedStage);
         }
 
-        // Active / Closed / All filter — default is "active"
-        if (activeFilter === "active") {
-            filtered = filtered.filter((claim) => !(claim.closed_date && claim.closed_by));
-        } else if (activeFilter === "closed") {
-            filtered = filtered.filter((claim) => !!(claim.closed_date && claim.closed_by));
+        // Status filter: Active/Non Active/Closed
+        if (statusFilter === "Active") {
+            filtered = filtered.filter((claim) =>
+                ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
+            );
+        } else if (statusFilter === "Non Active") {
+            filtered = filtered.filter((claim) =>
+                ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())
+            );
+        } else if (statusFilter === "Closed") {
+            filtered = filtered.filter((claim) =>
+                claim.status?.toLowerCase() === "close claim" || (claim.closed_date && claim.closed_by)
+            );
         }
 
         if (startDate || endDate) {
@@ -199,8 +208,10 @@ export default function ClaimsPage() {
                     return sortDirection === "asc" ? cmp : -cmp;
                 }
 
-                if (sortColumn === "claim_start_date" || sortColumn === "invoice_sent") {
-                    const field = sortColumn === "claim_start_date" ? "claim_start_date" : "invoice_datetime";
+                if (sortColumn === "claim_start_date" || sortColumn === "invoice_sent" || sortColumn === "hire_end_date") {
+                    let field: "claim_start_date" | "invoice_datetime" | "hire_end_date" = "claim_start_date";
+                    if (sortColumn === "invoice_sent") field = "invoice_datetime";
+                    if (sortColumn === "hire_end_date") field = "hire_end_date";
                     const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
                     aVal = a[field] ? new Date(a[field]).getTime() : sentinel;
                     bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
@@ -229,8 +240,8 @@ export default function ClaimsPage() {
         searchTerm,
         selectedType,
         selectedCouncil,
-        selectedStatus,
-        activeFilter,
+        selectedStage,
+        statusFilter,
         startDate,
         endDate,
         sortColumn,
@@ -298,8 +309,7 @@ export default function ClaimsPage() {
         bodyKey: string,
         actionName: string
     ) => {
-        const username = username;
-        if (!username) {
+        if (!userName) {
             alert("User session not found. Please log in again.");
             return;
         }
@@ -315,7 +325,7 @@ export default function ClaimsPage() {
         try {
             await api.put(
                 `/api/claims/${claimId}${apiPath}`,
-                { [bodyKey]: username },
+                { [bodyKey]: userName },
                 { headers: { requiresAuth: true } }
             );
             await fetchClaims();
@@ -389,8 +399,8 @@ export default function ClaimsPage() {
         setSearchTerm("");
         setSelectedType("");
         setSelectedCouncil("");
-        setSelectedStatus("");
-        setActiveFilter("active");
+        setSelectedStage("");
+        setStatusFilter("all");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -403,18 +413,17 @@ export default function ClaimsPage() {
         const total = allClaims.length;
 
         // Status-based active/non-active/closed
-        const activeStatusClaims = allClaims.filter(c =>
-            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase()) &&
-            !(c.closed_date && c.closed_by)
+        const activeClaims = allClaims.filter(c =>
+            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
         ).length;
-        const nonActiveStatusClaims = allClaims.filter(c =>
+        const nonActiveClaims = allClaims.filter(c =>
             ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
         ).length;
         const closedClaims = allClaims.filter(c =>
             c.status?.toLowerCase() === "close claim" || (c.closed_date && c.closed_by)
         ).length;
 
-        // Type breakdown
+        // Type breakdown - display "Learner" instead of "learning"
         const typeBreakdown = CLAIM_TYPES.map(type => ({
             type,
             count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
@@ -422,15 +431,15 @@ export default function ClaimsPage() {
 
         // Invoice summary:
         // Pending  = status "hire end"
-        // Sent     = status "invoice sent" OR "close claim"
+        // Sent     = status "invoice sent"
         const invoicePending = allClaims.filter(c =>
             c.status?.toLowerCase() === "hire end"
         ).length;
         const invoiceSent = allClaims.filter(c =>
-            ["invoice sent", "close claim"].includes(c.status?.toLowerCase())
+            c.status?.toLowerCase() === "invoice sent"
         ).length;
 
-        return { total, activeStatusClaims, nonActiveStatusClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
+        return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
     })();
 
     // Type display config  
@@ -472,7 +481,7 @@ export default function ClaimsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
 
-            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <main className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
                 {/* ── Page Header ─────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
@@ -519,11 +528,15 @@ export default function ClaimsPage() {
                         <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
                     </div>
 
-                    {/* ── Row 1: Claim Status Summary ─────────────────────── */}
+                    {/* ── Row 1: Claim Status Summary (Clickable Filters) ─────────────────────── */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
 
                         {/* Total */}
-                        <div className="relative overflow-hidden bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl p-5 shadow-xl text-white col-span-2 sm:col-span-1">
+                        <button
+                            onClick={() => setStatusFilter("all")}
+                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white col-span-2 sm:col-span-1 transition-all duration-200 cursor-pointer border-2 ${statusFilter === "all" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900"}`}
+                            style={statusFilter === "all" ? { background: "linear-gradient(135deg, rgba(107, 114, 128, 1) 0%, rgba(55, 65, 81, 1) 100%)" } : undefined}
+                        >
                             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/5 rounded-full" />
                             <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/5 rounded-full" />
                             <div className="relative">
@@ -533,10 +546,14 @@ export default function ClaimsPage() {
                                 </div>
                                 <p className="text-5xl font-black">{summary.total}</p>
                             </div>
-                        </div>
+                        </button>
 
                         {/* Active Status */}
-                        <div className="relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 shadow-xl text-white">
+                        <button
+                            onClick={() => setStatusFilter("Active")}
+                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Active" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600"}`}
+                            style={statusFilter === "Active" ? { background: "linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(5, 150, 105, 1) 100%)" } : undefined}
+                        >
                             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
                             <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
                             <div className="relative">
@@ -544,12 +561,16 @@ export default function ClaimsPage() {
                                     <TrendingUp size={16} className="text-green-100" />
                                     <p className="text-xs font-semibold text-green-100 uppercase tracking-widest">Active</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.activeStatusClaims}</p>
+                                <p className="text-5xl font-black">{summary.activeClaims}</p>
                             </div>
-                        </div>
+                        </button>
 
                         {/* Non-Active */}
-                        <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 shadow-xl text-white">
+                        <button
+                            onClick={() => setStatusFilter("Non Active")}
+                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Non Active" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500"}`}
+                            style={statusFilter === "Non Active" ? { background: "linear-gradient(135deg, rgba(217, 119, 6, 1) 0%, rgba(234, 88, 12, 1) 100%)" } : undefined}
+                        >
                             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
                             <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
                             <div className="relative">
@@ -557,12 +578,16 @@ export default function ClaimsPage() {
                                     <Clock size={16} className="text-amber-100" />
                                     <p className="text-xs font-semibold text-amber-100 uppercase tracking-widest">Non-Active</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.nonActiveStatusClaims}</p>
+                                <p className="text-5xl font-black">{summary.nonActiveClaims}</p>
                             </div>
-                        </div>
+                        </button>
 
                         {/* Closed */}
-                        <div className="relative overflow-hidden bg-gradient-to-br from-rose-500 to-rose-700 rounded-2xl p-5 shadow-xl text-white">
+                        <button
+                            onClick={() => setStatusFilter("Closed")}
+                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Closed" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700"}`}
+                            style={statusFilter === "Closed" ? { background: "linear-gradient(135deg, rgba(244, 63, 94, 1) 0%, rgba(190, 24, 93, 1) 100%)" } : undefined}
+                        >
                             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
                             <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
                             <div className="relative">
@@ -572,7 +597,7 @@ export default function ClaimsPage() {
                                 </div>
                                 <p className="text-5xl font-black">{summary.closedClaims}</p>
                             </div>
-                        </div>
+                        </button>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
@@ -585,48 +610,53 @@ export default function ClaimsPage() {
                                 <h3 className="text-sm font-semibold text-green-900 tracking-tight">Claims by Type</h3>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                {summary.typeBreakdown.map(({ type, count }) => {
-                                    const cfg = typeConfig[type] || {
-                                        icon: LayoutGrid,
-                                        gradient: "from-gray-50 to-gray-100",
-                                        border: "border-gray-200",
-                                        text: "text-gray-800",
-                                        iconBg: "bg-gray-100 text-gray-500",
-                                        bar: "bg-gray-400",
-                                    };
-                                    const Icon = cfg.icon;
-                                    const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                            {/* Horizontal no-wrap scrollable layout */}
+                            <div className="overflow-x-auto -mx-5 px-5">
+                                <div className="flex gap-3 min-w-min">
+                                    {summary.typeBreakdown.map(({ type, count }) => {
+                                        const cfg = typeConfig[type] || {
+                                            icon: LayoutGrid,
+                                            gradient: "from-gray-50 to-gray-100",
+                                            border: "border-gray-200",
+                                            text: "text-gray-800",
+                                            iconBg: "bg-gray-100 text-gray-500",
+                                            bar: "bg-gray-400",
+                                        };
+                                        const Icon = cfg.icon;
+                                        const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                                        const displayType = type === "learning" ? "Learner" : type;
 
-                                    return (
-                                        <div
-                                            key={type}
-                                            className={`relative bg-gradient-to-br ${cfg.gradient} border ${cfg.border} rounded-xl p-4 flex flex-col gap-3 overflow-hidden group hover:shadow-md transition-shadow duration-200`}
-                                        >
-                                            {/* Big ghost number in background */}
+                                        return (
+                                            <button
+                                                key={type}
+                                                onClick={() => setSelectedType(type === selectedType ? "" : type)}
+                                                className={`relative bg-gradient-to-br ${cfg.gradient} border-2 ${selectedType === type ? "border-yellow-300 ring-2 ring-yellow-200" : cfg.border} rounded-xl p-4 flex flex-col gap-3 overflow-hidden group hover:shadow-md transition-all duration-200 cursor-pointer flex-shrink-0 w-32`}
+                                            >
+                                                {/* Big ghost number in background */}
 
-                                            <div className="flex items-center justify-between">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.iconBg}`}>
-                                                    <Icon size={15} strokeWidth={2.2} />
+                                                <div className="flex items-center justify-between">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.iconBg}`}>
+                                                        <Icon size={15} strokeWidth={2.2} />
+                                                    </div>
+                                                    <span className={`text-[11px] font-bold ${cfg.text} opacity-70`}>{pct}%</span>
                                                 </div>
-                                                <span className={`text-[11px] font-bold ${cfg.text} opacity-70`}>{pct}%</span>
-                                            </div>
 
-                                            <div>
-                                                <p className={`text-2xl font-black leading-none ${cfg.text}`}>{count}</p>
-                                                <p className="text-[11px] font-medium text-gray-500 capitalize mt-0.5">{type}</p>
-                                            </div>
+                                                <div>
+                                                    <p className={`text-2xl font-black leading-none ${cfg.text}`}>{count}</p>
+                                                    <p className="text-[11px] font-medium text-gray-500 capitalize mt-0.5">{displayType}</p>
+                                                </div>
 
-                                            {/* Progress bar */}
-                                            <div className="h-1 bg-black/8 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                                {/* Progress bar */}
+                                                <div className="h-1 bg-black/8 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 
@@ -733,7 +763,7 @@ export default function ClaimsPage() {
                                     >
                                         {CLAIM_TYPES.map((type) => (
                                             <option key={type} value={type}>
-                                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                                                {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
                                             </option>
                                         ))}
                                     </select>
@@ -820,7 +850,7 @@ export default function ClaimsPage() {
                                     <option value="">All Types</option>
                                     {CLAIM_TYPES.map(type => (
                                         <option key={type} value={type}>
-                                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                                            {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
                                         </option>
                                     ))}
                                 </select>
@@ -840,13 +870,13 @@ export default function ClaimsPage() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Stages</label>
                                 <select
-                                    value={selectedStatus}
-                                    onChange={(e) => setSelectedStatus(e.target.value)}
+                                    value={selectedStage}
+                                    onChange={(e) => setSelectedStage(e.target.value)}
                                     className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                 >
-                                    <option value="">All Statuses</option>
+                                    <option value="">All Stages</option>
                                     {Object.entries(STATUS_COLORS)
                                         .filter(([k]) => k !== "default")
                                         .map(([s, d]) => (
@@ -854,20 +884,6 @@ export default function ClaimsPage() {
                                                 Stage {d.number} – {d.label}
                                             </option>
                                         ))}
-                                </select>
-                            </div>
-
-                            {/* Active / All filter — default Active Claims */}
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Filter</label>
-                                <select
-                                    value={activeFilter}
-                                    onChange={(e) => setActiveFilter(e.target.value as "all" | "active" | "closed")}
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                >
-                                    <option value="active">Active Claims</option>
-                                    <option value="all">All Claims</option>
-                                    <option value="closed">Closed Only</option>
                                 </select>
                             </div>
 
@@ -936,7 +952,7 @@ export default function ClaimsPage() {
                 ) : claims.length === 0 ? (
                     <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                         <p className="text-xl text-green-700/80">
-                            {searchTerm || selectedType || selectedCouncil || selectedStatus || activeFilter !== "all" || startDate || endDate
+                            {searchTerm || selectedType || selectedCouncil || selectedStage || statusFilter !== "all" || startDate || endDate
                                 ? "No matching claims found"
                                 : "No claims yet — create one above!"}
                         </p>
@@ -950,7 +966,7 @@ export default function ClaimsPage() {
                                 <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                                     <tr className="border-b border-gray-500">
                                         <th onClick={() => handleSort("closed")} className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Active {getSortArrow("closed")}
+                                            Status {getSortArrow("closed")}
                                         </th>
                                         <th onClick={() => handleSort("claim_id")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Claim ID {getSortArrow("claim_id")}
@@ -965,10 +981,13 @@ export default function ClaimsPage() {
                                             Council {getSortArrow("council")}
                                         </th>
                                         <th onClick={() => handleSort("status")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Status {getSortArrow("status")}
+                                            Stages {getSortArrow("status")}
                                         </th>
                                         <th onClick={() => handleSort("claim_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Start Date {getSortArrow("claim_start_date")}
+                                        </th>
+                                        <th onClick={() => handleSort("hire_end_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                            Hire End Date {getSortArrow("hire_end_date")}
                                         </th>
                                         <th onClick={() => handleSort("invoice_sent")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Invoice {getSortArrow("invoice_sent")}
@@ -985,17 +1004,34 @@ export default function ClaimsPage() {
 
                                         return (
                                             <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
-                                                {/* Stage column */}
+                                                {/* Status column - Active/Non Active/Closed */}
                                                 <td className="px-3 py-1 text-center border-r border-gray-300">
                                                     <div className="relative group inline-block">
-                                                        <span className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-semibold rounded-full ${!isClosed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
-                                                            {isClosed ? "No" : "Yes"}
-                                                        </span>
-                                                        {isClosed && (
-                                                            <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
-                                                                Closed by {claim.closed_by} on {formatDate(claim.closed_date)}
-                                                            </div>
-                                                        )}
+                                                        {(() => {
+                                                            let statusText = "Active";
+                                                            let bgColor = "bg-green-100 text-green-800";
+                                                            
+                                                            if (isClosed) {
+                                                                statusText = "Closed";
+                                                                bgColor = "bg-red-100 text-red-800";
+                                                            } else if (["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
+                                                                statusText = "Non Active";
+                                                                bgColor = "bg-amber-100 text-amber-800";
+                                                            }
+                                                            
+                                                            return (
+                                                                <>
+                                                                    <span className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-semibold rounded-full ${bgColor}`}>
+                                                                        {statusText}
+                                                                    </span>
+                                                                    {isClosed && (
+                                                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                                                                            Closed by {claim.closed_by} on {formatDate(claim.closed_date)}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </td>
 
@@ -1039,7 +1075,7 @@ export default function ClaimsPage() {
                                                 </td>
 
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
-                                                    {claim.claim_type ? claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1) : "—"}
+                                                    {claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}
                                                 </td>
 
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
@@ -1049,13 +1085,17 @@ export default function ClaimsPage() {
                                                 {/* Status badge — now shows Stage N + label */}
                                                 <td className="border-r border-gray-300 px-2 py-1">
                                                     <div className="flex items-center justify-center">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusData.badgeBg} ${statusData.badgeText}`}>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-white text-gray-700 border-gray-700 border-2`}>
                                                             {statusData.number}
                                                         </span>
                                                     </div>
                                                 </td>
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {formatDate(claim.claim_start_date)}
+                                                </td>
+
+                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                                                    {formatDate(claim.hire_end_date)}
                                                 </td>
 
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
