@@ -16,6 +16,20 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
 
+  // Storage location mapping
+  const storageLocations: Record<string, { name: string; city: string; postcode: string }> = {
+    addr1: {
+      name: "LITTLE BURTON EAST",
+      city: "Burton-on-Trent, Staffordshire",
+      postcode: "DE14 1PS",
+    },
+    addr2: {
+      name: "Placeholder Location",
+      city: "City, County",
+      postcode: "XX00 0XX",
+    },
+  };
+
   const initialFormData = {
     name: "",
     postcode: "",
@@ -36,6 +50,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     invoice_total: "",
     client_date: "",
     owner_date: "",
+    storage_location_key: "addr1",
   };
 
   const [formData, setFormData] = useState<Record<string, string | number>>(initialFormData);
@@ -627,7 +642,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                 {/* Client Signature */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Client’s Signature:
+                    Client's Signature:
                   </label>
 
                   {isClientSigFromApi && signatures.client_signature ? (
@@ -677,7 +692,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                 {/* Owner Signature */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Owner’s Signature:
+                    Owner's Signature:
                   </label>
 
                   {isOwnerSigFromApi && signatures.owner_signature ? (
@@ -725,26 +740,42 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
-            <section className="max-w-md mx-auto space-y-4 bg-green-50 p-6 rounded-2xl border border-green-200 text-center">
-              <h3 className="text-lg font-semibold text-green-800">
+
+            {/* Storage Location - Now Dynamic */}
+            <section className="max-w-md mx-auto space-y-4 bg-green-50 p-6 rounded-2xl border border-green-200">
+              <h3 className="text-lg font-semibold text-green-800 text-center mb-4">
                 Storage Location
               </h3>
 
-              <p className="text-gray-800 text-sm leading-relaxed">
-                LITTLE BURTON EAST
-              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Storage Location:
+                  </label>
+                  <select
+                    name="storage_location_key"
+                    value={formData.storage_location_key || "addr1"}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition bg-white"
+                  >
+                    <option value="addr1">LITTLE BURTON EAST</option>
+                    <option value="addr2">Placeholder Location</option>
+                  </select>
+                </div>
 
-              <p className="text-gray-800 text-sm leading-relaxed">
-                Burton-on-Trent, Staffordshire
-              </p>
-
-              <p className="text-gray-800 text-sm leading-relaxed">
-                DE14 1PS
-              </p>
+                <div className="bg-white rounded-lg p-4 mt-4 border border-green-300">
+                  <p className="text-sm text-gray-600 font-medium">
+                    {storageLocations[formData.storage_location_key || "addr1"]?.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {storageLocations[formData.storage_location_key || "addr1"]?.city}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {storageLocations[formData.storage_location_key || "addr1"]?.postcode}
+                  </p>
+                </div>
+              </div>
             </section>
-
-
-            {/* Storage Location */}
 
             {/* Submit Button */}
             <div className="text-center pt-8">

@@ -958,10 +958,27 @@ async function generateStoragePDF(
   pdf.text("Storage Location:", margin, yPos);
   yPos += 4;
 
+  // Storage location mapping
+  const storageLocations: Record<string, { name: string; city: string; postcode: string }> = {
+    addr1: {
+      name: "LITTLE BURTON EAST",
+      city: "Burton-on-Trent, Staffordshire",
+      postcode: "DE14 1PS",
+    },
+    addr2: {
+      name: "Placeholder Location",
+      city: "City, County",
+      postcode: "XX00 0XX",
+    },
+  };
+
+  const locationKey = data.storage_location_key || "addr1";
+  const location = storageLocations[locationKey] || storageLocations["addr1"];
+
   const storageText = [
-    "LITTLE BURTON EAST",
-    "Burton-on-Trent, Staffordshire",
-    "DE14 1PS",
+    location.name,
+    location.city,
+    location.postcode,
   ];
 
   pdf.setFont("helvetica", "normal");
@@ -969,8 +986,10 @@ async function generateStoragePDF(
   pdf.setTextColor(...colors.darkText);
 
   storageText.forEach((line) => {
-    pdf.text(line, margin + 2, yPos);
-    yPos += 4;
+    if (line) {
+      pdf.text(line, margin + 2, yPos);
+      yPos += 4;
+    }
   });
 
   yPos += 6;

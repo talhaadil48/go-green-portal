@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     DATE_FIELDS.forEach((field) => {
       if (!fullData[field] || fullData[field] === "") fullData[field] = null;
     });
-
+    console.log("Normalized data ready for backend:", fullData);
     // Forward to external backend
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/storage-forms`;
 
