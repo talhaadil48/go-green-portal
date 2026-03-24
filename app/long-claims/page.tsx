@@ -73,6 +73,7 @@ export default function LongClaimsPage() {
   });
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -93,20 +94,25 @@ export default function LongClaimsPage() {
     fetchClaims();
   }, []);
 
-  const getCurrentUsername = (): string | null => {
-          try {
-              const userData = Cookies.get("user");
-              if (!userData) return null;
-              const parsed = JSON.parse(userData);
-              return parsed?.username || null;
-          } catch {
-              return null;
-          }
-      };
-  
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []); // empty dependency array → runs once on mount
+  X
   // ── Username + Password confirmation for delete ────────────────────────
   const confirmDeleteWithCredentials = async (claimId: string) => {
-    
+
 
     const password = prompt("Enter password:");
     if (password !== "12345678") {
@@ -115,11 +121,10 @@ export default function LongClaimsPage() {
     }
 
     if (!confirm(`Do you want to mark claim ${claimId} as deleted?`)) return;
-    console.log(getCurrentUsername())
     try {
       await api.patch(
         `/api/long-claims/${claimId}/mark-deleted`,
-        { deleted_by: getCurrentUsername() },
+        { deleted_by: username || "Unknown" }, // or fetch actual user name if available
         { headers: { requiresAuth: true } }
       );
 
@@ -195,11 +200,11 @@ export default function LongClaimsPage() {
         prev.map((c) =>
           c.id === claimId
             ? {
-                ...c,
-                starting_date: payload.starting_date,
-                ending_date: payload.ending_date,
-                hirer_name: payload.hirer_name,
-              }
+              ...c,
+              starting_date: payload.starting_date,
+              ending_date: payload.ending_date,
+              hirer_name: payload.hirer_name,
+            }
             : c
         )
       );
@@ -224,7 +229,7 @@ export default function LongClaimsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10">
           <div>
             <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
-              Long Term Hire 
+              Long Term Hire
             </h1>
             <p className="mt-2 text-lg text-green-700/80">
               Manage sovereign / long-term hire agreements

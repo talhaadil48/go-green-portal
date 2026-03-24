@@ -10,10 +10,12 @@ import { RentalAgreement } from "@/app/components/RentalAgreement";
 import DocumentManager from "@/app/components/Document";
 import InvoiceManager from "@/app/components/InnvoiceManager";
 import UnsavedChangesDialog from "@/app/components/UnsavedChangesDialog";
+import SummaryPage from "@/app/components/Summary";
 import { use } from "react";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
 type TabKey =
+  | "summary"
   | "pre-inspection"
   | "cancellation"
   | "storage-recovery"
@@ -22,15 +24,30 @@ type TabKey =
   | "document"
   | "invoice";
 
-const tabs: { key: TabKey; label: string }[] = [
+const ALL_TABS: { key: TabKey; label: string }[] = [
+  { key: "summary", label: "Summary" },
   { key: "claim", label: "RTA Form" },
   { key: "rental-agreement", label: "Rental Agreement" },
   { key: "storage-recovery", label: "Storage" },
-  { key: "cancellation", label: "Cancellation Form" },
+  { key: "cancellation", label: "Cancellation" },
   { key: "pre-inspection", label: "Hire Vehicle" },
-  { key: "document", label: "Document" },
+  { key: "document", label: "Documents" },
   { key: "invoice", label: "Invoice" },
 ];
+
+// Filter tabs based on claim type
+const getVisibleTabs = (claimType?: string | null): typeof ALL_TABS => {
+  if (claimType?.toLowerCase() === "vehicle damage") {
+    return [
+      { key: "summary", label: "Summary" },
+      { key: "claim", label: "RTA Form" },
+      { key: "document", label: "Documents" },
+      { key: "invoice", label: "Invoice" },
+    ];
+  }
+  // Show all tabs for other claim types
+  return ALL_TABS;
+};
 
 const STATUS_OPTIONS = [
   { value: "claim created", label: "Claim Created" },
@@ -38,7 +55,7 @@ const STATUS_OPTIONS = [
   { value: "client paid", label: "Client Paid" },
   { value: "hire end", label: "Hire End" },
   { value: "invoice sent", label: "Invoice Sent" },
-  { value : "close claim", label: "Close Claim" },
+  { value: "close claim", label: "Close Claim" },
 ];
 
 interface ClaimData {
@@ -59,7 +76,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const unwrappedParams = use(params);
   const claimId = unwrappedParams.id;
 
-  const [activeTab, setActiveTab] = useState<TabKey>("claim");
+  const [activeTab, setActiveTab] = useState<TabKey>("summary"); // Default to Summary
   const [claimData, setClaimData] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +89,14 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const visibleTabs = getVisibleTabs(claimData?.claim_type);
+
+  // Auto switch to first available tab if current tab is hidden
+  useEffect(() => {
+    if (claimData && !visibleTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(visibleTabs[0]?.key || "summary");
+    }
+  }, [claimData, visibleTabs, activeTab]);
 
   const fetchClaim = async () => {
     setLoading(true);
@@ -88,8 +112,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     } catch (err: any) {
       console.error("Failed to fetch claim:", err);
       setError(
-        err.response?.data?.detail ||
-        "Could not load claim details. Please try again later."
+        err.response?.data?.detail || "Could not load claim details. Please try again later."
       );
     } finally {
       setLoading(false);
@@ -127,9 +150,10 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const refreshPage = () => {
     window.location.reload();
   };
+
   const handleUpdateStatus = async () => {
-    if (!selectedStatus) return;
-    if (selectedStatus === claimData?.status) {
+    if (!selectedStatus || !claimData) return;
+    if (selectedStatus === claimData.status) {
       setStatusMessage({ type: "success", text: "No change needed" });
       return;
     }
@@ -144,11 +168,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         { headers: { requiresAuth: true } }
       );
 
-      setClaimData((prev) => prev ? { ...prev, status: selectedStatus } : null);
+      setClaimData((prev) => (prev ? { ...prev, status: selectedStatus } : null));
       setStatusMessage({ type: "success", text: "Status updated successfully" });
-
-      // Optional: refresh full data
-      // fetchClaim();
     } catch (err: any) {
       console.error("Status update failed:", err);
       setStatusMessage({
@@ -162,7 +183,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   const getCustomerTypeLabel = (type?: string) => {
     if (!type) return "—";
-
     const types: Record<string, string> = {
       individual: "Individual",
       business: "Business",
@@ -170,12 +190,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       fleet: "Fleet",
     };
     return types[type.toLowerCase()] || type.charAt(0).toUpperCase() + type.slice(1);
-  };
-
-  const getStatusLabel = (status?: string) => {
-    if (!status) return "—";
-    const option = STATUS_OPTIONS.find((opt) => opt.value === status);
-    return option ? option.label : status;
   };
 
   return (
@@ -217,9 +231,11 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               </div>
 
               <div>
-                <p className="text-gray-500">Customer Type</p>
+                <p className="text-gray-500">Claim Type</p>
                 <p className="font-medium text-gray-900 mt-1">
-                  {getCustomerTypeLabel(claimData.customer_type || claimData.claim_type)}
+                  {claimData.claim_type
+                    ? claimData.claim_type.charAt(0).toUpperCase() + claimData.claim_type.slice(1)
+                    : "—"}
                 </p>
               </div>
 
@@ -254,14 +270,16 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                         Saving...
                       </>
                     ) : (
-                      "Update Status"
+                      "Update"
                     )}
                   </button>
                 </div>
 
                 {statusMessage && (
-                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${statusMessage.type === "success" ? "text-green-700" : "text-red-700"
-                    }`}>
+                  <div
+                    className={`mt-2 text-sm flex items-center gap-1.5 ${statusMessage.type === "success" ? "text-green-700" : "text-red-700"
+                      }`}
+                  >
                     {statusMessage.type === "success" ? (
                       <CheckCircle size={16} />
                     ) : (
@@ -280,16 +298,16 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6">
-          {tabs.map((tab) => (
+        {/* Smaller Tabs - All fit in one line */}
+        <div className="flex flex-wrap gap-1.5 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6 scrollbar-hide">
+          {visibleTabs.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => handleTabChange(tab.key)}
-              className={`flex-1 min-w-[140px] py-3 px-4 text-sm sm:text-base font-semibold rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
-                  ? "bg-green-600 text-white shadow-lg"
-                  : "text-gray-600 hover:bg-white/50"
+              className={`flex-1 min-w-[110px] max-w-[140px] py-2.5 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
+                  ? "bg-green-600 text-white shadow-md"
+                  : "text-gray-600 hover:bg-white/70 active:bg-white"
                 }`}
             >
               {tab.label}
@@ -302,6 +320,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           <UnsavedChangesContext.Provider
             value={{ hasUnsavedChanges, setHasUnsavedChanges }}
           >
+            {activeTab === "summary" && <SummaryPage claimId={claimId} />}
+
             {activeTab === "pre-inspection" && (
               <PreInspectionChecklist claimId={claimId} />
             )}

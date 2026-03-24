@@ -134,20 +134,26 @@ export default function LongClaimDetailPage() {
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [emailForm, setEmailForm] = useState({ email: "", subject: "Long Term Hire Invoice" });
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [username, setUsername] = useState<string | null>(null);
 
     // ────────────────────────────────────────────────
     // Helper: car is available if it has NO claimants OR ALL claimants have end_date
 
-    const getCurrentUsername = (): string | null => {
-        try {
-            const userData = Cookies.get("user");
-            if (!userData) return null;
-            const parsed = JSON.parse(userData);
-            return parsed?.username || null;
-        } catch {
-            return null;
-        }
-    };
+    useEffect(() => {
+        const getCurrentUsername = (): string | null => {
+            try {
+                const userData = Cookies.get("user");
+                if (!userData) return null;
+                const parsed = JSON.parse(userData);
+                return parsed?.username || null;
+            } catch {
+                return null;
+            }
+        };
+
+        const currentUser = getCurrentUsername();
+        setUsername(currentUser);
+    }, []); // empty dependency array → runs once on mount
 
     // ────────────────────────────────────────────────
     const isCarAvailable = (carId: number): boolean => {
@@ -389,7 +395,7 @@ export default function LongClaimDetailPage() {
             await api.post(`/api/long_hire_invoice`, {
                 claim_id: claimId,
                 amount: total.toFixed(2),
-                user_name: getCurrentUsername() || "Unknown",
+                user_name: username || "Unknown",
             }, { headers: { requiresAuth: true } });
             setShowEmailModal(false);
             setEmailForm({ email: "", subject: "Long Claim Invoice" });

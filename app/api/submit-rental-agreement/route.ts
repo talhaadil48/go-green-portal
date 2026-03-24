@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
         fullData[field] = null;
       }
     });
+    console.log("Normalized data ready for backend:", fullData);
     // Forward to external backend
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/rental-agreements`;
 

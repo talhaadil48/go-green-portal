@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, FormEvent } from "react";
 import {
   Pencil,
@@ -14,7 +13,10 @@ import {
   ToggleRight,
   Clock,
   Calendar,
+  ExternalLink,
+  ArrowUpDown,
 } from "lucide-react";
+import Link from "next/link";
 import api from "@/lib/axios";
 
 interface Vehicle {
@@ -24,11 +26,15 @@ interface Vehicle {
   reg_no: string;
   is_long_hire: boolean;
   is_available?: boolean;
+  current_holder_claim_id?: string | null;
 }
 
 interface AvailableVehicle {
   id: number;
 }
+
+type SortField = "reg_no" | "name" | "model" | "available";
+type SortDirection = "asc" | "desc";
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -37,31 +43,28 @@ export default function VehiclesPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState<"all" | "normal" | "long">("all");
-
   const [formData, setFormData] = useState({ model: "", name: "", reg_no: "" });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState({ model: "", name: "", reg_no: "" });
   const [saving, setSaving] = useState(false);
-
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(
     null,
   );
-
   const [search, setSearch] = useState("");
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>("reg_no");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const fetchAllData = async () => {
     setLoading(true);
     setError(null);
-
     try {
       const res = await api.get("/api/cars", {
         headers: { requiresAuth: true },
@@ -92,16 +95,13 @@ export default function VehiclesPage() {
     e.preventDefault();
     setCreating(true);
     setCreateError(null);
-
     try {
       const payload = {
         model: formData.model.trim(),
         name: formData.name.trim(),
         reg_no: formData.reg_no.trim(),
       };
-
       await api.post("/api/car", payload, { headers: { requiresAuth: true } });
-
       setFormData({ model: "", name: "", reg_no: "" });
       setShowForm(false);
       await fetchAllData();
@@ -134,11 +134,9 @@ export default function VehiclesPage() {
         name: editData.name.trim(),
         reg_no: editData.reg_no.trim(),
       };
-
       await api.put(`/api/car/${id}`, payload, {
         headers: { requiresAuth: true },
       });
-
       setVehicles((prev) =>
         prev.map((v) => (v.id === id ? { ...v, ...payload } : v)),
       );
@@ -153,14 +151,12 @@ export default function VehiclesPage() {
   const toggleLongHire = async (id: number, current: boolean) => {
     const newValue = !current;
     setTogglingLongHireId(id);
-
     try {
       await api.put(
         `/api/cars/${id}/long`,
         { value: newValue },
         { headers: { requiresAuth: true } },
       );
-
       setVehicles((prev) =>
         prev.map((v) => (v.id === id ? { ...v, is_long_hire: newValue } : v)),
       );
@@ -180,7 +176,6 @@ export default function VehiclesPage() {
   const handleDelete = async (id: number) => {
     setDeleteLoading(true);
     setDeletingId(id);
-
     try {
       await api.delete(`/api/car/${id}`, { headers: { requiresAuth: true } });
       setVehicles((prev) => prev.filter((v) => v.id !== id));
@@ -192,24 +187,67 @@ export default function VehiclesPage() {
     }
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
   // Filters
   const allVehicles = vehicles;
   const normalHire = vehicles.filter((v) => !v.is_long_hire);
   const longHire = vehicles.filter((v) => v.is_long_hire);
 
-  const displayed =
+  let displayed =
     activeTab === "all"
       ? allVehicles
       : activeTab === "normal"
         ? normalHire
         : longHire;
 
-  const filtered = displayed.filter(
+  // Apply search
+  displayed = displayed.filter(
     (v) =>
       v.name?.toLowerCase().includes(search.toLowerCase()) ||
       v.reg_no?.toLowerCase().includes(search.toLowerCase()) ||
       v.model?.toLowerCase().includes(search.toLowerCase()),
   );
+
+  // Apply sorting
+  displayed.sort((a, b) => {
+    let valA: any;
+    let valB: any;
+
+    if (sortField === "reg_no") {
+      valA = a.reg_no || "";
+      valB = b.reg_no || "";
+    } else if (sortField === "name") {
+      valA = a.name || "";
+      valB = b.name || "";
+    } else if (sortField === "model") {
+      valA = a.model || "";
+      valB = b.model || "";
+    } else if (sortField === "available") {
+      // Available sorting logic
+      const isAvailA =
+        activeTab === "long"
+          ? availableLongHireIds.has(a.id)
+          : (a.is_available ?? false);
+      const isAvailB =
+        activeTab === "long"
+          ? availableLongHireIds.has(b.id)
+          : (b.is_available ?? false);
+      valA = isAvailA ? 1 : 0;
+      valB = isAvailB ? 1 : 0;
+    }
+
+    if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+    if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
 
   // Stats
   const total = vehicles.length;
@@ -225,7 +263,7 @@ export default function VehiclesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50/30">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* Header + Summary Cards - unchanged */}
+        {/* Header + Summary Cards */}
         <div className="mb-10 space-y-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
@@ -258,8 +296,8 @@ export default function VehiclesPage() {
             </div>
           </div>
 
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            {/* ... summary cards remain the same ... */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -273,7 +311,6 @@ export default function VehiclesPage() {
                 <Car size={28} className="text-emerald-600 opacity-80" />
               </div>
             </div>
-
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -287,7 +324,6 @@ export default function VehiclesPage() {
                 <Clock size={28} className="text-blue-600 opacity-80" />
               </div>
             </div>
-
             <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -301,7 +337,6 @@ export default function VehiclesPage() {
                 <Calendar size={28} className="text-purple-600 opacity-80" />
               </div>
             </div>
-
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -317,7 +352,6 @@ export default function VehiclesPage() {
                 </div>
               </div>
             </div>
-
             <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -343,11 +377,10 @@ export default function VehiclesPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${
-                  activeTab === tab
+                className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${activeTab === tab
                     ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
-                }`}
+                  }`}
               >
                 {tab === "all"
                   ? "All Vehicles"
@@ -359,17 +392,13 @@ export default function VehiclesPage() {
           </div>
         </div>
 
-        {/* Add Form - unchanged */}
+        {/* Add New Vehicle Form */}
         {showForm && (
           <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-xl p-7">
             <h2 className="text-xl font-bold text-gray-800 mb-6">
               Add New Vehicle
             </h2>
-            <form
-              onSubmit={handleCreate}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-5"
-            >
-              {/* ... form fields remain the same ... */}
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">
                   Name
@@ -377,9 +406,7 @@ export default function VehiclesPage() {
                 <input
                   required
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, name: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                   placeholder="e.g. Go Green Car 1"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
@@ -391,9 +418,7 @@ export default function VehiclesPage() {
                 <input
                   required
                   value={formData.model}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, model: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((p) => ({ ...p, model: e.target.value }))}
                   placeholder="e.g. Toyota Prius"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
@@ -406,10 +431,7 @@ export default function VehiclesPage() {
                   required
                   value={formData.reg_no}
                   onChange={(e) =>
-                    setFormData((p) => ({
-                      ...p,
-                      reg_no: e.target.value.toUpperCase(),
-                    }))
+                    setFormData((p) => ({ ...p, reg_no: e.target.value.toUpperCase() }))
                   }
                   placeholder="e.g. AB12CDE"
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 uppercase transition"
@@ -447,7 +469,7 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* Search */}
+        {/* Search Bar */}
         <div className="mb-6">
           <input
             type="text"
@@ -464,14 +486,12 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* ──────────────────────────────────────────────── */}
-        {/*               COMPACT TABLE                      */}
-        {/* ──────────────────────────────────────────────── */}
+        {/* Vehicles Table */}
         {loading ? (
           <div className="flex items-center justify-center py-32">
             <Loader2 className="animate-spin text-emerald-600" size={40} />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 gap-5 text-gray-400">
             <Car size={64} strokeWidth={1.1} />
             <p className="text-xl font-medium">
@@ -489,28 +509,54 @@ export default function VehiclesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50/80 border-b border-gray-200">
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
-                    Name
+                  <th
+                    onClick={() => handleSort("reg_no")}
+                    className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Reg No.
+                      <ArrowUpDown size={14} className="text-gray-400" />
+                    </div>
                   </th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
-                    Model
+                  <th
+                    onClick={() => handleSort("name")}
+                    className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Name
+                      <ArrowUpDown size={14} className="text-gray-400" />
+                    </div>
                   </th>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
-                    Reg No.
+                  <th
+                    onClick={() => handleSort("model")}
+                    className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Model
+                      <ArrowUpDown size={14} className="text-gray-400" />
+                    </div>
                   </th>
+
+                  {/* Available Column with Sorting */}
                   {activeTab !== "all" && (
-                    <th className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
-                      Available
+                    <th
+                      onClick={() => handleSort("available")}
+                      className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        Available
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
                     </th>
                   )}
+
                   <th className="text-right px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
                     Actions
                   </th>
                 </tr>
               </thead>
-
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((v) => {
+                {displayed.map((v) => {
                   const isLong = v.is_long_hire;
                   const isAvail =
                     activeTab === "long"
@@ -518,50 +564,37 @@ export default function VehiclesPage() {
                       : (v.is_available ?? false);
 
                   const isToggling = togglingLongHireId === v.id;
+                  const hasClaim = !!v.current_holder_claim_id;
+                  const showClaimLink = hasClaim && !isLong;
+                  const showLongHireToggle = isAvail;
 
                   return (
                     <tr key={v.id} className="hover:bg-gray-50/60 transition">
                       {editingId === v.id ? (
+                        // Edit Mode
                         <>
                           <td className="px-5 py-2">
                             <input
+                              value={editData.reg_no}
+                              onChange={(e) => setEditData((p) => ({ ...p, reg_no: e.target.value.toUpperCase() }))}
+                              className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            />
+                          </td>
+                          <td className="px-5 py-2">
+                            <input
                               value={editData.name}
-                              onChange={(e) =>
-                                setEditData((p) => ({
-                                  ...p,
-                                  name: e.target.value,
-                                }))
-                              }
+                              onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
                               className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             />
                           </td>
                           <td className="px-5 py-2">
                             <input
                               value={editData.model}
-                              onChange={(e) =>
-                                setEditData((p) => ({
-                                  ...p,
-                                  model: e.target.value,
-                                }))
-                              }
+                              onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
                               className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             />
                           </td>
-                          <td className="px-5 py-2">
-                            <input
-                              value={editData.reg_no}
-                              onChange={(e) =>
-                                setEditData((p) => ({
-                                  ...p,
-                                  reg_no: e.target.value.toUpperCase(),
-                                }))
-                              }
-                              className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                            />
-                          </td>
-                          {activeTab !== "all" && (
-                            <td className="px-5 py-2 text-center">-</td>
-                          )}
+                          {activeTab !== "all" && <td className="px-5 py-2 text-center">-</td>}
                           <td className="px-5 py-2 text-right">
                             <div className="flex justify-end gap-1.5">
                               <button
@@ -569,11 +602,7 @@ export default function VehiclesPage() {
                                 disabled={saving}
                                 className="p-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
                               >
-                                {saving ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                  <Check size={14} />
-                                )}
+                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                               </button>
                               <button
                                 onClick={cancelEdit}
@@ -585,27 +614,23 @@ export default function VehiclesPage() {
                           </td>
                         </>
                       ) : (
+                        // Normal View
                         <>
-                          <td className="px-5 py-2.5 font-medium text-gray-900">
-                            {v.name || "—"}
-                          </td>
-                          <td className="px-5 py-2.5 text-gray-700">
-                            {v.model || "—"}
-                          </td>
                           <td className="px-5 py-2.5">
-                            <span className="inline-flex px-2.5 py-0.5 bg-gray-100 text-gray-700 rounded font-mono text-xs">
+                            <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
                               {v.reg_no || "—"}
                             </span>
                           </td>
+                          <td className="px-5 py-2.5 font-medium text-gray-900">{v.name || "—"}</td>
+                          <td className="px-5 py-2.5 text-gray-700">{v.model || "—"}</td>
 
                           {activeTab !== "all" && (
                             <td className="px-5 py-2.5 text-center">
                               <span
-                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  isAvail
+                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
                                     ? "bg-emerald-100 text-emerald-700"
                                     : "bg-rose-100 text-rose-700"
-                                }`}
+                                  }`}
                               >
                                 {isAvail ? "Yes" : "No"}
                               </span>
@@ -622,35 +647,32 @@ export default function VehiclesPage() {
                                 <Pencil size={14} />
                               </button>
 
-                              {/* Show toggle ONLY in All tab */}
-                              {activeTab === "all" && (
+                              {showLongHireToggle && (
                                 <button
                                   onClick={() => toggleLongHire(v.id, isLong)}
                                   disabled={isToggling}
                                   className="p-1.5 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
-                                  title={
-                                    isLong
-                                      ? "Remove from Long Hire"
-                                      : "Add to Long Hire"
-                                  }
+                                  title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
                                 >
                                   {isToggling ? (
-                                    <Loader2
-                                      size={16}
-                                      className="animate-spin text-purple-600"
-                                    />
+                                    <Loader2 size={16} className="animate-spin text-purple-600" />
                                   ) : isLong ? (
-                                    <ToggleRight
-                                      size={20}
-                                      className="text-emerald-600"
-                                    />
+                                    <ToggleRight size={20} className="text-emerald-600" />
                                   ) : (
-                                    <ToggleLeft
-                                      size={20}
-                                      className="text-gray-400"
-                                    />
+                                    <ToggleLeft size={20} className="text-gray-400" />
                                   )}
                                 </button>
+                              )}
+
+                              {showClaimLink && (
+                                <Link
+                                  target="_blank"
+                                  href={`/claim/${v.current_holder_claim_id}`}
+                                  className="p-1.5 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
+                                  title="View Claim Holder"
+                                >
+                                  <ExternalLink size={16} />
+                                </Link>
                               )}
 
                               <button
@@ -660,10 +682,7 @@ export default function VehiclesPage() {
                                 title="Delete vehicle"
                               >
                                 {deleteLoading && deletingId === v.id ? (
-                                  <Loader2
-                                    size={14}
-                                    className="animate-spin text-red-600"
-                                  />
+                                  <Loader2 size={14} className="animate-spin text-red-600" />
                                 ) : (
                                   <Trash2 size={14} />
                                 )}

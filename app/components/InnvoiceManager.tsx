@@ -45,17 +45,23 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
 
-  const getCurrentUsername = (): string | null => {
-    try {
-      const userData = Cookies.get("user");
-      if (!userData) return null;
-      const parsed = JSON.parse(userData);
-      return parsed?.username || null;
-    } catch {
-      return null;
-    }
-  };
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []); // empty dependency array → runs once on mount
+
 
   // Fetch all form data – allow missing forms (treat as empty)
   useEffect(() => {
@@ -601,7 +607,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       const sendData = await sendResponse.json();
       if (sendResponse.ok && sendData.success) {
         // Create invoice if info is provided
-        if (info.trim()) {
+        if (true) {
           try {
             setStatus({ type: "info", text: "Creating invoice..." });
             // Fetch claim bill details
@@ -622,7 +628,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 docs: docsArray,
                 storage_bill: storage,
                 rent_bill: rental,
-                user_name: getCurrentUsername() || "Unknown", // or fetch actual user name if available
+                user_name: username || "Unknown", // or fetch actual user name if available
               },
               {
                 headers: { requiresAuth: true },
@@ -934,21 +940,19 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                   <tr
                     key={doc.id}
                     onClick={() => isAvailable && toggleDocument(doc.id)}
-                    className={`cursor-pointer transition-colors ${
-                      !isAvailable
+                    className={`cursor-pointer transition-colors ${!isAvailable
                         ? "bg-gray-50 text-gray-400 cursor-not-allowed"
                         : isSelected
                           ? "bg-emerald-300"
                           : "hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     <td className="px-4">
                       <div
-                        className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all ${
-                          isSelected
+                        className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all ${isSelected
                             ? "bg-emerald-500 border-emerald-500"
                             : "border-gray-300 group-hover:border-emerald-400"
-                        }`}
+                          }`}
                       >
                         {isSelected && (
                           <svg
@@ -970,11 +974,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     <td className="px-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            isSelected
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected
                               ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
                               : "bg-gray-200 text-gray-600"
-                          }`}
+                            }`}
                         >
                           {doc.icon}
                         </div>
@@ -1125,15 +1128,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       {/* Status + Progress */}
       {status && (
         <div
-          className={`p-5 rounded-2xl flex flex-col gap-3 shadow-sm ${
-            status.type === "success"
+          className={`p-5 rounded-2xl flex flex-col gap-3 shadow-sm ${status.type === "success"
               ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
               : status.type === "error"
                 ? "bg-red-50 text-red-800 border border-red-200"
                 : status.type === "warning"
                   ? "bg-amber-50 text-amber-800 border border-amber-200"
                   : "bg-blue-50 text-blue-800 border border-blue-200"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-3">
             {status.type === "success" ? (

@@ -84,7 +84,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
 
     // Starting from white → going toward primaryDark
     const startColor = [255, 255, 255];           // white
-    const endColor = [255,255,255]  // fallback if primaryDark missing
+    const endColor = [255, 255, 255]  // fallback if primaryDark missing
 
     for (let i = 0; i < gradientSteps; i++) {
       const ratio = i / (gradientSteps - 1);     // 0 → 1
@@ -100,7 +100,7 @@ export async function generatePDF(formData: PDFFormData): Promise<Blob> {
     // ────────────────────────────────────────────────
     // Text colors – choose depending on your brand colors
     // Option A: always white (usually safest on dark bottom)
-    pdf.setTextColor(30,30,30);   // white
+    pdf.setTextColor(30, 30, 30);   // white
 
     // Option B: very dark gray (if bottom is still quite light)
     // pdf.setTextColor(30, 30, 30);
@@ -1562,56 +1562,84 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
 
-  const hasChangeVehicle = !!(
-    data.change_vehicle_reg?.trim() ||
-    data.change_vehicle_make?.trim() ||
-    data.change_vehicle_model?.trim() ||
-    data.change_vehicle_group?.trim()
-  );
+  const changeVehicleHistory = Array.isArray(data.change_vehicle_history)
+    ? data.change_vehicle_history
+    : [];
+  const hasChangeVehicle = changeVehicleHistory.length > 0;
 
-  y = checkNewPage(y, 15);
+  if (hasChangeVehicle) {
+    y = checkNewPage(y, 15);
 
-  // ─── 11. Change of Hire Vehicle ─────────────────────
-  pdf.setFontSize(8);
-  pdf.setFont("helvetica", "bold");
-  pdf.setTextColor(0, 0, 0);
-  pdf.text("11. Change of Hire Vehicle", margin, y);
-  y += 4;
-
-  if (!hasChangeVehicle) {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(120, 120, 120);
-    pdf.text("No change of hire vehicle", margin, y);
-    y += 6;
-  } else {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
-
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Reg", margin, y);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
     pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.change_vehicle_reg), margin + 20, y);
+    pdf.text("11. Change of Hire Vehicle", margin, y);
+    y += 4;
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Make", margin + col4, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.change_vehicle_make), margin + col4 + 20, y);
+    const multiple = changeVehicleHistory.length > 1;
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Model", margin + col4 * 2, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.change_vehicle_model), margin + col4 * 2 + 20, y);
+    changeVehicleHistory.forEach((vehicle, index) => {
+      y = checkNewPage(y, 10);
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Group", margin + col4 * 3, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.change_vehicle_group), margin + col4 * 3 + 20, y);
+      // Heading for multiple changes
+      if (multiple) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7);          
+        pdf.setTextColor(0, 128, 0); // green heading
+        pdf.text(`Vehicle ${index + 1}`, margin, y);
+        y += 3;
+      }
 
-    y += 5;
-  }
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
 
-  // ─── 12. Charges Summary ────────────────────────────
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Reg", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_reg), margin + 20, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Make", margin + col4, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_make), margin + col4 + 20, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Model", margin + col4 * 2, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_model), margin + col4 * 2 + 20, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Group", margin + col4 * 3, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_group), margin + col4 * 3 + 20, y);
+
+      y += 3.5;
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date Out", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(vehicle.date_out), margin + 25, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date In", margin + half, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(vehicle.date_in), margin + half + 25, y);
+
+      y += 3.5;
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Fuel Out", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.fuel_out), margin + 25, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Fuel In", margin + half, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.fuel_in), margin + half + 25, y);
+
+      y += 5;
+    });
+  }  // ─── 12. Charges Summary ────────────────────────────
   y = checkNewPage(y, 35);
 
   pdf.setFontSize(8);
@@ -1731,6 +1759,7 @@ async function generateRentalPDF(
 
   return y;
 }
+
 
 async function generateClaimPDF(
   pdf: jsPDF,

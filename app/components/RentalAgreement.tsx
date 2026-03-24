@@ -24,8 +24,19 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
 
+  interface ChangeVehicleRecord {
+    vehicle_reg: string;
+    vehicle_make: string;
+    vehicle_model: string;
+    vehicle_group: string;
+    date_out: string;
+    date_in: string;
+    fuel_out: string;
+    fuel_in: string;
+  }
+
   const initialFormData = {
-    // Hirer’s Details
+    // Hirer's Details
     hirer_name: "",
     title: "",
     permanent_address: "",
@@ -48,7 +59,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     new_dob: "",
     new_date_test_passed: "",
     new_occupation: "",
-    // Hirer’s Own Insurance
+    // Hirer's Own Insurance
     insurance_company: "",
     policy_no: "",
     insurance_dates: "",
@@ -76,15 +87,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     hire_vehicle_date_in: "",
     hire_vehicle_fuel_out: "",
     hire_vehicle_fuel_in: "",
-    // Change of Hire Vehicle
-    change_vehicle_reg: "",
-    change_vehicle_make: "",
-    change_vehicle_model: "",
-    change_vehicle_group: "",
-    change_vehicle_date_out: "",
-    change_vehicle_date_in: "",
-    change_vehicle_fuel_out: "",
-    change_vehicle_fuel_in: "",
+    // Change of Hire Vehicle - Now using JSONB array
+    change_vehicle_history: [] as ChangeVehicleRecord[],
     // Charges Summary
     admin_fee: "",
     delivery_charge: "",
@@ -127,7 +131,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
   // Track if vehicle reg values came from API (locked/non-editable)
   const [hireVehicleFromApi, setHireVehicleFromApi] = useState(false);
-  const [changeVehicleFromApi, setChangeVehicleFromApi] = useState(false);
+  
+  // Track current vehicle index being edited (for vehicle changes)
+  const [editingVehicleIndex, setEditingVehicleIndex] = useState<number | null>(null);
 
   // Vehicle search states
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
@@ -263,14 +269,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       if (data.hire_vehicle_reg) {
         setHireVehicleFromApi(true);
       }
-      if (data.change_vehicle_reg) {
-        setChangeVehicleFromApi(true);
-      }
 
       // Check if API data exists for conditional sections
       const hasAdditionalDriverData = data.additional_driver_name || data.licence_no || data.dob || data.occupation;
       const hasOwnInsuranceData = data.insurance_company || data.policy_no || data.insurance_dates;
-      const hasChangeVehicleData = data.change_vehicle_reg || data.change_vehicle_make || data.change_vehicle_model;
+      const hasChangeVehicleData = data.change_vehicle_history && data.change_vehicle_history.length > 0;
 
       // If API has data for a section, skip question and show form directly
       if (hasAdditionalDriverData) {
@@ -405,14 +408,36 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   };
 
   const selectChangeVehicle = (vehicle: Vehicle) => {
+    const idx = editingVehicleIndex !== null ? editingVehicleIndex : (formData.change_vehicle_history as ChangeVehicleRecord[]).length;
+    const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
+    
+    if (idx === newHistory.length) {
+      newHistory.push({
+        vehicle_reg: vehicle.reg_no,
+        vehicle_make: vehicle.name,
+        vehicle_model: vehicle.model,
+        vehicle_group: "",
+        date_out: "",
+        date_in: "",
+        fuel_out: "",
+        fuel_in: "",
+      });
+    } else {
+      newHistory[idx] = {
+        ...newHistory[idx],
+        vehicle_reg: vehicle.reg_no,
+        vehicle_make: vehicle.name,
+        vehicle_model: vehicle.model,
+      };
+    }
+    
     setFormData((prev) => ({
       ...prev,
-      change_vehicle_reg: vehicle.reg_no,
-      change_vehicle_make: vehicle.name,
-      change_vehicle_model: vehicle.model,
+      change_vehicle_history: newHistory,
     }));
     setChangeVehicleSearch("");
     setChangeVehicleSuggestions([]);
+    setEditingVehicleIndex(null);
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -434,19 +459,31 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   };
 
-  // Clear change vehicle selection to allow reselection
-  const clearChangeVehicle = () => {
+  // Remove a vehicle change record
+  const removeChangeVehicle = (index: number) => {
+    const newHistory = (formData.change_vehicle_history as ChangeVehicleRecord[]).filter((_, i) => i !== index);
     setFormData((prev) => ({
       ...prev,
-      change_vehicle_reg: "",
-      change_vehicle_make: "",
-      change_vehicle_model: "",
+      change_vehicle_history: newHistory,
     }));
-    setChangeVehicleSearch("");
-    setChangeVehicleSuggestions([]);
-    setChangeVehicleFromApi(false);
+    setEditingVehicleIndex(null);
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
+    }
+  };
+
+  // Update a specific field in a vehicle change record
+  const updateChangeVehicleField = (index: number, field: keyof ChangeVehicleRecord, value: string) => {
+    const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
+    if (newHistory[index]) {
+      newHistory[index] = { ...newHistory[index], [field]: value };
+      setFormData((prev) => ({
+        ...prev,
+        change_vehicle_history: newHistory,
+      }));
+      if (unsavedChangesContext) {
+        unsavedChangesContext.setHasUnsavedChanges(true);
+      }
     }
   };
 
@@ -805,6 +842,193 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </section>
               </div>
             </div>
+
+            {/* Change of Hire Vehicle - Appears after Hire Vehicle */}
+            <section className="space-y-6 bg-emerald-50 p-8 rounded-2xl border border-emerald-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-semibold text-emerald-700 pb-0 border-b-0">
+                  Change of Hire Vehicle
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[]), {
+                      vehicle_reg: "",
+                      vehicle_make: "",
+                      vehicle_model: "",
+                      vehicle_group: "",
+                      date_out: "",
+                      date_in: "",
+                      fuel_out: "",
+                      fuel_in: "",
+                    }];
+                    setFormData((prev) => ({
+                      ...prev,
+                      change_vehicle_history: newHistory,
+                    }));
+                    setShowChangeVehicle(true);
+                    if (unsavedChangesContext) {
+                      unsavedChangesContext.setHasUnsavedChanges(true);
+                    }
+                  }}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
+                >
+                  + Add Vehicle
+                </button>
+              </div>
+
+              {(formData.change_vehicle_history as ChangeVehicleRecord[]).length === 0 ? (
+                <p className="text-sm text-gray-500 italic">
+                  No vehicle changes recorded. Click "Add Vehicle" to record a vehicle change.
+                </p>
+              ) : (
+                <div className="space-y-6">
+                  {(formData.change_vehicle_history as ChangeVehicleRecord[]).map((vehicle, index) => (
+                    <div key={index} className="bg-white p-6 rounded-xl border border-blue-200 space-y-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-800">Vehicle {index + 1}</h4>
+                        <button
+                          type="button"
+                          onClick={() => removeChangeVehicle(index)}
+                          className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
+                          {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
+                                  <span>{vehicle.vehicle_reg}</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingVehicleIndex(index);
+                                  setChangeVehicleSearch("");
+                                  setChangeVehicleSuggestions([]);
+                                }}
+                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition"
+                              >
+                                Change
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                value={editingVehicleIndex === index ? changeVehicleSearch : ""}
+                                onChange={(e) => {
+                                  if (editingVehicleIndex === index) {
+                                    handleChangeVehicleSearch(e.target.value);
+                                  }
+                                }}
+                                onFocus={() => setEditingVehicleIndex(index)}
+                                placeholder="Search by reg..."
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                              />
+                              {editingVehicleIndex === index && changeVehicleSuggestions.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                                  {changeVehicleSuggestions.map((v) => (
+                                    <button
+                                      key={v.id}
+                                      type="button"
+                                      onClick={() => selectChangeVehicle(v)}
+                                      className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-200 last:border-b-0"
+                                    >
+                                      <div className="font-medium text-gray-900">{v.reg_no}</div>
+                                      <div className="text-sm text-gray-600">{v.name} {v.model}</div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                          <input
+                            type="text"
+                            value={vehicle.vehicle_make}
+                            readOnly
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                          <input
+                            type="text"
+                            value={vehicle.vehicle_model}
+                            readOnly
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
+                          <input
+                            type="text"
+                            value={vehicle.vehicle_group}
+                            onChange={(e) => updateChangeVehicleField(index, "vehicle_group", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
+                          <input
+                            type="date"
+                            value={vehicle.date_out}
+                            onChange={(e) => updateChangeVehicleField(index, "date_out", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date in</label>
+                          <input
+                            type="date"
+                            value={vehicle.date_in}
+                            onChange={(e) => updateChangeVehicleField(index, "date_in", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Fuel out</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Full / 3/4 / 1/2"
+                            value={vehicle.fuel_out}
+                            onChange={(e) => updateChangeVehicleField(index, "fuel_out", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Fuel in</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Full / 3/4 / 1/2"
+                            value={vehicle.fuel_in}
+                            onChange={(e) => updateChangeVehicleField(index, "fuel_in", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                 Driver Details
@@ -1499,197 +1723,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
-
-            {/* Hire Vehicle */}
-
-            {/* Conditional: Ask about change of vehicle (only if state is null) */}
-            
-              <section className="space-y-6 mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
-                  <label className="text-sm font-medium text-gray-700">
-                    Was the vehicle changed during the rental period?
-                  </label>
-                  <div className="flex gap-8">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="show_change_vehicle"
-                        checked={showChangeVehicle === true}
-                        onChange={() => setShowChangeVehicle(true)}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm font-medium">Yes</span>
-                    </label>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="show_change_vehicle"
-                        checked={showChangeVehicle === false}
-                        onChange={() => setShowChangeVehicle(false)}
-                        className="h-4 w-4 text-green-600 focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm font-medium">No</span>
-                    </label>
-                  </div>
-                </div>
-              </section>
-            
-
-            {/* Change of Hire Vehicle - Show only if selected or API data exists */}
-            {showChangeVehicle && (
-              <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
-                <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                  Change of Hire Vehicle
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Reg:
-                    </label>
-                    {formData.change_vehicle_reg ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1">
-                          {changeVehicleFromApi ? (
-                            <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-600">
-                              <div className="font-medium text-gray-800">{formData.change_vehicle_reg}</div>
-                            </div>
-                          ) : (
-                            <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 flex items-center justify-between">
-                              <span>{formData.change_vehicle_reg}</span>
-                            </div>
-                          )}
-                        </div>
-                        {!changeVehicleFromApi && (
-                          <button
-                            type="button"
-                            onClick={clearChangeVehicle}
-                            className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition"
-                          >
-                            Change
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <input
-                          type="text"
-                          value={changeVehicleSearch}
-                          onChange={(e) => handleChangeVehicleSearch(e.target.value)}
-                          placeholder="Search by reg..."
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                        />
-                        {changeVehicleSuggestions.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
-                            {changeVehicleSuggestions.map((vehicle) => (
-                              <button
-                                key={vehicle.id}
-                                type="button"
-                                onClick={() => selectChangeVehicle(vehicle)}
-                                className="w-full text-left px-4 py-2 hover:bg-green-50 border-b border-gray-200 last:border-b-0"
-                              >
-                                <div className="font-medium text-gray-900">{vehicle.reg_no}</div>
-                                <div className="text-sm text-gray-600">{vehicle.name} {vehicle.model}</div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Make:
-                    </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_make"
-                      value={formData.change_vehicle_make}
-                      onChange={handleChange}
-                      readOnly
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Model:
-                    </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_model"
-                      value={formData.change_vehicle_model}
-                      onChange={handleChange}
-                      readOnly
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Group:
-                    </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_group"
-                      value={formData.change_vehicle_group}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date out:
-                    </label>
-                    <input
-                      type="date"
-                      name="change_vehicle_date_out"
-                      value={formData.change_vehicle_date_out}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date in:
-                    </label>
-                    <input
-                      type="date"
-                      name="change_vehicle_date_in"
-                      value={formData.change_vehicle_date_in}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fuel out:
-                    </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_fuel_out"
-                      placeholder="e.g. Full / 3/4 / 1/2"
-                      value={formData.change_vehicle_fuel_out}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fuel in:
-                    </label>
-                    <input
-                      type="text"
-                      name="change_vehicle_fuel_in"
-                      placeholder="e.g. Full / 3/4 / 1/2"
-                      value={formData.change_vehicle_fuel_in}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                    />
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 italic mt-4">
-                  (Leave blank if no vehicle change occurred during the hire period)
-                </p>
-              </section>
-            )}
 
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
               <h3 className="text-2xl font-semibold text-green-800 pb-4 border-b border-green-300">

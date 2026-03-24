@@ -3,7 +3,7 @@ import { useState, useEffect, FormEvent, ChangeEvent, useRef } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
-import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock, Plus, TrendingUp, FileText, Clock, CheckCircle2, AlertCircle, BarChart3, Receipt, Car, Crown, BookOpen, User } from "lucide-react";
+import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock, Plus, TrendingUp, FileText, Clock, CheckCircle2, AlertCircle, BarChart3, Receipt, Car, Crown, BookOpen, User, LayoutGrid } from "lucide-react";
 import Cookies from "js-cookie";
 
 interface Claim {
@@ -58,7 +58,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     default: { color: "bg-gray-500", number: 0, label: "Unknown", badgeBg: "bg-gray-100", badgeText: "text-gray-700" },
 };
 
-const CLAIM_TYPES = ["taxi", "personal", "sovereign", "learning"];
+const CLAIM_TYPES = ["taxi", "personal", "sovereign", "learning", "vehicle damage"];
 
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
@@ -90,6 +90,7 @@ export default function ClaimsPage() {
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [userName, setUsername] = useState<string | null>(null);
 
     // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
@@ -97,16 +98,21 @@ export default function ClaimsPage() {
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const getCurrentUsername = (): string | null => {
-        try {
-            const userData = Cookies.get("user");
-            if (!userData) return null;
-            const parsed = JSON.parse(userData);
-            return parsed?.username || null;
-        } catch {
-            return null;
-        }
-    };
+    useEffect(() => {
+        const getCurrentUsername = (): string | null => {
+            try {
+                const userData = Cookies.get("user");
+                if (!userData) return null;
+                const parsed = JSON.parse(userData);
+                return parsed?.username || null;
+            } catch {
+                return null;
+            }
+        };
+
+        const currentUser = userName || 'Unknown'; 
+        setUsername(currentUser);
+    }, []); // empty dependency array → runs once on mount
 
     const fetchClaims = async () => {
         setLoading(true);
@@ -292,7 +298,7 @@ export default function ClaimsPage() {
         bodyKey: string,
         actionName: string
     ) => {
-        const username = getCurrentUsername();
+        const username = username;
         if (!username) {
             alert("User session not found. Please log in again.");
             return;
