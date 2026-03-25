@@ -35,6 +35,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     fuel_in: string;
     miles_out: string;
     miles_in: string;
+    fromApi?: boolean; // Track if this vehicle came from API (locked reg change)
   }
 
   const initialFormData = {
@@ -135,7 +136,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
   // Track if vehicle reg values came from API (locked/non-editable)
   const [hireVehicleFromApi, setHireVehicleFromApi] = useState(false);
-  
+
   // Track current vehicle index being edited (for vehicle changes)
   const [editingVehicleIndex, setEditingVehicleIndex] = useState<number | null>(null);
 
@@ -298,6 +299,15 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       if (hasChangeVehicleData) {
         setHasApiData(true);
         setShowChangeVehicle(true);
+        // Mark each API vehicle as fromApi: true
+        const vehiclesFromApi = data.change_vehicle_history.map((v: ChangeVehicleRecord) => ({
+          ...v,
+          fromApi: true,
+        }));
+        setFormData((prev) => ({
+          ...prev,
+          change_vehicle_history: vehiclesFromApi,
+        }));
       } else {
         setShowChangeVehicle(null);
       }
@@ -414,7 +424,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const selectChangeVehicle = (vehicle: Vehicle) => {
     const idx = editingVehicleIndex !== null ? editingVehicleIndex : (formData.change_vehicle_history as ChangeVehicleRecord[]).length;
     const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
-    
+
     if (idx === newHistory.length) {
       newHistory.push({
         vehicle_reg: vehicle.reg_no,
@@ -434,7 +444,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
         vehicle_model: vehicle.model,
       };
     }
-    
+
     setFormData((prev) => ({
       ...prev,
       change_vehicle_history: newHistory,
@@ -548,7 +558,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       "admin_fee",
       "delivery_charge",
       "cdw_per_day",
-      
+
       "total_days",
       "rate_per_day",
       "refuelling_total",
@@ -717,8 +727,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     Hire Vehicle
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="relative">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Registration */}
+                    <div className="relative lg:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                       {formData.hire_vehicle_reg ? (
                         <div className="flex items-center gap-2">
@@ -771,7 +782,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       )}
                     </div>
 
-                    <div>
+                    {/* Make */}
+                    <div className="lg:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
                       <input
                         type="text"
@@ -783,7 +795,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
 
-                    <div>
+                    {/* Model */}
+                    <div className="lg:col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
                       <input
                         type="text"
@@ -795,74 +808,81 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
 
-                   
+                    {/* Empty div to balance the 4-column grid (since we have only 3 fields here) */}
+                    <div className="hidden lg:block"></div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
-                      <input
-                        type="date"
-                        name="hire_vehicle_date_out"
-                        value={formData.hire_vehicle_date_out}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
+                    {/* Date Out & Date In - Single Line */}
+                    <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
+                        <input
+                          type="date"
+                          name="hire_vehicle_date_out"
+                          value={formData.hire_vehicle_date_out}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date in</label>
+                        <input
+                          type="date"
+                          name="hire_vehicle_date_in"
+                          value={formData.hire_vehicle_date_in}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date in</label>
-                      <input
-                        type="date"
-                        name="hire_vehicle_date_in"
-                        value={formData.hire_vehicle_date_in}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
+                    {/* Fuel Out & Fuel In - Single Line */}
+                    <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fuel out</label>
+                        <input
+                          type="text"
+                          name="hire_vehicle_fuel_out"
+                          placeholder="e.g. Full / 3/4 / 1/2"
+                          value={formData.hire_vehicle_fuel_out}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fuel in</label>
+                        <input
+                          type="text"
+                          name="hire_vehicle_fuel_in"
+                          placeholder="e.g. Full / 3/4 / 1/2"
+                          value={formData.hire_vehicle_fuel_in}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fuel out</label>
-                      <input
-                        type="text"
-                        name="hire_vehicle_fuel_out"
-                        placeholder="e.g. Full / 3/4 / 1/2"
-                        value={formData.hire_vehicle_fuel_out}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Fuel in</label>
-                      <input
-                        type="text"
-                        name="hire_vehicle_fuel_in"
-                        placeholder="e.g. Full / 3/4 / 1/2"
-                        value={formData.hire_vehicle_fuel_in}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Miles out</label>
-                      <input
-                        type="number"
-                        name="hire_vehicle_miles_out"
-                        value={formData.hire_vehicle_miles_out}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Miles in</label>
-                      <input
-                        type="number"
-                        name="hire_vehicle_miles_in"
-                        value={formData.hire_vehicle_miles_in}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
+                    {/* Miles Out & Miles In - Single Line */}
+                    <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Miles out</label>
+                        <input
+                          type="number"
+                          name="hire_vehicle_miles_out"
+                          value={formData.hire_vehicle_miles_out}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Miles in</label>
+                        <input
+                          type="number"
+                          name="hire_vehicle_miles_in"
+                          value={formData.hire_vehicle_miles_in}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                        />
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -925,7 +945,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div className="relative">
+                      <div className="relative">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                           {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
                             <div className="flex items-center gap-2">
@@ -941,7 +961,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   setChangeVehicleSearch("");
                                   setChangeVehicleSuggestions([]);
                                 }}
-                                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition"
+                                disabled={vehicle.fromApi}
+                                className={`px-2 py-1 text-white text-xs rounded-lg transition ${
+                                  vehicle.fromApi
+                                    ? "bg-gray-400 cursor-not-allowed"
+                                    : "bg-blue-500 hover:bg-blue-600"
+                                }`}
                               >
                                 Change
                               </button>
@@ -952,15 +977,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                 type="text"
                                 value={editingVehicleIndex === index ? changeVehicleSearch : ""}
                                 onChange={(e) => {
-                                  if (editingVehicleIndex === index) {
+                                  if (editingVehicleIndex === index && !vehicle.fromApi) {
                                     handleChangeVehicleSearch(e.target.value);
                                   }
                                 }}
-                                onFocus={() => setEditingVehicleIndex(index)}
+                                onFocus={() => {
+                                  if (!vehicle.fromApi) {
+                                    setEditingVehicleIndex(index);
+                                  }
+                                }}
                                 placeholder="Search by reg..."
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                                disabled={vehicle.fromApi}
+                                className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${
+                                  vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
+                                }`}
                               />
-                              {editingVehicleIndex === index && changeVehicleSuggestions.length > 0 && (
+                              {editingVehicleIndex === index && changeVehicleSuggestions.length > 0 && !vehicle.fromApi && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
                                   {changeVehicleSuggestions.map((v) => (
                                     <button
@@ -1302,7 +1334,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
 
-             
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -51,15 +51,15 @@ const COUNCIL_OPTIONS = [
 
 // Updated STATUS_COLORS with stage numbers - Stage 6 removed
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
-    "claim created": { color: "bg-gray-900", number: 1, label: "Claim Created", badgeBg: "bg-gray-900", badgeText: "text-white" },
-    "hire start": { color: "bg-gray-900", number: 2, label: "Hire Start", badgeBg: "bg-gray-900", badgeText: "text-white" },
-    "client paid": { color: "bg-gray-900", number: 3, label: "Client Paid", badgeBg: "bg-gray-900", badgeText: "text-white" },
-    "hire end": { color: "bg-red-600", number: 4, label: "Hire End", badgeBg: "bg-red-600", badgeText: "text-white" },
-    "invoice sent": { color: "bg-green-600", number: 5, label: "Invoice Sent", badgeBg: "bg-green-600", badgeText: "text-white" },
-    default: { color: "bg-gray-500", number: 0, label: "Unknown", badgeBg: "bg-gray-100", badgeText: "text-gray-700" },
+    "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+    "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+    "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+    "hire end": { color: "text-red-600", number: 4, label: "Hire End", badgeBg: "border-red-600", badgeText: "bg-red-600" },
+    "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
+    default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
 
-const CLAIM_TYPES = ["taxi", "personal", "sovereign", "learning", "vehicle damage"];
+const CLAIM_TYPES = ["taxi", "personal", "learning", "vehicle damage", "sovereign"];
 
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
@@ -98,6 +98,7 @@ export default function ClaimsPage() {
     const [editNameValue, setEditNameValue] = useState("");
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const tableRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
@@ -111,10 +112,18 @@ export default function ClaimsPage() {
             }
         };
 
-        const currentUser = getCurrentUsername(); 
+        const currentUser = getCurrentUsername();
         setUsername(currentUser);
     }, []); // empty dependency array → runs once on mount
 
+    useEffect(() => {
+        if (tableRef.current) {
+            const element = tableRef.current;
+            const elementTop = element.getBoundingClientRect().top + window.scrollY;
+            const targetScroll = elementTop - window.innerHeight * 0.4; // 0.4 means 40% from top = 60% down
+            window.scrollTo({ top: targetScroll, behavior: "smooth" });
+        }
+    }, [selectedType, statusFilter, selectedCouncil, selectedStage, searchTerm, startDate, endDate]);
     const fetchClaims = async () => {
         setLoading(true);
         setError(null);
@@ -611,8 +620,8 @@ export default function ClaimsPage() {
                             </div>
 
                             {/* Horizontal no-wrap scrollable layout */}
-                            <div className="overflow-x-auto -mx-5 px-5">
-                                <div className="flex gap-3 min-w-min">
+                            <div className="w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {summary.typeBreakdown.map(({ type, count }) => {
                                         const cfg = typeConfig[type] || {
                                             icon: LayoutGrid,
@@ -622,6 +631,7 @@ export default function ClaimsPage() {
                                             iconBg: "bg-gray-100 text-gray-500",
                                             bar: "bg-gray-400",
                                         };
+
                                         const Icon = cfg.icon;
                                         const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
                                         const displayType = type === "learning" ? "Learner" : type;
@@ -630,24 +640,34 @@ export default function ClaimsPage() {
                                             <button
                                                 key={type}
                                                 onClick={() => setSelectedType(type === selectedType ? "" : type)}
-                                                className={`relative bg-gradient-to-br ${cfg.gradient} border-2 ${selectedType === type ? "border-yellow-300 ring-2 ring-yellow-200" : cfg.border} rounded-xl p-4 flex flex-col gap-3 overflow-hidden group hover:shadow-md transition-all duration-200 cursor-pointer flex-shrink-0 w-32`}
+                                                className={`relative bg-gradient-to-br ${cfg.gradient} 
+                        border-2 ${selectedType === type
+                                                        ? "border-yellow-300 ring-2 ring-yellow-200 shadow-lg"
+                                                        : cfg.border} 
+                        rounded-2xl p-6 flex flex-col gap-4 overflow-hidden 
+                        group hover:shadow-xl hover:-translate-y-0.5 
+                        transition-all duration-200 cursor-pointer w-full`}
                                             >
-                                                {/* Big ghost number in background */}
-
+                                                {/* Header */}
                                                 <div className="flex items-center justify-between">
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.iconBg}`}>
-                                                        <Icon size={15} strokeWidth={2.2} />
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.iconBg}`}>
+                                                        <Icon size={20} strokeWidth={2.5} />
                                                     </div>
-                                                    <span className={`text-[11px] font-bold ${cfg.text} opacity-70`}>{pct}%</span>
+                                                    <span className={`text-sm font-bold ${cfg.text} opacity-75`}>{pct}%</span>
                                                 </div>
 
-                                                <div>
-                                                    <p className={`text-2xl font-black leading-none ${cfg.text}`}>{count}</p>
-                                                    <p className="text-[11px] font-medium text-gray-500 capitalize mt-0.5">{displayType}</p>
+                                                {/* Main Content */}
+                                                <div className="flex-1">
+                                                    <p className={`text-4xl font-black leading-none ${cfg.text} tracking-tighter`}>
+                                                        {count}
+                                                    </p>
+                                                    <p className="text-base font-medium text-gray-600 mt-1 capitalize">
+                                                        {displayType}
+                                                    </p>
                                                 </div>
 
-                                                {/* Progress bar */}
-                                                <div className="h-1 bg-black/8 rounded-full overflow-hidden">
+                                                {/* Progress Bar */}
+                                                <div className="h-1.5 bg-black/10 rounded-full overflow-hidden mt-auto">
                                                     <div
                                                         className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
                                                         style={{ width: `${pct}%` }}
@@ -923,7 +943,7 @@ export default function ClaimsPage() {
                                 .map(([status, data]) => (
                                     <div key={status} className="relative group">
                                         <div className="flex items-center gap-2">
-                                            <div className={`w-3 h-3 rounded-full ${data.color} ring-1 ring-black/10`} />
+                                            <div className={`w-3 h-3 rounded-full ${data.badgeText} ring-1 ring-black/10`} />
                                             <span className="text-xs font-semibold text-gray-700 min-w-[20px]">{data.number}</span>
                                         </div>
                                         <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover:block">
@@ -958,7 +978,7 @@ export default function ClaimsPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl">
+                    <div ref={tableRef} className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl">
                         {/* Scrollable container with fixed max-height so the sticky header works */}
                         <div className="overflow-auto max-h-[500px]">
                             <table className="min-w-full divide-y divide-gray-400 text-sm rounded-md">
@@ -1010,7 +1030,7 @@ export default function ClaimsPage() {
                                                         {(() => {
                                                             let statusText = "Active";
                                                             let bgColor = "bg-green-100 text-green-800";
-                                                            
+
                                                             if (isClosed) {
                                                                 statusText = "Closed";
                                                                 bgColor = "bg-red-100 text-red-800";
@@ -1018,7 +1038,7 @@ export default function ClaimsPage() {
                                                                 statusText = "Non Active";
                                                                 bgColor = "bg-amber-100 text-amber-800";
                                                             }
-                                                            
+
                                                             return (
                                                                 <>
                                                                     <span className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-semibold rounded-full ${bgColor}`}>
@@ -1085,7 +1105,7 @@ export default function ClaimsPage() {
                                                 {/* Status badge — now shows Stage N + label */}
                                                 <td className="border-r border-gray-300 px-2 py-1">
                                                     <div className="flex items-center justify-center">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-white text-gray-700 border-gray-700 border-2`}>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-white ${statusData.color} ${statusData.badgeBg} border-2`}>
                                                             {statusData.number}
                                                         </span>
                                                     </div>

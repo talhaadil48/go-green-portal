@@ -37,13 +37,9 @@ interface SummaryData {
     driver_postcode?: string;
     driver_dob?: string;
     driver_ni_number?: string;
-    driver_occupation?: string;
     client_vehicle_make?: string;
     client_vehicle_model?: string;
     client_registration?: string;
-    client_policy_no?: string;
-    client_cover_type?: string;
-    client_policy_holder?: string;
   };
   rental_agreement?: {
     hire_vehicle_reg?: string;
@@ -55,12 +51,9 @@ interface SummaryData {
     hire_vehicle_miles_in?: number;
     change_vehicle_history?: Array<{
       date_in?: string;
-      fuel_in?: string;
       date_out?: string;
-      fuel_out?: string;
       vehicle_reg?: string;
       vehicle_make?: string;
-      vehicle_group?: string;
       vehicle_model?: string;
       miles_out?: string;
       miles_in?: string;
@@ -108,14 +101,11 @@ const styles = `
     --sr-danger:        #c0392b;
     --sr-danger-pale:   #fdf1f0;
     --sr-danger-border: #f0b8b3;
-    --sr-amber:         #c47f17;
     --sr-shadow-sm:     0 1px 4px rgba(27,122,76,0.08), 0 1px 2px rgba(0,0,0,0.05);
-    --sr-shadow-md:     0 4px 20px rgba(27,122,76,0.11), 0 2px 8px rgba(0,0,0,0.05);
     --sr-r:             16px;
     --sr-r-sm:          10px;
   }
 
-  /* ── ROOT ── */
   .sr-root {
     font-family: 'Inter', sans-serif;
     background: var(--sr-bg);
@@ -140,7 +130,6 @@ const styles = `
     font-size: 16px;
   }
 
-  /* Header, Cards, Grid, etc. — all your original styles */
   .sr-header {
     display: flex;
     align-items: flex-start;
@@ -166,7 +155,6 @@ const styles = `
     font-weight: 800;
     color: var(--sr-text-head);
     margin: 0;
-    padding: 0;
     letter-spacing: -0.02em;
   }
 
@@ -174,7 +162,6 @@ const styles = `
     font-size: 14px;
     color: var(--sr-text-muted);
     margin: 8px 0 0;
-    padding: 0;
     font-weight: 500;
   }
 
@@ -396,25 +383,6 @@ const styles = `
     font-weight: 600;
     color: var(--sr-text-body);
   }
-
-  .sr-csub {
-    font-size: 11px;
-    color: var(--sr-text-faint);
-    margin-top: 2px;
-  }
-
-  .sr-spin {
-    width: 32px;
-    height: 32px;
-    border: 3px solid rgba(27, 122, 76, 0.1);
-    border-top-color: var(--sr-em);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
 `;
 
 export default function SummaryPage({ claimId }: { claimId: string }) {
@@ -484,11 +452,14 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const storage = storageLocations[storageKey] || storageLocations.addr1;
   const invoices = data.invoices || [];
 
+  const hasVehicleChanges = rental?.change_vehicle_history && rental.change_vehicle_history.length > 0;
+
   return (
     <>
       <style>{styles}</style>
       <div className="sr-root">
         <div className="sr-inner">
+
           {/* HEADER */}
           <header className="sr-header">
             <div>
@@ -502,25 +473,22 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
             </div>
 
             <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
-              <span className="sr-dot" />
               {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
             </div>
           </header>
 
-          {/* MAIN GRID */}
           <div className="sr-grid">
 
-            {/* ===== SECTION 1: CLAIMANT & VEHICLE DETAILS ===== */}
+            {/* CLAIMANT & VEHICLE DETAILS */}
             <div>
               <h2 className="sr-section-title">Claimant & Vehicle Details</h2>
               <div className="sr-section">
-                {/* Claimant Details Card */}
+
+                {/* Claimant Details */}
                 <div className="sr-card sr-card-em">
                   <div className="sr-chead">
                     <div className="sr-clabel">
-                      <div className="sr-cicon">
-                        <User size={18} />
-                      </div>
+                      <div className="sr-cicon"><User size={18} /></div>
                       <span className="sr-ctitle">Claimant Details</span>
                     </div>
                   </div>
@@ -537,7 +505,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       <div className="sr-compact">
                         {accident.driver_email && (
                           <div className="sr-compact-row">
-                            <Mail size={14} className="sr-icon-sm" />
+                            <Mail size={14} />
                             <div>
                               <span className="sr-compact-label">Email</span>
                               <div className="sr-compact-value">{accident.driver_email}</div>
@@ -546,7 +514,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {accident.driver_telephone && (
                           <div className="sr-compact-row">
-                            <Phone size={14} className="sr-icon-sm" />
+                            <Phone size={14} />
                             <div>
                               <span className="sr-compact-label">Phone</span>
                               <div className="sr-compact-value">{accident.driver_telephone}</div>
@@ -555,43 +523,31 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {accident.driver_dob && (
                           <div className="sr-compact-row">
-                            <Calendar size={14} className="sr-icon-sm" />
+                            <Calendar size={14} />
                             <div>
                               <span className="sr-compact-label">DOB</span>
                               <div className="sr-compact-value">{fmt(accident.driver_dob)}</div>
                             </div>
                           </div>
                         )}
-                        {accident.driver_address && (
+
+                        {(accident.driver_address || accident.driver_postcode) && (
                           <div className="sr-compact-row">
-                            <MapPin size={14} className="sr-icon-sm" />
+                            <MapPin size={14} />
                             <div>
                               <span className="sr-compact-label">Address</span>
-                              <div className="sr-compact-value">{accident.driver_address}</div>
+                              <div className="sr-compact-value">
+                                {accident.driver_address}
+                                {accident.driver_address && accident.driver_postcode && ", "}
+                                {accident.driver_postcode}
+                              </div>
                             </div>
                           </div>
                         )}
-                        {accident.driver_postcode && (
-                          <div className="sr-compact-row">
-                            <Hash size={14} className="sr-icon-sm" />
-                            <div>
-                              <span className="sr-compact-label">Postcode</span>
-                              <div className="sr-compact-value">{accident.driver_postcode}</div>
-                            </div>
-                          </div>
-                        )}
-                        {accident.driver_occupation && (
-                          <div className="sr-compact-row">
-                            <User size={14} className="sr-icon-sm" />
-                            <div>
-                              <span className="sr-compact-label">Occupation</span>
-                              <div className="sr-compact-value">{accident.driver_occupation}</div>
-                            </div>
-                          </div>
-                        )}
+
                         {accident.driver_ni_number && (
                           <div className="sr-compact-row">
-                            <Hash size={14} className="sr-icon-sm" />
+                            <Hash size={14} />
                             <div>
                               <span className="sr-compact-label">NI Number</span>
                               <div className="sr-compact-value">{accident.driver_ni_number}</div>
@@ -601,19 +557,15 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       </div>
                     </div>
                   ) : (
-                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
-                      No claimant details available
-                    </p>
+                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>No claimant details available</p>
                   )}
                 </div>
 
-                {/* Client Vehicle Details Card */}
+                {/* Client Vehicle Details */}
                 <div className="sr-card">
                   <div className="sr-chead">
                     <div className="sr-clabel">
-                      <div className="sr-cicon">
-                        <Car size={18} />
-                      </div>
+                      <div className="sr-cicon"><Car size={18} /></div>
                       <span className="sr-ctitle">Client Vehicle Details</span>
                     </div>
                   </div>
@@ -625,7 +577,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         <div className="sr-compact">
                           {accident.client_vehicle_make && (
                             <div className="sr-compact-row">
-                              <Car size={14} className="sr-icon-sm" />
+                              <Car size={14} />
                               <div>
                                 <span className="sr-compact-label">Make</span>
                                 <div className="sr-compact-value">{accident.client_vehicle_make}</div>
@@ -634,7 +586,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                           )}
                           {accident.client_vehicle_model && (
                             <div className="sr-compact-row">
-                              <Car size={14} className="sr-icon-sm" />
+                              <Car size={14} />
                               <div>
                                 <span className="sr-compact-label">Model</span>
                                 <div className="sr-compact-value">{accident.client_vehicle_model}</div>
@@ -643,7 +595,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                           )}
                           {accident.client_registration && (
                             <div className="sr-compact-row">
-                              <Hash size={14} className="sr-icon-sm" />
+                              <Hash size={14} />
                               <div>
                                 <span className="sr-compact-label">Registration</span>
                                 <div className="sr-compact-value">{accident.client_registration}</div>
@@ -652,63 +604,25 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                           )}
                         </div>
                       </div>
-
-                      <div className="sr-div" />
-
-                      <div>
-                        <span className="sr-sublabel">Policy Information</span>
-                        <div className="sr-compact">
-                          {accident.client_policy_no && (
-                            <div className="sr-compact-row">
-                              <Hash size={14} className="sr-icon-sm" />
-                              <div>
-                                <span className="sr-compact-label">Policy No</span>
-                                <div className="sr-compact-value">{accident.client_policy_no}</div>
-                              </div>
-                            </div>
-                          )}
-                          {accident.client_policy_holder && (
-                            <div className="sr-compact-row">
-                              <User size={14} className="sr-icon-sm" />
-                              <div>
-                                <span className="sr-compact-label">Policy Holder</span>
-                                <div className="sr-compact-value">{accident.client_policy_holder}</div>
-                              </div>
-                            </div>
-                          )}
-                          {accident.client_cover_type && (
-                            <div className="sr-compact-row">
-                              <FileText size={14} className="sr-icon-sm" />
-                              <div>
-                                <span className="sr-compact-label">Cover Type</span>
-                                <div className="sr-compact-value">{accident.client_cover_type}</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   ) : (
-                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
-                      No vehicle details available
-                    </p>
+                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>No vehicle details available</p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* ===== SECTION 2: HIRE VEHICLES ===== */}
+            {/* HIRE VEHICLES SECTION */}
             {rental && (
               <div>
                 <h2 className="sr-section-title">Hire Vehicles</h2>
-                <div className="sr-section">
-                  {/* Main Hire Vehicle */}
+
+                {!hasVehicleChanges ? (
+                  /* Full width when no changes */
                   <div className="sr-card sr-card-em">
                     <div className="sr-chead">
                       <div className="sr-clabel">
-                        <div className="sr-cicon">
-                          <Car size={18} />
-                        </div>
+                        <div className="sr-cicon"><Car size={18} /></div>
                         <span className="sr-ctitle">Hire Vehicle Details</span>
                       </div>
                     </div>
@@ -724,7 +638,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       <div className="sr-compact">
                         {(rental.hire_vehicle_make || rental.hire_vehicle_model) && (
                           <div className="sr-compact-row">
-                            <Car size={14} className="sr-icon-sm" />
+                            <Car size={14} />
                             <div>
                               <span className="sr-compact-label">Vehicle</span>
                               <div className="sr-compact-value">
@@ -735,7 +649,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {rental.hire_vehicle_date_out && (
                           <div className="sr-compact-row">
-                            <Calendar size={14} className="sr-icon-sm" />
+                            <Calendar size={14} />
                             <div>
                               <span className="sr-compact-label">Date Out</span>
                               <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_out)}</div>
@@ -744,7 +658,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {rental.hire_vehicle_date_in && (
                           <div className="sr-compact-row">
-                            <Calendar size={14} className="sr-icon-sm" />
+                            <Calendar size={14} />
                             <div>
                               <span className="sr-compact-label">Date In</span>
                               <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_in)}</div>
@@ -753,7 +667,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {rental.hire_vehicle_miles_out && (
                           <div className="sr-compact-row">
-                            <Hash size={14} className="sr-icon-sm" />
+                            <Hash size={14} />
                             <div>
                               <span className="sr-compact-label">Miles Out</span>
                               <div className="sr-compact-value">{rental.hire_vehicle_miles_out}</div>
@@ -762,7 +676,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         )}
                         {rental.hire_vehicle_miles_in && (
                           <div className="sr-compact-row">
-                            <Hash size={14} className="sr-icon-sm" />
+                            <Hash size={14} />
                             <div>
                               <span className="sr-compact-label">Miles In</span>
                               <div className="sr-compact-value">{rental.hire_vehicle_miles_in}</div>
@@ -772,23 +686,90 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       </div>
                     </div>
                   </div>
-
-                  {/* Change of Hire Vehicles */}
-                  <div className="sr-card">
-                    <div className="sr-chead">
-                      <div className="sr-clabel">
-                        <div className="sr-cicon">
-                          <Car size={18} />
+                ) : (
+                  /* Two columns when there are changes */
+                  <div className="sr-section">
+                    {/* Hire Vehicle Details */}
+                    <div className="sr-card sr-card-em">
+                      <div className="sr-chead">
+                        <div className="sr-clabel">
+                          <div className="sr-cicon"><Car size={18} /></div>
+                          <span className="sr-ctitle">Hire Vehicle Details</span>
                         </div>
-                        <span className="sr-ctitle">Vehicle Changes</span>
+                      </div>
+
+                      <div className="sr-compact" style={{ gap: '16px' }}>
+                        {rental.hire_vehicle_reg && (
+                          <div>
+                            <span className="sr-flabel">Registration</span>
+                            <div className="sr-fv-nm">{rental.hire_vehicle_reg}</div>
+                          </div>
+                        )}
+
+                        <div className="sr-compact">
+                          {(rental.hire_vehicle_make || rental.hire_vehicle_model) && (
+                            <div className="sr-compact-row">
+                              <Car size={14} />
+                              <div>
+                                <span className="sr-compact-label">Vehicle</span>
+                                <div className="sr-compact-value">
+                                  {rental.hire_vehicle_make} {rental.hire_vehicle_model}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {rental.hire_vehicle_date_out && (
+                            <div className="sr-compact-row">
+                              <Calendar size={14} />
+                              <div>
+                                <span className="sr-compact-label">Date Out</span>
+                                <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_out)}</div>
+                              </div>
+                            </div>
+                          )}
+                          {rental.hire_vehicle_date_in && (
+                            <div className="sr-compact-row">
+                              <Calendar size={14} />
+                              <div>
+                                <span className="sr-compact-label">Date In</span>
+                                <div className="sr-compact-value">{fmt(rental.hire_vehicle_date_in)}</div>
+                              </div>
+                            </div>
+                          )}
+                          {rental.hire_vehicle_miles_out && (
+                            <div className="sr-compact-row">
+                              <Hash size={14} />
+                              <div>
+                                <span className="sr-compact-label">Miles Out</span>
+                                <div className="sr-compact-value">{rental.hire_vehicle_miles_out}</div>
+                              </div>
+                            </div>
+                          )}
+                          {rental.hire_vehicle_miles_in && (
+                            <div className="sr-compact-row">
+                              <Hash size={14} />
+                              <div>
+                                <span className="sr-compact-label">Miles In</span>
+                                <div className="sr-compact-value">{rental.hire_vehicle_miles_in}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {rental.change_vehicle_history && rental.change_vehicle_history.length > 0 ? (
+                    {/* Vehicle Changes */}
+                    <div className="sr-card">
+                      <div className="sr-chead">
+                        <div className="sr-clabel">
+                          <div className="sr-cicon"><Car size={18} /></div>
+                          <span className="sr-ctitle">Vehicle Changes</span>
+                        </div>
+                      </div>
+
                       <div className="sr-compact" style={{ gap: '20px' }}>
-                        {rental.change_vehicle_history.map((change, idx) => (
+                        {rental.change_vehicle_history!.map((change, idx) => (
                           <div key={idx}>
-                            {/* Vehicle Header */}
                             <div style={{
                               background: 'var(--sr-em-pale)',
                               padding: '12px',
@@ -813,41 +794,37 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                               )}
                             </div>
 
-                            {/* Compact Details - Only Date & Miles */}
                             <div className="sr-compact" style={{ fontSize: '12.5px', marginLeft: '8px', gap: '10px' }}>
                               {change.date_out && (
                                 <div className="sr-compact-row">
-                                  <Calendar size={12} className="sr-icon-sm" />
+                                  <Calendar size={12} />
                                   <div>
                                     <span className="sr-compact-label">Date Out</span>
                                     <div className="sr-compact-value">{fmt(change.date_out)}</div>
                                   </div>
                                 </div>
                               )}
-
                               {change.date_in && (
                                 <div className="sr-compact-row">
-                                  <Calendar size={12} className="sr-icon-sm" />
+                                  <Calendar size={12} />
                                   <div>
                                     <span className="sr-compact-label">Date In</span>
                                     <div className="sr-compact-value">{fmt(change.date_in)}</div>
                                   </div>
                                 </div>
                               )}
-
                               {change.miles_out && (
                                 <div className="sr-compact-row">
-                                  <Gauge size={12} className="sr-icon-sm" />
+                                  <Gauge size={12} />
                                   <div>
                                     <span className="sr-compact-label">Miles Out</span>
                                     <div className="sr-compact-value">{change.miles_out.toLocaleString()}</div>
                                   </div>
                                 </div>
                               )}
-
                               {change.miles_in && (
                                 <div className="sr-compact-row">
-                                  <Gauge size={12} className="sr-icon-sm" />
+                                  <Gauge size={12} />
                                   <div>
                                     <span className="sr-compact-label">Miles In</span>
                                     <div className="sr-compact-value">{change.miles_in.toLocaleString()}</div>
@@ -856,34 +833,28 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                               )}
                             </div>
 
-                            {/* Divider between changes */}
-                            {idx < rental.change_vehicle_history.length - 1 && (
+                            {idx < rental.change_vehicle_history!.length - 1 && (
                               <div className="sr-div" style={{ margin: '20px 0' }} />
                             )}
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px' }}>
-                        No vehicle changes recorded
-                      </p>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
-            {/* ===== SECTION 3: STORAGE, INVOICES & CHECKLIST ===== */}
+
+            {/* STORAGE, INVOICES & CHECKLIST */}
             <div>
               <h2 className="sr-section-title">Storage, Invoices & Checklist</h2>
-
               <div className="sr-section">
+
                 {/* Storage Location */}
                 <div className="sr-card">
                   <div className="sr-chead">
                     <div className="sr-clabel">
-                      <div className="sr-cicon">
-                        <Building2 size={16} />
-                      </div>
+                      <div className="sr-cicon"><Building2 size={16} /></div>
                       <span className="sr-ctitle">Storage Location</span>
                     </div>
                   </div>
@@ -910,79 +881,56 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       {storage.postcode}
                     </div>
                   </div>
+
                   {accident?.checklist_vd && (
                     <>
                       <div className="sr-div" />
-                      <div>
-                        <div className="sr-chead" style={{ marginBottom: '8px' }}>
-                          <div className="sr-clabel">
-                            <div className="sr-cicon">
-                              <FileText size={16} />
-                            </div>
-                            <span className="sr-ctitle">Checklist</span>
-                          </div>
-                        </div>
-                        <div className="sr-check">
-                          <div className="sr-cdot" />
-                          <div>
-                            <div className="sr-ctext">Vehicle Damage </div>
-                            <div className="sr-csub text-xs">Yes</div>
-                          </div>
+                      <div className="sr-check">
+                        <div className="sr-cdot" />
+                        <div>
+                          <div className="sr-ctext">Vehicle Damage</div>
+                          <div className="sr-csub text-xs">Yes</div>
                         </div>
                       </div>
                     </>
                   )}
-
                 </div>
 
-                {/* Invoices & Checklist */}
+                {/* Invoices */}
                 <div className="sr-card">
-                  <div className="sr-compact" style={{ gap: '16px' }}>
-                    {/* Invoices */}
-                    <div>
-                      <div className="sr-chead" style={{ marginBottom: '8px' }}>
-                        <div className="sr-clabel">
-                          <div className="sr-cicon">
-                            <FileText size={16} />
-                          </div>
-                          <span className="sr-ctitle">Invoices</span>
-                        </div>
-                      </div>
-
-                      {invoices.length > 0 ? (
-                        <table className="sr-invoice-table text-sm">
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Info</th>
-                              <th>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {invoices.map((inv) => (
-                              <tr key={inv.id}>
-                                <td className="py-1">{fmt(inv.invoice_datetime)}</td>
-                                <td className="py-1">{inv.info || "—"}</td>
-                                <td className="py-1 font-medium">
-                                  <td className="py-1 font-medium">
-                                    £{(
-                                      Number(inv.storage_bill || 0) + Number(inv.rent_bill || 0)
-                                    ).toFixed(2)}
-                                  </td>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px', marginTop: '6px' }}>
-                          No invoices available
-                        </p>
-                      )}
+                  <div className="sr-chead" style={{ marginBottom: '8px' }}>
+                    <div className="sr-clabel">
+                      <div className="sr-cicon"><FileText size={16} /></div>
+                      <span className="sr-ctitle">Invoices</span>
                     </div>
-
-                    {/* Checklist VD */}
                   </div>
+
+                  {invoices.length > 0 ? (
+                    <table className="sr-invoice-table text-sm">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Info</th>
+                          <th>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoices.map((inv) => (
+                          <tr key={inv.id}>
+                            <td>{fmt(inv.invoice_datetime)}</td>
+                            <td>{inv.info || "—"}</td>
+                            <td className="font-medium">
+                              £{(Number(inv.storage_bill || 0) + Number(inv.rent_bill || 0)).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px', marginTop: '6px' }}>
+                      No invoices available
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
