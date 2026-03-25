@@ -51,11 +51,11 @@ export default function VehiclesPage() {
     new Set(),
   );
   const [fleetHistory, setFleetHistory] = useState<FleetHistory[]>([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [activeTab, setActiveTab] = useState<"all" | "normal" | "long" | "history">("all");
 
   const [formData, setFormData] = useState({ model: "", name: "", reg_no: "" });
@@ -230,8 +230,8 @@ export default function VehiclesPage() {
 
   let displayed =
     activeTab === "all" ? allVehicles
-    : activeTab === "normal" ? normalHire
-    : longHire;
+      : activeTab === "normal" ? normalHire
+        : longHire;
 
   // Search
   displayed = displayed.filter((v) =>
@@ -363,8 +363,8 @@ export default function VehiclesPage() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${activeTab === tab
-                    ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
+                  ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
                   }`}
               >
                 {tab === "all" && "All Vehicles"}
@@ -603,8 +603,8 @@ export default function VehiclesPage() {
                               <td className="px-5 py-2.5 text-center">
                                 <span
                                   className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
-                                      ? "bg-emerald-100 text-emerald-700"
-                                      : "bg-rose-100 text-rose-700"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-rose-100 text-rose-700"
                                     }`}
                                 >
                                   {isAvail ? "Yes" : "No"}
@@ -718,7 +718,10 @@ export default function VehiclesPage() {
                         {new Date(record.hire_start).toLocaleDateString("en-GB")}
                       </td>
                       <td className="px-5 py-3 text-gray-600">
-                        {new Date(record.hire_end).toLocaleDateString("en-GB")}
+                        {record.hire_end
+                          ? new Date(record.hire_end).toLocaleDateString("en-GB")
+                          : "-"
+                        }
                       </td>
                     </tr>
                   ))}
