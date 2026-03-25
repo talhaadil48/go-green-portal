@@ -8,7 +8,7 @@ import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
 import api from "@/lib/axios";
-
+import { Pencil} from "lucide-react";
 interface ClaimProps {
   claimId: string;
 }
@@ -299,11 +299,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       if (hasChangeVehicleData) {
         setHasApiData(true);
         setShowChangeVehicle(true);
-        // Mark each API vehicle as fromApi: true
+
         const vehiclesFromApi = data.change_vehicle_history.map((v: ChangeVehicleRecord) => ({
           ...v,
-          fromApi: true,
+          fromApi: !!v.vehicle_reg, // If reg exists, mark as from API (lock reg change)
         }));
+
         setFormData((prev) => ({
           ...prev,
           change_vehicle_history: vehiclesFromApi,
@@ -311,7 +312,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       } else {
         setShowChangeVehicle(null);
       }
-
       // Load signatures + set locked flags
       if (data.hirer_signature_terms) {
         setSignatures((prev) => ({ ...prev, hirer_signature_terms: data.hirer_signature_terms }));
@@ -748,9 +748,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             <button
                               type="button"
                               onClick={clearHireVehicle}
-                              className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition"
+                              className="px-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition"
                             >
-                              Change
+                              <Pencil className="h-4 w-4" /> 
                             </button>
                           )}
                         </div>
@@ -945,7 +945,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                      <div className="relative">
+                        <div className="relative">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                           {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
                             <div className="flex items-center gap-2">
@@ -962,13 +962,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   setChangeVehicleSuggestions([]);
                                 }}
                                 disabled={vehicle.fromApi}
-                                className={`px-2 py-1 text-white text-xs rounded-lg transition ${
-                                  vehicle.fromApi
+                                className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
                                     ? "bg-gray-400 cursor-not-allowed"
                                     : "bg-blue-500 hover:bg-blue-600"
-                                }`}
+                                  }`}
                               >
-                                Change
+                                <Pencil className="h-4 w-4" /> 
                               </button>
                             </div>
                           ) : (
@@ -988,9 +987,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                 }}
                                 placeholder="Search by reg..."
                                 disabled={vehicle.fromApi}
-                                className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${
-                                  vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
-                                }`}
+                                className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
+                                  }`}
                               />
                               {editingVehicleIndex === index && changeVehicleSuggestions.length > 0 && !vehicle.fromApi && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
