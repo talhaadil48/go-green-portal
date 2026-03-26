@@ -1125,7 +1125,7 @@ export default function ClaimsPage() {
                                                 </td>
 
                                                 <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
-                                                    {!isClosed && (
+                                                    {true && (
                                                         <button onClick={() => router.push(`/claim/${claim.claim_id}`)} className="p-1 text-green-600 hover:text-green-800 transition rounded" title="View claim">
                                                             <Eye size={16} />
                                                         </button>
