@@ -23,6 +23,7 @@ interface Claim {
     deleted_by: string | null;
     status: string;
     hire_end_date: string | null;
+    reason: string | null;
 }
 
 type SortColumn =
@@ -99,6 +100,10 @@ export default function ClaimsPage() {
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
+
+    // Close claim reason
+    const [closeReasonFor, setCloseReasonFor] = useState<string | null>(null);
+    const [selectedReason, setSelectedReason] = useState<string>("");
 
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
@@ -345,8 +350,42 @@ export default function ClaimsPage() {
 
     const handleSoftDelete = (claim_id: string) =>
         performActionWithUsername(claim_id, "/soft-delete", "deleted_by", "soft-delete");
-    const handleCloseClaim = (claim_id: string) =>
-        performActionWithUsername(claim_id, "/close", "closed_by", "close");
+    const handleCloseClaim = (claim_id: string) => {
+        const reason = prompt("Select reason for closing:\n1. invoice paid\n2. client own fault\n\nEnter 1 or 2:");
+        if (!reason || !["1", "2"].includes(reason)) {
+            alert("Invalid selection. Please choose 1 or 2.");
+            return;
+        }
+        const reasonMap: Record<string, string> = {
+            "1": "invoice paid",
+            "2": "client own fault"
+        };
+        if (!userName) {
+            alert("User session not found. Please log in again.");
+            return;
+        }
+        const confirmationPassword = prompt(
+            "Security Confirmation\n\nPlease enter the confirmation password to proceed."
+        );
+        if (!confirmationPassword) return;
+        if (confirmationPassword !== "12345678") {
+            alert("Incorrect confirmation password.");
+            return;
+        }
+        if (!window.confirm(`You want to close claim ${claim_id}?`)) return;
+        (async () => {
+            try {
+                await api.put(
+                    `/api/claims/${claim_id}/close`,
+                    { closed_by: userName, reason: reasonMap[reason] },
+                    { headers: { requiresAuth: true } }
+                );
+                await fetchClaims();
+            } catch (err: any) {
+                alert(err.response?.data?.detail || "Failed to close claim.");
+            }
+        })();
+    };
     const handleReopenClaim = (claim_id: string) =>
         performActionWithUsername(claim_id, "/reopen", "reopened_by", "reopen");
 
@@ -907,6 +946,20 @@ export default function ClaimsPage() {
                                 </select>
                             </div>
 
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Non Active">Non Active</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+
                             <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                                 <div className="flex-1">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
@@ -1045,8 +1098,8 @@ export default function ClaimsPage() {
                                                                         {statusText}
                                                                     </span>
                                                                     {isClosed && (
-                                                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg">
-                                                                            Closed by {claim.closed_by} on {formatDate(claim.closed_date)}
+                                                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-100">
+                                                                            Closed by {claim.closed_by} on {formatDate(claim.closed_date)} | Reason: {claim.reason}
                                                                         </div>
                                                                     )}
                                                                 </>
@@ -1131,9 +1184,16 @@ export default function ClaimsPage() {
                                                         </button>
                                                     )}
                                                     {isClosed ? (
-                                                        <button onClick={() => handleReopenClaim(claim.claim_id)} className="p-1 text-teal-600 hover:text-teal-800 transition rounded" title="Reopen claim">
-                                                            <Unlock size={16} />
-                                                        </button>
+                                                        <div className="relative group inline-block">
+                                                            <button onClick={() => handleReopenClaim(claim.claim_id)} className="p-1 text-teal-600 hover:text-teal-800 transition rounded" title="Reopen claim">
+                                                                <Unlock size={16} />
+                                                            </button>
+                                                            {claim.reason && (
+                                                                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-10">
+                                                                    Reason: {claim.reason}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <button onClick={() => handleCloseClaim(claim.claim_id)} className="p-1 text-purple-600 hover:text-purple-800 transition rounded" title="Close claim">
                                                             <Lock size={16} />
