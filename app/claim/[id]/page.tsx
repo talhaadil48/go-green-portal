@@ -66,6 +66,7 @@ interface ClaimData {
   closed_by?: string | null;
   closed_date?: string | null;
   reason?: string;
+  ref_no?: string | null;        // <-- Added for sovereign claims
   [key: string]: any;
 }
 
@@ -99,6 +100,11 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Ref No states (for sovereign claims)
+  const [refNo, setRefNo] = useState<string>("");
+  const [refNoSaving, setRefNoSaving] = useState(false);
+  const [refNoMessage, setRefNoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const visibleTabs = getVisibleTabs(claimData?.claim_type);
 
@@ -138,7 +144,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     }
   }, [claimId, username, lockData?.locked]);
 
-  // Auto unlock when component unmounts or user navigates away
   useEffect(() => {
     if (!claimId || !username) return;
 
@@ -177,7 +182,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         return;
       }
 
-      // Lock for current user
       await api.put(
         `/api/claims/${claimId}/lock`,
         { locked: true, locked_by: username },
@@ -206,6 +210,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       const data = res.data;
       setClaimData(data);
       setSelectedStatus(data.status || "claim created");
+      setRefNo(data.ref_no || "");   // Initialize ref_no
     } catch (err: any) {
       setError(err.response?.data?.detail || "Could not load claim details.");
     } finally {
@@ -219,17 +224,15 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     checkAndLockClaim().finally(fetchClaim);
   }, [claimId, username]);
 
-  // Manual unlock button
+  // Manual unlock
   const handleManualUnlock = async () => {
     await unlockClaim();
     setLockData({ locked: false, locked_by: null });
     router.push("/claim");
   };
 
-  // Tab change - NOW ALLOWS SHIFTING EVEN WITH UNSAVED CHANGES
   const handleTabChange = (tabKey: TabKey) => {
     setActiveTab(tabKey);
-    // Note: hasUnsavedChanges remains true (user can still save in new tab)
   };
 
   const refreshPage = () => window.location.reload();
@@ -257,6 +260,29 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
+  // Update Ref No (only for sovereign claims)
+  const handleUpdateRefNo = async () => {
+    if (!refNo.trim() || !claimData) return;
+
+    setRefNoSaving(true);
+    setRefNoMessage(null);
+
+    try {
+      await api.put(
+        `/api/claims/ref-no/${claimId}`,
+        { ref_no: refNo.trim() },
+        { headers: { requiresAuth: true } }
+      );
+
+      setClaimData((prev) => (prev ? { ...prev, ref_no: refNo.trim() } : null));
+      setRefNoMessage({ type: "success", text: "Reference number updated successfully" });
+    } catch (err: any) {
+      setRefNoMessage({ type: "error", text: err.response?.data?.detail || "Failed to update reference number" });
+    } finally {
+      setRefNoSaving(false);
+    }
+  };
+
   // Locked by other user screen
   if (error && !lockChecking && lockData?.locked) {
     return (
@@ -275,6 +301,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       </div>
     );
   }
+
+  const isSovereign = claimData?.claim_type?.toLowerCase() === "sovereign";
 
   return (
     <div className={`min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-12 ${isClosed ? "disabled-all" : ""}`}>
@@ -368,6 +396,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 </p>
               </div>
 
+              {/* Status */}
               <div>
                 <p className="text-gray-500">Status</p>
                 <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -408,6 +437,44 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   </div>
                 )}
               </div>
+
+              {/* Sovereign Ref No - shown only for sovereign claims */}
+              {isSovereign && (
+                <div className="lg:col-span-2">
+                  <p className="text-gray-500">Reference Number (Ref No)</p>
+                  <div className="mt-1 flex gap-3">
+                    <input
+                      type="text"
+                      value={refNo}
+                      onChange={(e) => setRefNo(e.target.value)}
+                      disabled={refNoSaving || isClosed}
+                      placeholder="Enter reference number"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
+                    />
+                    <button
+                      onClick={handleUpdateRefNo}
+                      disabled={refNoSaving || !refNo.trim() || refNo === claimData.ref_no || isClosed}
+                      className={`px-5 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition ${refNoSaving || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                    >
+                      {refNoSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Update Ref No"
+                      )}
+                    </button>
+                  </div>
+
+                  {refNoMessage && (
+                    <div className={`mt-2 text-sm flex items-center gap-1.5 ${refNoMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                      {refNoMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                      {refNoMessage.text}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-gray-600">No claim data available.</p>
@@ -435,13 +502,13 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
             <UnsavedChangesContext.Provider value={{ hasUnsavedChanges, setHasUnsavedChanges, isClosed }}>
               {activeTab === "summary" && <SummaryPage claimId={claimId} />}
-              {activeTab === "pre-inspection" && <PreInspectionChecklist  claimId={claimId} />}
-              {activeTab === "cancellation" && <CancellationNotice  claimId={claimId} />}
-              {activeTab === "storage-recovery" && <StorageRecoveryAgreement  claimId={claimId} />}
-              {activeTab === "rental-agreement" && <RentalAgreement    claimId={claimId} />}
-              {activeTab === "claim" && <AccidentClaimForm  claimId={claimId} />}
-              {activeTab === "document" && <DocumentManager  claimId={claimId} />}
-              {activeTab === "invoice" && <InvoiceManager  claimId={claimId} />}
+              {activeTab === "pre-inspection" && <PreInspectionChecklist claimId={claimId} />}
+              {activeTab === "cancellation" && <CancellationNotice claimId={claimId} />}
+              {activeTab === "storage-recovery" && <StorageRecoveryAgreement claimId={claimId} />}
+              {activeTab === "rental-agreement" && <RentalAgreement claimId={claimId} />}
+              {activeTab === "claim" && <AccidentClaimForm claimId={claimId} />}
+              {activeTab === "document" && <DocumentManager claimId={claimId} />}
+              {activeTab === "invoice" && <InvoiceManager claimId={claimId} />}
             </UnsavedChangesContext.Provider>
           </div>
         </main>

@@ -27,6 +27,7 @@ interface DocumentOption {
   available: boolean;
 }
 export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
+  const [refNo, setRefNo] = useState<string>("");
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState(`Documents for Claim ${claimId}`);
@@ -108,6 +109,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             // documents list remains empty if failed
           }
         });
+
+        const claimsResult = await api.get(`/api/claims/${claimId}`, {
+          headers: { requiresAuth: true },
+        });
+        setRefNo(claimsResult.data.ref_no || "");
+
         setDocumentsData(data);
       } catch (error) {
         console.error("Error fetching documents:", error);
@@ -357,6 +364,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           }
         }
         const pdfData: PDFFormData = {
+          refNo,
           title: doc.name,
           formType: "pre-inspection",
           claimId,
@@ -369,6 +377,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       } else {
         const formDataObj = documentsData[docId] || {};
         const pdfData: PDFFormData = {
+          refNo,
           title: doc.name,
           formType: doc.formType,
           claimId,
@@ -519,6 +528,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             }
           }
           const pdfData: PDFFormData = {
+            refNo,
             title: doc.name,
             formType: "pre-inspection",
             claimId,
@@ -531,6 +541,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         } else {
           const formDataObj = documentsData[docId] || {};
           const pdfData: PDFFormData = {
+            refNo,
             title: doc.name,
             formType: doc.formType,
             claimId,
@@ -941,17 +952,17 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     key={doc.id}
                     onClick={() => isAvailable && toggleDocument(doc.id)}
                     className={`cursor-pointer transition-colors ${!isAvailable
-                        ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                        : isSelected
-                          ? "bg-emerald-300"
-                          : "hover:bg-gray-50"
+                      ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                      : isSelected
+                        ? "bg-emerald-300"
+                        : "hover:bg-gray-50"
                       }`}
                   >
                     <td className="px-4">
                       <div
                         className={`w-7 h-7 rounded-md border-2 flex items-center justify-center transition-all ${isSelected
-                            ? "bg-emerald-500 border-emerald-500"
-                            : "border-gray-300 group-hover:border-emerald-400"
+                          ? "bg-emerald-500 border-emerald-500"
+                          : "border-gray-300 group-hover:border-emerald-400"
                           }`}
                       >
                         {isSelected && (
@@ -975,8 +986,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected
-                              ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
-                              : "bg-gray-200 text-gray-600"
+                            ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm"
+                            : "bg-gray-200 text-gray-600"
                             }`}
                         >
                           {doc.icon}
@@ -1129,12 +1140,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       {status && (
         <div
           className={`p-5 rounded-2xl flex flex-col gap-3 shadow-sm ${status.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : status.type === "error"
-                ? "bg-red-50 text-red-800 border border-red-200"
-                : status.type === "warning"
-                  ? "bg-amber-50 text-amber-800 border border-amber-200"
-                  : "bg-blue-50 text-blue-800 border border-blue-200"
+            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+            : status.type === "error"
+              ? "bg-red-50 text-red-800 border border-red-200"
+              : status.type === "warning"
+                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                : "bg-blue-50 text-blue-800 border border-blue-200"
             }`}
         >
           <div className="flex items-center gap-3">

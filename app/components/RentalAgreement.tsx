@@ -23,6 +23,7 @@ interface Vehicle {
 export function RentalAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
+  const [refNo, setRefNo] = useState<string>("");
 
   interface ChangeVehicleRecord {
     vehicle_reg: string;
@@ -256,7 +257,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       const response = await api.get(`/api/rental-agreements/${claimId}`, {
         headers: { requiresAuth: true },
       });
-
+      const result = await api.get(`/api/claims/${claimId}`, {
+        headers: { requiresAuth: true },
+      });
+      setRefNo(result.data.ref_no);
       const data = response.data;
 
       const updatedFormData = { ...initialFormData };
@@ -652,6 +656,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </h2>
             <PDFShareButton
               formData={{
+                refNo: refNo,
                 title: "Rental Agreement",
                 formType: "rental-agreement",
                 claimId: currentClaimId,

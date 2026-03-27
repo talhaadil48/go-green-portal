@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { PDFDocument } from "pdf-lib";
 
 export interface PDFFormData {
+  refNo?: string;
   title: string;
   subtitle?: string;
   formType:
@@ -1049,18 +1050,22 @@ async function generateRentalPDF(
 
   pdf.setFontSize(6.5);
   pdf.setTextColor(107, 114, 128);
+
   pdf.text(`Claim ID: ${up(formData.claimId)}`, margin, y);
 
   y += 4;
   pdf.text(`Invoice ID: ${up(formData.claimId)}`, margin, y);
+
   const generatedDate = new Date();
   const formattedDate = generatedDate.toLocaleDateString("en-GB").toUpperCase();
-  y += 4;
 
+  y += 4;
   pdf.text(`Generated: ${formattedDate}`, margin, y);
+
   pdf.setFontSize(6.5);
   pdf.setTextColor(107, 114, 128);
 
+  // ─── Right Side (Only for "S" claims) ─────────────────
   if (formData.claimId && formData.claimId.startsWith("S")) {
     const rightX = pageWidth - margin;
     let rightY = headerStartY;
@@ -1078,15 +1083,25 @@ async function generateRentalPDF(
       pdf.text(line, rightX, rightY, { align: "right" });
       rightY += 3.5;
     });
+
+    // ─── Ref No (right side, below address) ─────────────────
+    if (formData.refNo) {
+      pdf.setFontSize(6);
+      pdf.setFont(undefined, "bold");
+      pdf.text(`Ref No: ${formData.refNo}`, rightX, rightY, { align: "right" });
+
+      // reset font if needed later
+      pdf.setFont(undefined, "normal");
+    }
   }
 
-  y += 4;
+  y += 6;
   pdf.setDrawColor(200, 200, 200);
   pdf.setLineWidth(0.3);
   pdf.line(margin, y, pageWidth - margin, y);
-  y += 5;
 
-  // ─── 1. Hirer's Details + 2. Hire Vehicle ───────────
+  y += 5;
+    // ─── 1. Hirer's Details + 2. Hire Vehicle ───────────
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
@@ -1646,7 +1661,7 @@ async function generateRentalPDF(
       pdf.text("Fuel In", margin + half, y);
       pdf.setTextColor(0, 0, 0);
       pdf.text(up(vehicle.fuel_in), margin + half + 25, y);
-     y += 2.5
+      y += 2.5
       if (vehicle.miles_out) {
         pdf.setTextColor(80, 80, 80);
         pdf.text("Miles Out", margin, y);
