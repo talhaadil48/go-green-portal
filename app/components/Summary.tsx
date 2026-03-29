@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import api from "@/lib/axios";
+import Cookies from 'js-cookie';
 import {
   User,
   Phone,
@@ -12,9 +13,9 @@ import {
   Hash,
   Loader2,
   AlertCircle,
-  Building2,
   FileText,
-  Gauge
+  Gauge,
+  Trash2
 } from 'lucide-react';
 
 interface SummaryData {
@@ -87,10 +88,8 @@ const styles = `
 
   :root {
     --sr-bg:            #f2f5f3;
-    --sr-bg2:           #e6ece8;
     --sr-white:         #ffffff;
     --sr-em:            #1b7a4c;
-    --sr-em-mid:        #28a362;
     --sr-em-light:      #e4f2eb;
     --sr-em-pale:       #edf8f2;
     --sr-em-border:     #acd4be;
@@ -101,7 +100,6 @@ const styles = `
     --sr-danger:        #c0392b;
     --sr-danger-pale:   #fdf1f0;
     --sr-danger-border: #f0b8b3;
-    --sr-shadow-sm:     0 1px 4px rgba(27,122,76,0.08), 0 1px 2px rgba(0,0,0,0.05);
     --sr-r:             16px;
     --sr-r-sm:          10px;
   }
@@ -119,17 +117,6 @@ const styles = `
     margin: 0 auto;
   }
 
-  .sr-center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 20px;
-    height: 400px;
-    text-align: center;
-    font-size: 16px;
-  }
-
   .sr-header {
     display: flex;
     align-items: flex-start;
@@ -139,14 +126,15 @@ const styles = `
   }
 
   .sr-logo {
-    display: inline-flex;
     width: 48px;
     height: 48px;
     background: var(--sr-em);
     border-radius: var(--sr-r-sm);
+    display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 12px;
+    color: white;
+    font-size: 24px;
   }
 
   .sr-title {
@@ -208,11 +196,6 @@ const styles = `
     .sr-section { grid-template-columns: 1fr; }
   }
 
-  @media (max-width: 640px) {
-    .sr-section { grid-template-columns: 1fr; }
-    .sr-title { font-size: 28px; }
-  }
-
   .sr-section-title {
     font-family: 'Sora', sans-serif;
     font-size: 20px;
@@ -228,7 +211,7 @@ const styles = `
     border: 1px solid #e0e6e3;
     border-radius: var(--sr-r);
     padding: 24px;
-    box-shadow: var(--sr-shadow-sm);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   }
 
   .sr-card-em {
@@ -250,13 +233,13 @@ const styles = `
   }
 
   .sr-cicon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 32px;
     height: 32px;
     background: var(--sr-em-light);
     border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--sr-em);
   }
 
@@ -298,8 +281,6 @@ const styles = `
     font-size: 20px;
     font-weight: 700;
     color: var(--sr-text-head);
-    letter-spacing: -0.01em;
-    word-break: break-word;
   }
 
   .sr-compact {
@@ -320,7 +301,6 @@ const styles = `
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: var(--sr-text-faint);
-    margin: 0;
   }
 
   .sr-compact-value {
@@ -334,11 +314,6 @@ const styles = `
     width: 100%;
     border-collapse: collapse;
     margin-top: 12px;
-  }
-
-  .sr-invoice-table thead {
-    background: var(--sr-em-pale);
-    border: 1px solid var(--sr-em-border);
   }
 
   .sr-invoice-table th {
@@ -373,9 +348,9 @@ const styles = `
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 6px;
     background: var(--sr-em);
+    margin-top: 6px;
+    flex-shrink: 0;
   }
 
   .sr-ctext {
@@ -383,13 +358,47 @@ const styles = `
     font-weight: 600;
     color: var(--sr-text-body);
   }
+
+  .sr-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--sr-danger);
+    color: white;
+    padding: 10px 18px;
+    border-radius: var(--sr-r-sm);
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+  .sr-delete-btn:hover {
+    background: #a12c22;
+  }
 `;
 
 export default function SummaryPage({ claimId }: { claimId: string }) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userName, setUsername] = useState<string | null>(null);
 
+  // Get username from cookie
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+    setUsername(getCurrentUsername());
+  }, []);
+
+  // Fetch summary
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -404,7 +413,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [claimId]);
 
@@ -421,13 +429,45 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     }
   };
 
+  // Soft Delete Function
+  const handleSoftDelete = async () => {
+    if (!userName) {
+      alert("User session not found. Please log in again.");
+      return;
+    }
+
+    const confirmationPassword = prompt(
+      "Security Confirmation\n\nPlease enter the confirmation password to proceed."
+    );
+    if (!confirmationPassword) return;
+    if (confirmationPassword !== "12345678") {
+      alert("Incorrect confirmation password.");
+      return;
+    }
+
+    if (!window.confirm(`You want to soft delete claim ${claimId}?`)) return;
+
+    try {
+      await api.put(
+        `/api/claims/${claimId}/soft-delete`,
+        { deleted_by: userName },
+        { headers: { requiresAuth: true } }
+      );
+      alert("Claim soft deleted successfully.");
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to soft delete claim.");
+    }
+  };
   if (loading) {
     return (
       <>
         <style>{styles}</style>
-        <div className="sr-center">
-          <Loader2 size={32} className="animate-spin" style={{ color: 'var(--sr-em)' }} />
-          <p>Loading summary...</p>
+        <div className="flex justify-center items-center" style={{ height: '100vh' }}>
+          <div className="text-center">
+            <Loader2 size={40} className="animate-spin" style={{ color: 'var(--sr-em)' }} />
+            <p style={{ marginTop: '20px' }}>Loading summary...</p>
+          </div>
         </div>
       </>
     );
@@ -437,9 +477,9 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     return (
       <>
         <style>{styles}</style>
-        <div className="sr-center" style={{ color: 'var(--sr-danger)' }}>
-          <AlertCircle size={32} />
-          <p>{error || "Unable to load summary"}</p>
+        <div className="sr-center" style={{ height: '100vh', justifyContent: 'center', color: 'var(--sr-danger)' }}>
+          <AlertCircle size={40} />
+          <p style={{ marginTop: '20px' }}>{error || "Unable to load summary"}</p>
         </div>
       </>
     );
@@ -451,7 +491,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const storageKey = data.storage_form?.storage_location_key || "addr1";
   const storage = storageLocations[storageKey] || storageLocations.addr1;
   const invoices = data.invoices || [];
-
   const hasVehicleChanges = rental?.change_vehicle_history && rental.change_vehicle_history.length > 0;
 
   return (
@@ -460,23 +499,29 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
       <div className="sr-root">
         <div className="sr-inner">
 
-          {/* HEADER */}
+          {/* HEADER with Delete Button */}
           <header className="sr-header">
             <div>
-              <div className="sr-logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-              </div>
               <h1 className="sr-title">Claim Summary</h1>
               <p className="sr-ref">Reference <em>#{claim.claim_id || "—"}</em></p>
             </div>
 
-            <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
-              {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+              <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
+                {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
+              </div>
+
+              {!claim.recently_deleted && (
+                <button
+                  onClick={handleSoftDelete}
+                  className="sr-delete-btn"
+                >
+                  <Trash2 size={17} />
+                  Delete Claim
+                </button>
+              )}
             </div>
           </header>
-
           <div className="sr-grid">
 
             {/* CLAIMANT & VEHICLE DETAILS */}
@@ -498,7 +543,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                       <div>
                         <span className="sr-flabel">Full Name</span>
                         <div className="sr-fv-nm" style={{ textTransform: 'uppercase' }}>
-                          {accident.driver_full_name || "—"}
+                          {claim.claimant_name || "—"}
                         </div>
                       </div>
 
@@ -530,7 +575,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                             </div>
                           </div>
                         )}
-
                         {(accident.driver_address || accident.driver_postcode) && (
                           <div className="sr-compact-row">
                             <MapPin size={14} />
@@ -544,7 +588,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                             </div>
                           </div>
                         )}
-
                         {accident.driver_ni_number && (
                           <div className="sr-compact-row">
                             <Hash size={14} />
@@ -561,8 +604,8 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                   )}
                 </div>
 
-                {/* Client Vehicle Details */}
-                <div className="sr-card">
+                {/* Client Vehicle Details with PTU Storage and Vehicle Damage */}
+                <div className="sr-card" style={{ position: 'relative' }}>
                   <div className="sr-chead">
                     <div className="sr-clabel">
                       <div className="sr-cicon"><Car size={18} /></div>
@@ -570,11 +613,44 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                     </div>
                   </div>
 
+                  {/* Vehicle Damage Badge - Top Right */}
+                  {accident?.checklist_vd && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '16px',
+                        right: '16px',
+                        background: 'var(--sr-em)',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      <div className="sr-cdot" style={{ background: 'white' }} />
+                      Vehicle Damage
+                    </div>
+                  )}
+
                   {accident ? (
                     <div className="sr-compact" style={{ gap: '16px' }}>
                       <div>
                         <span className="sr-sublabel">Vehicle Information</span>
                         <div className="sr-compact">
+                          {accident.client_registration && (
+                            <div className="sr-compact-row">
+                              <Hash size={14} />
+                              <div>
+                                <span className="sr-compact-label">Registration</span>
+                                <div className="sr-compact-value">{accident.client_registration}</div>
+                              </div>
+                            </div>
+                          )}
                           {accident.client_vehicle_make && (
                             <div className="sr-compact-row">
                               <Car size={14} />
@@ -593,15 +669,35 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                               </div>
                             </div>
                           )}
-                          {accident.client_registration && (
-                            <div className="sr-compact-row">
-                              <Hash size={14} />
-                              <div>
-                                <span className="sr-compact-label">Registration</span>
-                                <div className="sr-compact-value">{accident.client_registration}</div>
-                              </div>
-                            </div>
-                          )}
+                        </div>
+                      </div>
+
+                      <div className="sr-div" />
+
+                      {/* PTU Storage Location */}
+                      <div>
+                        <span className="sr-sublabel">PTU Storage Location</span>
+                        <div style={{
+                          background: 'var(--sr-em-pale)',
+                          border: '1px solid var(--sr-em-border)',
+                          borderRadius: '8px',
+                          padding: '12px 14px',
+                        }}>
+                          <div className="sr-fv-nm" style={{ fontSize: '17px', marginBottom: '4px', color: 'var(--sr-em)' }}>
+                            {storage.name}
+                          </div>
+                          <div style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--sr-text-body)' }}>
+                            {storage.city}
+                          </div>
+                          <div style={{
+                            fontFamily: "'Roboto Mono', monospace",
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            color: 'var(--sr-em)',
+                            letterSpacing: '0.05em'
+                          }}>
+                            {storage.postcode}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -612,7 +708,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
               </div>
             </div>
 
-            {/* HIRE VEHICLES SECTION */}
+
             {rental && (
               <div>
                 <h2 className="sr-section-title">Hire Vehicles</h2>
@@ -845,93 +941,44 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
               </div>
             )}
 
-            {/* STORAGE, INVOICES & CHECKLIST */}
+
+            {/* INVOICES */}
             <div>
-              <h2 className="sr-section-title">Storage, Invoices & Checklist</h2>
-              <div className="sr-section">
-
-                {/* Storage Location */}
-                <div className="sr-card">
-                  <div className="sr-chead">
-                    <div className="sr-clabel">
-                      <div className="sr-cicon"><Building2 size={16} /></div>
-                      <span className="sr-ctitle">Storage Location</span>
-                    </div>
+              <h2 className="sr-section-title">Invoices</h2>
+              <div className="sr-card">
+                <div className="sr-chead" style={{ marginBottom: '8px' }}>
+                  <div className="sr-clabel">
+                    <div className="sr-cicon"><FileText size={16} /></div>
+                    <span className="sr-ctitle">Invoices</span>
                   </div>
-
-                  <div style={{
-                    background: 'var(--sr-em-pale)',
-                    border: '1px solid var(--sr-em-border)',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                  }}>
-                    <div className="sr-fv-nm" style={{ fontSize: '17px', marginBottom: '4px', color: 'var(--sr-em)' }}>
-                      {storage.name}
-                    </div>
-                    <div style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--sr-text-body)' }}>
-                      {storage.city}
-                    </div>
-                    <div style={{
-                      fontFamily: "'Roboto Mono', monospace",
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      color: 'var(--sr-em)',
-                      letterSpacing: '0.05em'
-                    }}>
-                      {storage.postcode}
-                    </div>
-                  </div>
-
-                  {accident?.checklist_vd && (
-                    <>
-                      <div className="sr-div" />
-                      <div className="sr-check">
-                        <div className="sr-cdot" />
-                        <div>
-                          <div className="sr-ctext">Vehicle Damage</div>
-                          <div className="sr-csub text-xs">Yes</div>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
 
-                {/* Invoices */}
-                <div className="sr-card">
-                  <div className="sr-chead" style={{ marginBottom: '8px' }}>
-                    <div className="sr-clabel">
-                      <div className="sr-cicon"><FileText size={16} /></div>
-                      <span className="sr-ctitle">Invoices</span>
-                    </div>
-                  </div>
-
-                  {invoices.length > 0 ? (
-                    <table className="sr-invoice-table text-sm">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Info</th>
-                          <th>Amount</th>
+                {invoices.length > 0 ? (
+                  <table className="sr-invoice-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Info</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => (
+                        <tr key={inv.id}>
+                          <td>{fmt(inv.invoice_datetime)}</td>
+                          <td>{inv.info || "—"}</td>
+                          <td className="font-medium">
+                            £{(Number(inv.storage_bill || 0) + Number(inv.rent_bill || 0)).toFixed(2)}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {invoices.map((inv) => (
-                          <tr key={inv.id}>
-                            <td>{fmt(inv.invoice_datetime)}</td>
-                            <td>{inv.info || "—"}</td>
-                            <td className="font-medium">
-                              £{(Number(inv.storage_bill || 0) + Number(inv.rent_bill || 0)).toFixed(2)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px', marginTop: '6px' }}>
-                      No invoices available
-                    </p>
-                  )}
-                </div>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p style={{ color: 'var(--sr-text-faint)', fontSize: '12px', marginTop: '6px' }}>
+                    No invoices available
+                  </p>
+                )}
               </div>
             </div>
 

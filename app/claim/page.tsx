@@ -16,6 +16,9 @@ interface Claim {
     invoice_id: string | null;
     info: string | null;
     invoice_datetime: string | null;
+    invoice_date: string | null;
+    pay_date: string | null;
+    hire_start_date: string | null;
     recently_deleted: boolean;
     recently_deleted_date: string | null;
     closed_date: string | null;
@@ -31,11 +34,13 @@ type SortColumn =
     | "claimant_name"
     | "claim_type"
     | "claim_start_date"
-    | "invoice_sent"
+    | "hire_start_date"
+    | "pay_date"
+    | "hire_end_date"
+    | "invoice_date"
     | "council"
     | "status"
-    | "closed"
-    | "hire_end_date";
+    | "closed";
 
 type SortDirection = "asc" | "desc" | null;
 
@@ -55,7 +60,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire end": { color: "text-red-600", number: 4, label: "Hire End", badgeBg: "border-red-600", badgeText: "bg-red-600" },
+    "hire end": { color: "text-orange-600", number: 4, label: "Hire End", badgeBg: "border-orange-600", badgeText: "bg-orange-600" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
@@ -222,10 +227,12 @@ export default function ClaimsPage() {
                     return sortDirection === "asc" ? cmp : -cmp;
                 }
 
-                if (sortColumn === "claim_start_date" || sortColumn === "invoice_sent" || sortColumn === "hire_end_date") {
-                    let field: "claim_start_date" | "invoice_datetime" | "hire_end_date" = "claim_start_date";
-                    if (sortColumn === "invoice_sent") field = "invoice_datetime";
+                if (["claim_start_date", "hire_start_date", "pay_date", "hire_end_date", "invoice_date"].includes(sortColumn as string)) {
+                    let field: "claim_start_date" | "hire_start_date" | "pay_date" | "hire_end_date" | "invoice_date" = "claim_start_date";
+                    if (sortColumn === "hire_start_date") field = "hire_start_date";
+                    if (sortColumn === "pay_date") field = "pay_date";
                     if (sortColumn === "hire_end_date") field = "hire_end_date";
+                    if (sortColumn === "invoice_date") field = "invoice_date";
                     const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
                     aVal = a[field] ? new Date(a[field]).getTime() : sentinel;
                     bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
@@ -1053,19 +1060,24 @@ export default function ClaimsPage() {
                                         <th onClick={() => handleSort("council")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Council {getSortArrow("council")}
                                         </th>
-                                        <th onClick={() => handleSort("status")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Stages {getSortArrow("status")}
-                                        </th>
                                         <th onClick={() => handleSort("claim_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Start Date {getSortArrow("claim_start_date")}
                                         </th>
+                                        <th onClick={() => handleSort("hire_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                            Hire Start  {getSortArrow("hire_start_date")}
+                                        </th>
+                                        <th onClick={() => handleSort("pay_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                            Client Paid {getSortArrow("pay_date")}
+                                        </th>
                                         <th onClick={() => handleSort("hire_end_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Hire End Date {getSortArrow("hire_end_date")}
+                                            Hire End  {getSortArrow("hire_end_date")}
                                         </th>
-                                        <th onClick={() => handleSort("invoice_sent")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Invoice {getSortArrow("invoice_sent")}
+                                        <th onClick={() => handleSort("invoice_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                            Invoice Sent {getSortArrow("invoice_date")}
                                         </th>
-                                        <th className="px-3 py-2 text-right font-semibold text-green-800">Actions</th>
+                                        <th onClick={() => handleSort("status")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                            Stages {getSortArrow("status")}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-300 bg-white">
@@ -1076,9 +1088,9 @@ export default function ClaimsPage() {
                                         const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
 
                                         return (
-                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
+                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors cursor-pointer" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                                 {/* Status column - Active/Non Active/Closed */}
-                                                <td className="px-3 py-1 text-center border-r border-gray-300">
+                                                <td className="px-3 py-1 text-center border-r border-gray-300" onClick={(e) => e.stopPropagation()}>
                                                     <div className="relative group inline-block">
                                                         {(() => {
                                                             let statusText = "Active";
@@ -1155,55 +1167,44 @@ export default function ClaimsPage() {
                                                     {claim.council || "—"}
                                                 </td>
 
-                                                {/* Status badge — now shows Stage N + label */}
-                                                <td className="border-r border-gray-300 px-2 py-1">
-                                                    <div className="flex items-center justify-center">
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-white ${statusData.color} ${statusData.badgeBg} border-2`}>
-                                                            {statusData.number}
-                                                        </span>
-                                                    </div>
-                                                </td>
+                                                {/* Start Date */}
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {formatDate(claim.claim_start_date)}
                                                 </td>
 
+                                                {/* Hire Start Date */}
+                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                                                    {formatDate(claim.hire_start_date)}
+                                                </td>
+
+                                                {/* Client Paid Date */}
+                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                                                    {formatDate(claim.pay_date)}
+                                                </td>
+
+                                                {/* Hire End Date */}
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                                                     {formatDate(claim.hire_end_date)}
                                                 </td>
 
+                                                {/* Invoice Sent Date */}
                                                 <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {claim.invoice_datetime
-                                                        ? `${new Date(claim.invoice_datetime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} ${claim.info || "No Info"}`
-                                                        : "Not Sent"}
+                                                    {formatDate(claim.invoice_date)}
                                                 </td>
 
-                                                <td className="px-3 py-1 text-right flex items-center justify-end gap-2">
-                                                    {true && (
-                                                        <button onClick={() => router.push(`/claim/${claim.claim_id}`)} className="p-1 text-green-600 hover:text-green-800 transition rounded" title="View claim">
-                                                            <Eye size={16} />
-                                                        </button>
-                                                    )}
-                                                    {isClosed ? (
-                                                        <div className="relative group inline-block">
-                                                            <button onClick={() => handleReopenClaim(claim.claim_id)} className="p-1 text-teal-600 hover:text-teal-800 transition rounded" title="Reopen claim">
-                                                                <Unlock size={16} />
-                                                            </button>
-                                                            {claim.reason && (
-                                                                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-10">
-                                                                    Reason: {claim.reason}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <button onClick={() => handleCloseClaim(claim.claim_id)} className="p-1 text-purple-600 hover:text-purple-800 transition rounded" title="Close claim">
-                                                            <Lock size={16} />
-                                                        </button>
-                                                    )}
-                                                    {!claim.recently_deleted && (
-                                                        <button onClick={() => handleSoftDelete(claim.claim_id)} className="p-1 text-red-600 hover:text-red-800 transition rounded" title="Soft delete">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    )}
+                                                {/* Status badge — now shows Stage N + label */}
+                                                <td className="border-r border-gray-300 px-2 py-1">
+                                                    <div className="flex items-center justify-center">
+                                                        <span
+                                                            className={`px-3 py-1 rounded-full text-xs font-semibold border-2
+            ${statusData.number >= 4
+                                                                    ? `${statusData.badgeText} text-black border-transparent`
+                                                                    : `bg-white ${statusData.color} ${statusData.badgeBg}`
+                                                                }`}
+                                                        >
+                                                            {statusData.number}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );

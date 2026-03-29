@@ -385,27 +385,7 @@ export default function VehiclesPage() {
           <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-xl p-7">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Add New Vehicle</h2>
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Name</label>
-                <input
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g. Go Green Car 1"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Model</label>
-                <input
-                  required
-                  value={formData.model}
-                  onChange={(e) => setFormData((p) => ({ ...p, model: e.target.value }))}
-                  placeholder="e.g. Toyota Prius"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
-                />
-              </div>
-              <div>
+               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Reg No.</label>
                 <input
                   required
@@ -417,6 +397,27 @@ export default function VehiclesPage() {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 uppercase transition"
                 />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Make</label>
+                <input
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. TOYOTA"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Model</label>
+                <input
+                  required
+                  value={formData.model}
+                  onChange={(e) => setFormData((p) => ({ ...p, model: e.target.value }))}
+                  placeholder="e.g. Prius"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
+                />
+              </div>
+             
               <div className="flex gap-4 sm:col-span-3">
                 <button
                   type="button"
@@ -503,7 +504,7 @@ export default function VehiclesPage() {
                       className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
-                        Name
+                        Make
                         <ArrowUpDown size={14} className="text-gray-400" />
                       </div>
                     </th>
