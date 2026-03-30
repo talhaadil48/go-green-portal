@@ -1,34 +1,62 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Cookies from 'js-cookie'
-import { LogOut } from 'lucide-react'
+import { LogOut, User, ChevronDown } from 'lucide-react'
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const interval = setInterval(() => {
       const token = Cookies.get("access_token")
       const userRole = Cookies.get("user_role")
+      const userData = Cookies.get("user")
+
       setIsLoggedIn(!!token)
       setRole(userRole || null)
-    }, 500) // checks every 500ms
 
-    return () => clearInterval(interval) // cleanup on unmount
+      // EXACTLY like you showed
+      let extractedUsername: string | null = null
+      if (userData) {
+        try {
+          const parsed = JSON.parse(userData)
+          extractedUsername = parsed?.username || null
+        } catch {
+          extractedUsername = null
+        }
+      }
+      setUsername(extractedUsername)
+    }, 500)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleLogout = () => {
-    // Remove all relevant cookies
     Cookies.remove('access_token', { path: '/' })
     Cookies.remove('refresh_token', { path: '/' })
     Cookies.remove('user_role', { path: '/' })
     Cookies.remove('user', { path: '/' })
 
-    // Optional: force redirect
     window.location.href = '/'
   }
 
@@ -93,16 +121,50 @@ export default function Navbar() {
                   </Link>
                 )}
 
-                {/* Logout button – desktop */}
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-rose-600 hover:text-rose-800 transition-colors duration-300 relative group"
-                  aria-label="Log out"
-                >
-                  <LogOut size={20} />
-                  Logout
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-rose-500 group-hover:w-full transition-all duration-300"></span>
-                </button>
+                {/* Profile Dropdown with username from cookie */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                    className="flex items-center gap-2 px-4 py-2 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-xl transition-all duration-300 border border-transparent hover:border-emerald-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <User size={18} className="text-emerald-700" />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium text-sm">
+                          {username || 'User'}
+                        </span>
+                        {role && (
+                          <span className="text-[10px] text-emerald-600 -mt-0.5 capitalize">
+                            {role}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown 
+                      size={16} 
+                      className={`transition-transform duration-300 ${showProfileDropdown ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showProfileDropdown && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-emerald-100 py-2 z-50">
+                      
+                      <button
+                        onClick={() => {
+                          handleLogout()
+                          setShowProfileDropdown(false)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-1 text-rose-600 hover:bg-rose-50 transition-colors duration-200 text-left"
+                      >
+                        <LogOut size={18} />
+                        <span className="font-medium">Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -129,14 +191,14 @@ export default function Navbar() {
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              Claims
+              Active Claims
             </Link>
             <Link
               href="/long-claims"
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              Long Term
+              Long Term Hire
             </Link>
             <Link
               href="/cars"
@@ -144,6 +206,13 @@ export default function Navbar() {
               onClick={() => setMobileOpen(false)}
             >
               Fleet
+            </Link>
+            <Link
+              href="/invoice"
+              className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
+              onClick={() => setMobileOpen(false)}
+            >
+              Accounts
             </Link>
             <Link
               href="/recently-deleted-claims"
@@ -163,17 +232,29 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Logout – mobile */}
-            <button
-              onClick={() => {
-                handleLogout()
-                setMobileOpen(false)
-              }}
-              className="flex items-center gap-2 w-full text-left text-rose-600 hover:text-rose-800 transition-colors duration-300"
-            >
-              <LogOut size={20} />
-              Logout
-            </button>
+            {/* Mobile Profile & Logout */}
+            <div className="pt-4 border-t border-emerald-100">
+              <div className="flex items-center gap-3 px-2 mb-3">
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                  <User size={22} className="text-emerald-700" />
+                </div>
+                <div>
+                  <p className="font-medium">{username || 'User'}</p>
+                  {role && <p className="text-xs text-emerald-600 capitalize">{role}</p>}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  handleLogout()
+                  setMobileOpen(false)
+                }}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+              >
+                <LogOut size={20} />
+                Logout
+              </button>
+            </div>
           </div>
         )}
       </div>
