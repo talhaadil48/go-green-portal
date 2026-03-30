@@ -60,7 +60,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire end": { color: "text-orange-600", number: 4, label: "Hire End", badgeBg: "border-orange-600", badgeText: "bg-orange-600" },
+    "hire end": { color: "text-orange-400", number: 4, label: "Hire End", badgeBg: "border-orange-400", badgeText: "bg-orange-400" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
@@ -1151,7 +1151,7 @@ export default function ClaimsPage() {
                                                         <div className="group flex items-center gap-2">
                                                             <span className={isSaving ? "opacity-50" : ""}>{(claim.claimant_name || "—").toUpperCase()}</span>
                                                             {!isSaving && (
-                                                                <button onClick={() => startEditing(claim)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claimant name">
+                                                            <button onClick={(e) => { e.stopPropagation(); startEditing(claim); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claimant name">
                                                                     <Pencil size={14} />
                                                                 </button>
                                                             )}

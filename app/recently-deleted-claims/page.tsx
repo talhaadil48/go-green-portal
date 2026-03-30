@@ -577,3 +577,6 @@ export default function RecentlyDeletedClaimsPage() {
     </div>
   );
 }
+
+
+
