@@ -102,8 +102,11 @@ export default function ClaimsPage() {
     // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState("");
+    const [editCouncilValue, setEditCouncilValue] = useState("");
+    const [editingField, setEditingField] = useState<"name" | "council" | null>(null);
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const selectRef = useRef<HTMLSelectElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
     // Close claim reason
@@ -396,47 +399,76 @@ export default function ClaimsPage() {
     const handleReopenClaim = (claim_id: string) =>
         performActionWithUsername(claim_id, "/reopen", "reopened_by", "reopen");
 
-    const startEditing = (claim: Claim) => {
+    const startEditing = (claim: Claim, field: "name" | "council") => {
         if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
-        setEditNameValue(claim.claimant_name || "");
-        setTimeout(() => inputRef.current?.focus(), 10);
+        setEditingField(field);
+        if (field === "name") {
+            setEditNameValue(claim.claimant_name || "");
+            setTimeout(() => inputRef.current?.focus(), 10);
+        } else if (field === "council") {
+            setEditCouncilValue(claim.council || "");
+            setTimeout(() => selectRef.current?.focus(), 10);
+        }
     };
 
     const cancelEdit = () => {
         setEditingClaimId(null);
+        setEditingField(null);
         setEditNameValue("");
+        setEditCouncilValue("");
         setSavingClaimId(null);
     };
 
     const saveEdit = async (claim_id: string) => {
-        if (!editNameValue.trim()) {
+        if (editingField === "name" && !editNameValue.trim()) {
             alert("Claimant name cannot be empty.");
+            return;
+        }
+        if (editingField === "council" && !editCouncilValue.trim()) {
+            alert("Council cannot be empty.");
             return;
         }
         if (savingClaimId) return;
         setSavingClaimId(claim_id);
         try {
+            const payload: any = {};
+            if (editingField === "name") {
+                payload.claimant_name = editNameValue.trim();
+            } else if (editingField === "council") {
+                payload.council = editCouncilValue.trim();
+            }
+
             await api.put(
                 `/api/claims/${claim_id}`,
-                { claimant_name: editNameValue.trim() },
+                payload,
                 { headers: { requiresAuth: true } }
             );
+
             setAllClaims((prev) =>
-                prev.map((c) =>
-                    c.claim_id === claim_id ? { ...c, claimant_name: editNameValue.trim() } : c
-                )
+                prev.map((c) => {
+                    if (c.claim_id === claim_id) {
+                        if (editingField === "name") {
+                            return { ...c, claimant_name: editNameValue.trim() };
+                        } else if (editingField === "council") {
+                            return { ...c, council: editCouncilValue.trim() };
+                        }
+                    }
+                    return c;
+                })
             );
             setEditingClaimId(null);
+            setEditingField(null);
             setEditNameValue("");
+            setEditCouncilValue("");
         } catch (err: any) {
-            alert(err.response?.data?.detail || "Failed to update claimant name.");
+            alert(err.response?.data?.detail || "Failed to update claim field.");
         } finally {
             setSavingClaimId(null);
         }
     };
 
-    const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, claim_id: string) => {
+    const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>, claim_id: string) => {
         if (e.key === "Enter") { e.preventDefault(); saveEdit(claim_id); }
         else if (e.key === "Escape") { cancelEdit(); }
     };
@@ -1088,9 +1120,9 @@ export default function ClaimsPage() {
                                         const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
 
                                         return (
-                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors cursor-pointer" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
                                                 {/* Status column - Active/Non Active/Closed */}
-                                                <td className="px-3 py-1 text-center border-r border-gray-300" onClick={(e) => e.stopPropagation()}>
+                                                <td className="px-3 py-1 text-center border-r border-gray-300">
                                                     <div className="relative group inline-block">
                                                         {(() => {
                                                             let statusText = "Active";
@@ -1120,13 +1152,13 @@ export default function ClaimsPage() {
                                                     </div>
                                                 </td>
 
-                                                <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300">
+                                                <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                                     {claim.claim_id.toUpperCase()}
                                                 </td>
 
                                                 {/* Editable claimant name */}
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
-                                                    {isEditing ? (
+                                                    {isEditing && editingField === "name" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <input
                                                                 ref={inputRef}
@@ -1151,7 +1183,7 @@ export default function ClaimsPage() {
                                                         <div className="group flex items-center gap-2">
                                                             <span className={isSaving ? "opacity-50" : ""}>{(claim.claimant_name || "—").toUpperCase()}</span>
                                                             {!isSaving && (
-                                                            <button onClick={(e) => { e.stopPropagation(); startEditing(claim); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claimant name">
+                                                            <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claimant name">
                                                                     <Pencil size={14} />
                                                                 </button>
                                                             )}
@@ -1164,7 +1196,40 @@ export default function ClaimsPage() {
                                                 </td>
 
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
-                                                    {claim.council || "—"}
+                                                    {isEditing && editingField === "council" ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <select
+                                                                ref={selectRef}
+                                                                value={editCouncilValue}
+                                                                onChange={(e) => setEditCouncilValue(e.target.value)}
+                                                                onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                                disabled={isSaving}
+                                                                autoFocus
+                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                            >
+                                                                {COUNCIL_OPTIONS.slice(1).map((opt) => (
+                                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                ))}
+                                                            </select>
+                                                            {isSaving ? (
+                                                                <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                            ) : (
+                                                                <>
+                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="group flex items-center gap-2">
+                                                            <span>{(claim.council || "—")}</span>
+                                                            {!isSaving && (
+                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
 
                                                 {/* Start Date */}
