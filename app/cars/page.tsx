@@ -518,7 +518,7 @@ export default function VehiclesPage() {
                       </div>
                     </th>
 
-                    {activeTab !== "all" && (
+                    {true && (
                       <th
                         onClick={() => handleSort("available")}
                         className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
@@ -600,7 +600,7 @@ export default function VehiclesPage() {
                             <td className="px-5 py-2.5 font-medium text-gray-900">{v.name || "—"}</td>
                             <td className="px-5 py-2.5 text-gray-700">{v.model || "—"}</td>
 
-                            {activeTab !== "all" && (
+                            {true && (
                               <td className="px-5 py-2.5 text-center">
                                 <span
                                   className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
@@ -690,7 +690,6 @@ export default function VehiclesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire ID</th>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Car Reg No.</th>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Claim ID</th>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire Start</th>
@@ -700,7 +699,6 @@ export default function VehiclesPage() {
                 <tbody className="divide-y divide-gray-100">
                   {fleetHistory.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50/60 transition">
-                      <td className="px-5 py-3 font-mono text-gray-700">#{record.id}</td>
                       <td className="px-5 py-3">
                         <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
                           {record.car_reg}

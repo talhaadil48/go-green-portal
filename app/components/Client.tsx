@@ -11,6 +11,7 @@ interface Claim {
   hire_start_date: string | null;
   hire_end_date: string | null;
   payment: number | null;
+  pay_date: string | null;
 }
 
 function formatDate(d: string | null) {
@@ -33,21 +34,17 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 export default function ClientsPage() {
-  // Tab state
   const [activeTab, setActiveTab] = useState<"clients" | "fleet">("clients");
-
-  // Claims/Clients data
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Editing state for payment
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState("");
+  const [editPayDate, setEditPayDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Filters
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
@@ -71,16 +68,17 @@ export default function ClientsPage() {
     }
   }, [activeTab]);
 
-  // Start / Cancel / Save Payment Edit
   const startEditingPayment = (claim: Claim) => {
     setEditingId(claim.claim_id);
     setEditPayment(claim.payment?.toString() || "0");
+    setEditPayDate(claim.pay_date ? claim.pay_date.split("T")[0] : "");
     setSaveError(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditPayment("");
+    setEditPayDate("");
     setSaveError(null);
   };
 
@@ -90,12 +88,13 @@ export default function ClientsPage() {
 
     try {
       const paymentAmount = parseFloat(editPayment) || 0;
+      const payDate = editPayDate ? new Date(editPayDate).toISOString() : null;
 
       const res = await api.put(
         `/api/claims/${claimId}/payment`,
         {
-          payment: String(paymentAmount.toFixed(2)), // Ensure 2 decimal places
-          pay_date: new Date().toISOString(),
+          payment: paymentAmount.toFixed(2),
+          pay_date: payDate,
         },
         { headers: { requiresAuth: true } }
       );
@@ -111,7 +110,6 @@ export default function ClientsPage() {
     }
   };
 
-  // Filtering
   const filteredClaims = claims.filter((claim) => {
     const matchesSearch =
       !search ||
@@ -128,26 +126,22 @@ export default function ClientsPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">
-              Clients 
-            </h1>
-            <p className="mt-1 text-lg text-green-700/80">Manage your clients and fleet information</p>
+            <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">Clients</h1>
+            <p className="mt-1 text-green-700/80">Manage your clients and fleet information</p>
           </div>
 
-          <div className="flex gap-3 mt-4 md:mt-0">
-            {activeTab === "clients" && (
-              <button
-                onClick={() => fetchClaims()}
-                disabled={loading}
-                className="px-5 py-2 bg-white border border-green-200 text-green-700 rounded-xl hover:bg-green-50 transition disabled:opacity-50 flex items-center gap-2 text-sm"
-              >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-                Refresh
-              </button>
-            )}
-          </div>
+          {activeTab === "clients" && (
+            <button
+              onClick={fetchClaims}
+              disabled={loading}
+              className="mt-4 md:mt-0 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-xl hover:bg-green-50 transition disabled:opacity-50 flex items-center gap-2 text-sm"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </button>
+          )}
         </div>
 
         {/* Tabs */}
@@ -180,7 +174,7 @@ export default function ClientsPage() {
         {activeTab === "clients" && (
           <>
             {/* Filters */}
-            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <input
                 type="text"
                 value={search}
@@ -208,12 +202,11 @@ export default function ClientsPage() {
             </div>
 
             {error && (
-              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
                 {error}
               </div>
             )}
 
-            {/* Table - Compact Version */}
             {loading ? (
               <div className="flex justify-center py-16">
                 <Loader2 className="w-12 h-12 text-green-600 animate-spin" />
@@ -225,65 +218,52 @@ export default function ClientsPage() {
             ) : (
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-green-50/80">
                       <tr>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Claim ID
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Claimant Name
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Start Date
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Hire Start
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Hire End
-                        </th>
-                        <th className="px-5 py-3 text-left text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Payment
-                        </th>
-                        <th className="px-5 py-3 text-right text-xs font-bold text-green-900 uppercase tracking-wider">
-                          Action
-                        </th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Claim ID</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Claimant</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Start Date</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Hire Start</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Hire End</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Payment</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Pay Date</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-bold text-green-900 uppercase tracking-wider w-20">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 text-sm">
+                    <tbody className="divide-y divide-gray-200">
                       {filteredClaims.map((claim) => (
                         <tr 
                           key={claim.claim_id} 
-                          className="hover:bg-green-50/40 transition-colors"
+                          className="hover:bg-green-50/50 transition-colors h-11"  // ← Tight row height
                         >
-                          <td className="px-5 py-3 font-medium text-green-900 whitespace-nowrap">
+                          <td className="px-4 py-2 font-medium text-green-900 whitespace-nowrap text-sm">
                             {claim.claim_id}
                           </td>
-                          <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
                             {claim.claimant_name || "—"}
                           </td>
-                          <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
                             {formatDate(claim.claim_start_date)}
                           </td>
-                          <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
                             {formatDate(claim.hire_start_date)}
                           </td>
-                          <td className="px-5 py-3 text-gray-700 whitespace-nowrap">
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
                             {formatDate(claim.hire_end_date)}
                           </td>
 
-                          {/* Payment Column - Editable */}
-                          <td className="px-5 py-3 font-semibold text-green-700 whitespace-nowrap">
+                          {/* Payment */}
+                          <td className="px-4 py-2 font-semibold text-green-700 whitespace-nowrap text-sm">
                             {editingId === claim.claim_id ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-xs text-gray-500">£</span>
                                 <input
                                   type="number"
+                                  step="0.01"
                                   value={editPayment}
                                   onChange={(e) => setEditPayment(e.target.value)}
-                                  placeholder="0"
-                                  className="w-28 px-3 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 text-sm"
+                                  className="w-24 px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm"
                                 />
                               </div>
                             ) : (
@@ -291,31 +271,45 @@ export default function ClientsPage() {
                             )}
                           </td>
 
-                          {/* Action Column */}
-                          <td className="px-5 py-3 text-right">
+                          {/* Pay Date */}
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
+                            {editingId === claim.claim_id ? (
+                              <input
+                                type="date"
+                                value={editPayDate}
+                                onChange={(e) => setEditPayDate(e.target.value)}
+                                className="px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm w-full"
+                              />
+                            ) : (
+                              formatDate(claim.pay_date)
+                            )}
+                          </td>
+
+                          {/* Action */}
+                          <td className="px-4 py-2 text-right">
                             {editingId === claim.claim_id ? (
                               <div className="flex gap-1 justify-end">
                                 <button
                                   onClick={() => handleSavePayment(claim.claim_id)}
                                   disabled={saving}
-                                  className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
+                                  className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition disabled:opacity-50"
                                 >
-                                  <Check size={16} />
+                                  <Check size={15} />
                                 </button>
                                 <button
                                   onClick={cancelEdit}
                                   disabled={saving}
-                                  className="p-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition disabled:opacity-50"
+                                  className="p-1.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md transition disabled:opacity-50"
                                 >
-                                  <X size={16} />
+                                  <X size={15} />
                                 </button>
                               </div>
                             ) : (
                               <button
                                 onClick={() => startEditingPayment(claim)}
-                                className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition"
+                                className="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition"
                               >
-                                <Edit2 size={16} />
+                                <Edit2 size={15} />
                               </button>
                             )}
                           </td>
@@ -328,12 +322,12 @@ export default function ClientsPage() {
             )}
 
             {saveError && (
-              <p className="mt-4 text-center text-red-600 text-sm">{saveError}</p>
+              <p className="mt-3 text-center text-red-600 text-sm">{saveError}</p>
             )}
           </>
         )}
 
-        {/* Fleet Tab */}
+        {/* Fleet Tab - unchanged */}
         {activeTab === "fleet" && (
           <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow overflow-hidden">
             <div className="px-8 py-16 text-center">

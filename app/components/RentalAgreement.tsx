@@ -145,8 +145,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
   const [hireVehicleSearch, setHireVehicleSearch] = useState<string>("");
   const [hireVehicleSuggestions, setHireVehicleSuggestions] = useState<Vehicle[]>([]);
+  const [hireVehicleShowDropdown, setHireVehicleShowDropdown] = useState<boolean>(false);
   const [changeVehicleSearch, setChangeVehicleSearch] = useState<string>("");
   const [changeVehicleSuggestions, setChangeVehicleSuggestions] = useState<Vehicle[]>([]);
+  const [changeVehicleShowDropdown, setChangeVehicleShowDropdown] = useState<boolean>(false);
 
   // Refs for clearing signature pads (if component supports .clear())
   const hirerTermsRef = useRef<any>(null);
@@ -176,18 +178,19 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   };
 
-  // ─── 1. Auto-calculate total_days when dates change ───
-  useEffect(() => {
-    const days = calculateInclusiveDays(
-      formData.days_out,
-      formData.days_in
-    );
 
-    setFormData(prev => {
-      if (prev.total_days === days) return prev;
-      return { ...prev, total_days: days };
-    });
-  }, [formData.days_out, formData.days_in]);
+  useEffect(() => { 
+    // Auto-calculate total_days when hire_vehicle_date_out or hire_vehicle_date_in changes
+    // days_in and days_out are kept separate for the API
+    const dateOut = String(formData.hire_vehicle_date_out || "");
+    const dateIn = String(formData.days_in || "");
+    
+    const totalDays = calculateInclusiveDays(dateOut, dateIn);
+    
+    setFormData(prev => ({ ...prev, total_days: totalDays }));
+     
+  }, [formData.hire_vehicle_date_out, formData.days_in]);
+
 
   // ─── 2. Auto-calculate money fields when dependencies change ───
   useEffect(() => {
@@ -389,13 +392,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
   const handleHireVehicleSearch = (value: string) => {
     setHireVehicleSearch(value);
+    setHireVehicleShowDropdown(true);
     if (value.trim()) {
       const filtered = allVehicles.filter((vehicle) =>
         vehicle.reg_no.toUpperCase().includes(value.toUpperCase())
       );
       setHireVehicleSuggestions(filtered);
     } else {
-      setHireVehicleSuggestions([]);
+      setHireVehicleSuggestions(allVehicles);
+    }
+  };
+
+  const toggleHireVehicleDropdown = () => {
+    setHireVehicleShowDropdown(!hireVehicleShowDropdown);
+    if (!hireVehicleShowDropdown) {
+      setHireVehicleSearch("");
+      setHireVehicleSuggestions(allVehicles);
     }
   };
 
@@ -415,13 +427,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
   const handleChangeVehicleSearch = (value: string) => {
     setChangeVehicleSearch(value);
+    setChangeVehicleShowDropdown(true);
     if (value.trim()) {
       const filtered = allVehicles.filter((vehicle) =>
         vehicle.reg_no.toUpperCase().includes(value.toUpperCase())
       );
       setChangeVehicleSuggestions(filtered);
     } else {
-      setChangeVehicleSuggestions([]);
+      setChangeVehicleSuggestions(allVehicles);
+    }
+  };
+
+  const toggleChangeVehicleDropdown = () => {
+    setChangeVehicleShowDropdown(!changeVehicleShowDropdown);
+    if (!changeVehicleShowDropdown) {
+      setChangeVehicleSearch("");
+      setChangeVehicleSuggestions(allVehicles);
     }
   };
 
@@ -734,7 +755,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {/* Registration */}
-                    <div className="relative lg:col-span-1">
+                    <div className="relative lg:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                       {formData.hire_vehicle_reg ? (
                         <div className="flex items-center gap-2">
@@ -761,20 +782,33 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         </div>
                       ) : (
                         <>
-                          <input
-                            type="text"
-                            value={hireVehicleSearch}
-                            onChange={(e) => handleHireVehicleSearch(e.target.value)}
-                            placeholder="Search by reg..."
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                          />
-                          {hireVehicleSuggestions.length > 0 && (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={hireVehicleSearch}
+                              onChange={(e) => handleHireVehicleSearch(e.target.value)}
+                              onFocus={() => setHireVehicleShowDropdown(true)}
+                              placeholder="Search by reg..."
+                              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                            />
+                            <button
+                              type="button"
+                              onClick={toggleHireVehicleDropdown}
+                              className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition font-medium"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                          {hireVehicleShowDropdown && hireVehicleSuggestions.length > 0 && (
                             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
                               {hireVehicleSuggestions.map((vehicle) => (
                                 <button
                                   key={vehicle.id}
                                   type="button"
-                                  onClick={() => selectHireVehicle(vehicle)}
+                                  onClick={() => {
+                                    selectHireVehicle(vehicle);
+                                    setHireVehicleShowDropdown(false);
+                                  }}
                                   className="w-full text-left px-4 py-2 hover:bg-green-50 border-b border-gray-200 last:border-b-0"
                                 >
                                   <div className="font-medium text-gray-900">{vehicle.reg_no}</div>
@@ -813,8 +847,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
 
-                    {/* Empty div to balance the 4-column grid (since we have only 3 fields here) */}
-                    <div className="hidden lg:block"></div>
 
                     {/* Date Out & Date In - Single Line */}
                     <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -950,10 +982,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div className="relative">
+                        <div className="relative col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                           {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 ">
                               <div className="flex-1">
                                 <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
                                   <span>{vehicle.vehicle_reg}</span>
@@ -968,8 +1000,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                 }}
                                 disabled={vehicle.fromApi}
                                 className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : "bg-blue-500 hover:bg-blue-600"
+                                    ? "bg-green-400 cursor-not-allowed"
+                                    : "bg-green-500 hover:bg-green-600"
                                   }`}
                               >
                                 <Pencil className="h-4 w-4" /> 
@@ -977,31 +1009,53 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             </div>
                           ) : (
                             <>
-                              <input
-                                type="text"
-                                value={editingVehicleIndex === index ? changeVehicleSearch : ""}
-                                onChange={(e) => {
-                                  if (editingVehicleIndex === index && !vehicle.fromApi) {
-                                    handleChangeVehicleSearch(e.target.value);
-                                  }
-                                }}
-                                onFocus={() => {
-                                  if (!vehicle.fromApi) {
-                                    setEditingVehicleIndex(index);
-                                  }
-                                }}
-                                placeholder="Search by reg..."
-                                disabled={vehicle.fromApi}
-                                className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
-                                  }`}
-                              />
-                              {editingVehicleIndex === index && changeVehicleSuggestions.length > 0 && !vehicle.fromApi && (
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={editingVehicleIndex === index ? changeVehicleSearch : ""}
+                                  onChange={(e) => {
+                                    if (editingVehicleIndex === index && !vehicle.fromApi) {
+                                      handleChangeVehicleSearch(e.target.value);
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    if (!vehicle.fromApi) {
+                                      setEditingVehicleIndex(index);
+                                      setChangeVehicleShowDropdown(true);
+                                    }
+                                  }}
+                                  placeholder="Search by reg..."
+                                  disabled={vehicle.fromApi}
+                                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
+                                    }`}
+                                />
+                                {!vehicle.fromApi && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingVehicleIndex(index);
+                                      setChangeVehicleShowDropdown(!changeVehicleShowDropdown);
+                                      if (!changeVehicleShowDropdown) {
+                                        setChangeVehicleSearch("");
+                                        setChangeVehicleSuggestions(allVehicles);
+                                      }
+                                    }}
+                                    className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition font-medium"
+                                  >
+                                    ▼
+                                  </button>
+                                )}
+                              </div>
+                              {editingVehicleIndex === index && changeVehicleShowDropdown && changeVehicleSuggestions.length > 0 && !vehicle.fromApi && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
                                   {changeVehicleSuggestions.map((v) => (
                                     <button
                                       key={v.id}
                                       type="button"
-                                      onClick={() => selectChangeVehicle(v)}
+                                      onClick={() => {
+                                        selectChangeVehicle(v);
+                                        setChangeVehicleShowDropdown(false);
+                                      }}
                                       className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-200 last:border-b-0"
                                     >
                                       <div className="font-medium text-gray-900">{v.reg_no}</div>
@@ -1873,8 +1927,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </label>
                   <input
                     type="date"
-                    name="days_out"
-                    value={formData.days_out}
+                    name="hire_vehicle_date_out"
+                    value={formData.hire_vehicle_date_out}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
@@ -1902,9 +1956,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     type="number"
                     name="total_days"
                     value={formData.total_days}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                   />
+                  <p className="text-sm text-gray-600 mt-1">Auto-calculated from hire dates</p>
                 </div>
 
                 <div>

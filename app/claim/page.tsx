@@ -1157,7 +1157,7 @@ export default function ClaimsPage() {
                                                 </td>
 
                                                 {/* Editable claimant name */}
-                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300 w-56 min-w-56">
                                                     {isEditing && editingField === "name" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <input
@@ -1168,29 +1168,59 @@ export default function ClaimsPage() {
                                                                 onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                                 disabled={isSaving}
                                                                 autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
+          ${isSaving
+                                                                        ? "border-gray-300 bg-gray-50 text-gray-500"
+                                                                        : "border-green-400 focus:ring-green-500 bg-white"
+                                                                    }`}
                                                             />
                                                             {isSaving ? (
                                                                 <Loader2 size={16} className="text-green-600 animate-spin" />
                                                             ) : (
                                                                 <>
-                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                    <button
+                                                                        onClick={() => saveEdit(claim.claim_id)}
+                                                                        disabled={isSaving}
+                                                                        title="Save"
+                                                                        className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                                                                    >
+                                                                        <Check size={16} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={cancelEdit}
+                                                                        disabled={isSaving}
+                                                                        title="Cancel"
+                                                                        className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
+                                                                    >
+                                                                        <X size={16} />
+                                                                    </button>
                                                                 </>
                                                             )}
                                                         </div>
                                                     ) : (
                                                         <div className="group flex items-center gap-2">
-                                                            <span className={isSaving ? "opacity-50" : ""}>{(claim.claimant_name || "—").toUpperCase()}</span>
+                                                            <span
+                                                                className={`break-words whitespace-pre-wrap ${isSaving ? "opacity-50" : ""}`}
+                                                                style={{ wordBreak: "break-word" }}
+                                                            >
+                                                                {(claim.claimant_name || "—").toUpperCase()}
+                                                            </span>
+
                                                             {!isSaving && (
-                                                            <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claimant name">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        startEditing(claim, "name");
+                                                                    }}
+                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5"
+                                                                    title="Edit claimant name"
+                                                                >
                                                                     <Pencil size={14} />
                                                                 </button>
                                                             )}
                                                         </div>
                                                     )}
                                                 </td>
-
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
                                                     {claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}
                                                 </td>
