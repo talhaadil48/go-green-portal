@@ -70,6 +70,16 @@ interface SummaryData {
   }>;
 }
 
+
+const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
+  "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+  "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+  "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+  "hire end": { color: "text-orange-400", number: 4, label: "Hire End", badgeBg: "border-orange-400", badgeText: "bg-orange-400" },
+  "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
+  default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
+};
+
 const storageLocations: Record<string, { name: string; city: string; postcode: string }> = {
   addr1: {
     name: "LITTLE BURTON EAST",
@@ -82,6 +92,107 @@ const storageLocations: Record<string, { name: string; city: string; postcode: s
     postcode: "XX00 0XX",
   },
 };
+
+// Status stages configuration
+const STATUS_STAGES = [
+  { key: "claim created", number: 1, label: "Claim Created" },
+  { key: "hire start", number: 2, label: "Hire Start" },
+  { key: "client paid", number: 3, label: "Client Paid" },
+  { key: "hire end", number: 4, label: "Hire End" },
+  { key: "invoice sent", number: 5, label: "Invoice Sent" },
+];
+
+// Returns styling config for a given stage index (0-based) relative to the active stage
+function getStageStyle(stageIndex: number, activeIndex: number): {
+  circleStyle: React.CSSProperties;
+  labelStyle: React.CSSProperties;
+  connectorStyle: React.CSSProperties;
+} {
+  const stage = STATUS_STAGES[stageIndex];
+  const isPast = stageIndex < activeIndex;
+  const isActive = stageIndex === activeIndex;
+  const isFuture = stageIndex > activeIndex;
+
+  // Stages 1-3 (index 0-2): outline style (no fill, black border/text)
+  // Stages 4-5 (index 3-4): filled style with their specific colors
+  const stageColors: Record<number, { fill: string; border: string; text: string }> = {
+    3: { fill: '#fb923c', border: '#fb923c', text: '#fff' },   // orange-400
+    4: { fill: '#16a34a', border: '#16a34a', text: '#fff' },   // green-600
+  };
+
+  const isOutlineStage = stageIndex <= 2; // stages 1-3
+
+  let circleStyle: React.CSSProperties = {};
+  let labelStyle: React.CSSProperties = {};
+
+  if (isFuture) {
+    // Future: gray, no fill
+    circleStyle = {
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      border: '2px solid #d1d5db',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#9ca3af',
+      background: 'transparent',
+      flexShrink: 0,
+    };
+    labelStyle = { color: '#9ca3af', fontSize: 12, fontWeight: 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
+  } else if (isOutlineStage) {
+    // Stages 1-3 active/past: outline box, black
+    circleStyle = {
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      border: '2.5px solid #111827',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#111827',
+      background: 'transparent',
+      flexShrink: 0,
+      boxShadow: isActive ? '0 0 0 3px rgba(17,24,39,0.15)' : 'none',
+    };
+    labelStyle = { color: '#111827', fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
+  } else {
+    // Stages 4-5 active/past: filled with their color
+    const colorCfg = stageColors[stageIndex] ?? { fill: '#374151', border: '#374151', text: '#fff' };
+    circleStyle = {
+      width: 36,
+      height: 36,
+      borderRadius: '50%',
+      border: `2.5px solid ${colorCfg.border}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 13,
+      fontWeight: 700,
+      color: colorCfg.text,
+      background: colorCfg.fill,
+      flexShrink: 0,
+      boxShadow: isActive ? `0 0 0 3px ${colorCfg.fill}33` : 'none',
+    };
+    labelStyle = { color: colorCfg.border, fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
+  }
+
+  // Connector line: black if connecting two active/past, gray otherwise
+  const connectorStyle: React.CSSProperties = {
+    flex: 1,
+    height: 2,
+    background: stageIndex < activeIndex ? '#111827' : '#e5e7eb',
+    marginBottom: 22,
+    minWidth: 20,
+    transition: 'background 0.3s',
+  };
+
+  return { circleStyle, labelStyle, connectorStyle };
+}
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap');
@@ -121,7 +232,7 @@ const styles = `
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 40px;
+    margin-bottom: 28px;
     gap: 20px;
   }
 
@@ -167,10 +278,10 @@ const styles = `
     background: var(--sr-em-pale);
     border: 1.5px solid var(--sr-em-border);
     color: var(--sr-em);
-    padding: 10px 16px;
+    padding: 10px 20px;
     border-radius: var(--sr-r-sm);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
     text-transform: capitalize;
   }
 
@@ -362,18 +473,48 @@ const styles = `
   .sr-delete-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: var(--sr-danger);
     color: white;
-    padding: 10px 18px;
+    padding: 8px 14px;
     border-radius: var(--sr-r-sm);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     border: none;
     cursor: pointer;
   }
   .sr-delete-btn:hover {
     background: #a12c22;
+  }
+
+  /* ── Stage tracker ── */
+  .sr-stage-bar {
+    background: var(--sr-white);
+    border: 1px solid #e0e6e3;
+    border-radius: var(--sr-r);
+    padding: 20px 32px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    margin-bottom: 32px;
+  }
+
+  .sr-stage-inner {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .sr-stage-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .sr-stage-connector {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding-bottom: 22px;
   }
 `;
 
@@ -383,7 +524,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [userName, setUsername] = useState<string | null>(null);
 
-  // Get username from cookie
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
       try {
@@ -398,7 +538,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     setUsername(getCurrentUsername());
   }, []);
 
-  // Fetch summary
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -429,7 +568,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     }
   };
 
-  // Soft Delete Function
   const handleSoftDelete = async () => {
     if (!userName) {
       alert("User session not found. Please log in again.");
@@ -459,6 +597,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
       alert(err.response?.data?.detail || "Failed to soft delete claim.");
     }
   };
+
   if (loading) {
     return (
       <>
@@ -493,35 +632,43 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const invoices = data.invoices || [];
   const hasVehicleChanges = rental?.change_vehicle_history && rental.change_vehicle_history.length > 0;
 
+  // Determine active stage index from claim status
+  const statusLower = (claim.status || "").toLowerCase().trim();
+  const statusData = STATUS_COLORS[statusLower] || STATUS_COLORS.default;
+  const activeStageIndex = STATUS_STAGES.findIndex(s => s.key === statusLower);
+  // If not found, default to -1 (nothing active, all future)
+  const resolvedActiveIndex = activeStageIndex >= 0 ? activeStageIndex : -1;
+
   return (
     <>
       <style>{styles}</style>
       <div className="sr-root">
         <div className="sr-inner">
 
-          {/* HEADER with Delete Button */}
+          {/* HEADER */}
           <header className="sr-header">
             <div>
+              <p className={`sr-logo ${statusData.badgeText} ${statusData.badgeBg}`}>
+                {statusData.number}
+              </p>
               <h1 className="sr-title">Claim Summary</h1>
               <p className="sr-ref">Reference <em>#{claim.claim_id || "—"}</em></p>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
                 {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
               </div>
 
               {!claim.recently_deleted && (
-                <button
-                  onClick={handleSoftDelete}
-                  className="sr-delete-btn"
-                >
-                  <Trash2 size={17} />
-                  Delete Claim
+                <button onClick={handleSoftDelete} className="sr-delete-btn">
+                  <Trash2 size={14} />
+                  Delete
                 </button>
               )}
             </div>
           </header>
+
           <div className="sr-grid">
 
             {/* CLAIMANT & VEHICLE DETAILS */}
@@ -604,7 +751,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                   )}
                 </div>
 
-                {/* Client Vehicle Details with PTU Storage and Vehicle Damage */}
+                {/* Client Vehicle Details */}
                 <div className="sr-card" style={{ position: 'relative' }}>
                   <div className="sr-chead">
                     <div className="sr-clabel">
@@ -613,7 +760,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                     </div>
                   </div>
 
-                  {/* Vehicle Damage Badge - Top Right */}
                   {accident?.checklist_vd && (
                     <div
                       style={{
@@ -714,7 +860,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                 <h2 className="sr-section-title">Hire Vehicles</h2>
 
                 {!hasVehicleChanges ? (
-                  /* Full width when no changes */
                   <div className="sr-card sr-card-em">
                     <div className="sr-chead">
                       <div className="sr-clabel">
@@ -783,7 +928,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                     </div>
                   </div>
                 ) : (
-                  /* Two columns when there are changes */
                   <div className="sr-section">
                     {/* Hire Vehicle Details */}
                     <div className="sr-card sr-card-em">
@@ -988,6 +1132,3 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     </>
   );
 }
-
-
-

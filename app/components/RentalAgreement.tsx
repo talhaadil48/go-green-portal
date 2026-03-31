@@ -753,7 +753,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     Hire Vehicle
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Registration */}
                     <div className="relative lg:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>

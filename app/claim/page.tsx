@@ -55,7 +55,6 @@ const COUNCIL_OPTIONS = [
     { value: "North West Leicestershire", label: "North West Leicestershire" },
 ];
 
-// Updated STATUS_COLORS with stage numbers - Stage 6 removed
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
@@ -82,7 +81,6 @@ export default function ClaimsPage() {
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
     const [selectedStage, setSelectedStage] = useState("");
-    // Status filter: "all" | "Active" | "Non Active" | "Closed"
     const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Non Active" | "Closed">("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
@@ -104,14 +102,23 @@ export default function ClaimsPage() {
     const [editNameValue, setEditNameValue] = useState("");
     const [editCouncilValue, setEditCouncilValue] = useState("");
     const [editTypeValue, setEditTypeValue] = useState("");
-    const [editingField, setEditingField] = useState<"name" | "council" | "claim_type" | null>(null);
+    // NEW: date edit values
+    const [editClaimStartDate, setEditClaimStartDate] = useState("");
+    const [editPayDate, setEditPayDate] = useState("");
+    const [editInvoiceDate, setEditInvoiceDate] = useState("");
+    const [editHireStartDate, setEditHireStartDate] = useState("");
+    const [editHireEndDate, setEditHireEndDate] = useState("");
+
+    const [editingField, setEditingField] = useState<
+        "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date" | null
+    >(null);
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const selectRef = useRef<HTMLSelectElement>(null);
     const typeRef = useRef<HTMLSelectElement>(null);
+    const dateInputRef = useRef<HTMLInputElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
-    // Close claim reason
     const [closeReasonFor, setCloseReasonFor] = useState<string | null>(null);
     const [selectedReason, setSelectedReason] = useState<string>("");
 
@@ -126,19 +133,19 @@ export default function ClaimsPage() {
                 return null;
             }
         };
-
         const currentUser = getCurrentUsername();
         setUsername(currentUser);
-    }, []); // empty dependency array → runs once on mount
+    }, []);
 
     useEffect(() => {
         if (tableRef.current) {
             const element = tableRef.current;
             const elementTop = element.getBoundingClientRect().top + window.scrollY;
-            const targetScroll = elementTop - window.innerHeight * 0.4; // 0.4 means 40% from top = 60% down
+            const targetScroll = elementTop - window.innerHeight * 0.4;
             window.scrollTo({ top: targetScroll, behavior: "smooth" });
         }
     }, [selectedType, statusFilter, selectedCouncil, selectedStage, searchTerm, startDate, endDate]);
+
     const fetchClaims = async () => {
         setLoading(true);
         setError(null);
@@ -184,7 +191,6 @@ export default function ClaimsPage() {
             filtered = filtered.filter((claim) => claim.status === selectedStage);
         }
 
-        // Status filter: Active/Non Active/Closed
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
                 ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
@@ -362,6 +368,7 @@ export default function ClaimsPage() {
 
     const handleSoftDelete = (claim_id: string) =>
         performActionWithUsername(claim_id, "/soft-delete", "deleted_by", "soft-delete");
+
     const handleCloseClaim = (claim_id: string) => {
         const reason = prompt("Select reason for closing:\n1. invoice paid\n2. client own fault\n\nEnter 1 or 2:");
         if (!reason || !["1", "2"].includes(reason)) {
@@ -398,10 +405,14 @@ export default function ClaimsPage() {
             }
         })();
     };
+
     const handleReopenClaim = (claim_id: string) =>
         performActionWithUsername(claim_id, "/reopen", "reopened_by", "reopen");
 
-    const startEditing = (claim: Claim, field: "name" | "council" | "claim_type") => {
+    const startEditing = (
+        claim: Claim,
+        field: "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date"
+    ) => {
         if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
         setEditingField(field);
@@ -414,6 +425,21 @@ export default function ClaimsPage() {
         } else if (field === "claim_type") {
             setEditTypeValue(claim.claim_type || "");
             setTimeout(() => typeRef.current?.focus(), 10);
+        } else if (field === "claim_start_date") {
+            setEditClaimStartDate(claim.claim_start_date ? claim.claim_start_date.slice(0, 10) : "");
+            setTimeout(() => dateInputRef.current?.focus(), 10);
+        } else if (field === "pay_date") {
+            setEditPayDate(claim.pay_date ? claim.pay_date.slice(0, 10) : "");
+            setTimeout(() => dateInputRef.current?.focus(), 10);
+        } else if (field === "invoice_date") {
+            setEditInvoiceDate(claim.invoice_date ? claim.invoice_date.slice(0, 10) : "");
+            setTimeout(() => dateInputRef.current?.focus(), 10);
+        } else if (field === "hire_start_date") {
+            setEditHireStartDate(claim.hire_start_date ? claim.hire_start_date.slice(0, 10) : "");
+            setTimeout(() => dateInputRef.current?.focus(), 10);
+        } else if (field === "hire_end_date") {
+            setEditHireEndDate(claim.hire_end_date ? claim.hire_end_date.slice(0, 10) : "");
+            setTimeout(() => dateInputRef.current?.focus(), 10);
         }
     };
 
@@ -423,6 +449,11 @@ export default function ClaimsPage() {
         setEditNameValue("");
         setEditCouncilValue("");
         setEditTypeValue("");
+        setEditClaimStartDate("");
+        setEditPayDate("");
+        setEditInvoiceDate("");
+        setEditHireStartDate("");
+        setEditHireEndDate("");
         setSavingClaimId(null);
     };
 
@@ -441,41 +472,77 @@ export default function ClaimsPage() {
         }
         if (savingClaimId) return;
         setSavingClaimId(claim_id);
+
         try {
-            const payload: any = {};
-            if (editingField === "name") {
-                payload.claimant_name = editNameValue.trim();
-            } else if (editingField === "council") {
-                payload.council = editCouncilValue.trim();
-            } else if (editingField === "claim_type") {
-                payload.claim_type = editTypeValue.trim();
+            // Hire vehicle dates use a separate endpoint
+            if (editingField === "hire_start_date" || editingField === "hire_end_date") {
+                const currentClaim = allClaims.find(c => c.claim_id === claim_id);
+                const dateIn = editingField === "hire_start_date"
+                    ? editHireStartDate || null
+                    : (currentClaim?.hire_start_date ? currentClaim.hire_start_date.slice(0, 10) : null);
+                const dateOut = editingField === "hire_end_date"
+                    ? editHireEndDate || null
+                    : (currentClaim?.hire_end_date ? currentClaim.hire_end_date.slice(0, 10) : null);
+
+                await api.put(
+                    `/api/claims/${claim_id}/hire-vehicle-dates`,
+                    { date_in: dateIn, date_out: dateOut },
+                    { headers: { requiresAuth: true } }
+                );
+
+                setAllClaims((prev) =>
+                    prev.map((c) => {
+                        if (c.claim_id === claim_id) {
+                            return {
+                                ...c,
+                                hire_start_date: editingField === "hire_start_date" ? (editHireStartDate || null) : c.hire_start_date,
+                                hire_end_date: editingField === "hire_end_date" ? (editHireEndDate || null) : c.hire_end_date,
+                            };
+                        }
+                        return c;
+                    })
+                );
+            } else {
+                // Main update endpoint
+                const payload: any = {};
+                if (editingField === "name") payload.claimant_name = editNameValue.trim();
+                else if (editingField === "council") payload.council = editCouncilValue.trim();
+                else if (editingField === "claim_type") payload.claim_type = editTypeValue.trim();
+                else if (editingField === "claim_start_date") payload.claim_start_date = editClaimStartDate || null;
+                else if (editingField === "pay_date") payload.pay_date = editPayDate || null;
+                else if (editingField === "invoice_date") payload.invoice_date = editInvoiceDate || null;
+
+                await api.put(
+                    `/api/claims/${claim_id}`,
+                    payload,
+                    { headers: { requiresAuth: true } }
+                );
+
+                setAllClaims((prev) =>
+                    prev.map((c) => {
+                        if (c.claim_id === claim_id) {
+                            if (editingField === "name") return { ...c, claimant_name: editNameValue.trim() };
+                            if (editingField === "council") return { ...c, council: editCouncilValue.trim() };
+                            if (editingField === "claim_type") return { ...c, claim_type: editTypeValue.trim() };
+                            if (editingField === "claim_start_date") return { ...c, claim_start_date: editClaimStartDate || null };
+                            if (editingField === "pay_date") return { ...c, pay_date: editPayDate || null };
+                            if (editingField === "invoice_date") return { ...c, invoice_date: editInvoiceDate || null };
+                        }
+                        return c;
+                    })
+                );
             }
 
-            await api.put(
-                `/api/claims/${claim_id}`,
-                payload,
-                { headers: { requiresAuth: true } }
-            );
-
-            setAllClaims((prev) =>
-                prev.map((c) => {
-                    if (c.claim_id === claim_id) {
-                        if (editingField === "name") {
-                            return { ...c, claimant_name: editNameValue.trim() };
-                        } else if (editingField === "council") {
-                            return { ...c, council: editCouncilValue.trim() };
-                        } else if (editingField === "claim_type") {
-                            return { ...c, claim_type: editTypeValue.trim() };
-                        }
-                    }
-                    return c;
-                })
-            );
             setEditingClaimId(null);
             setEditingField(null);
             setEditNameValue("");
             setEditCouncilValue("");
             setEditTypeValue("");
+            setEditClaimStartDate("");
+            setEditPayDate("");
+            setEditInvoiceDate("");
+            setEditHireStartDate("");
+            setEditHireEndDate("");
         } catch (err: any) {
             alert(err.response?.data?.detail || "Failed to update claim field.");
         } finally {
@@ -510,11 +577,8 @@ export default function ClaimsPage() {
     };
 
     // ── Summary calculations ──────────────────────────────────────────────────
-
     const summary = (() => {
         const total = allClaims.length;
-
-        // Status-based active/non-active/closed
         const activeClaims = allClaims.filter(c =>
             ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
         ).length;
@@ -524,27 +588,19 @@ export default function ClaimsPage() {
         const closedClaims = allClaims.filter(c =>
             c.status?.toLowerCase() === "close claim" || (c.closed_date && c.closed_by)
         ).length;
-
-        // Type breakdown - display "Learner" instead of "learning"
         const typeBreakdown = CLAIM_TYPES.map(type => ({
             type,
             count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
-
-        // Invoice summary:
-        // Pending  = status "hire end"
-        // Sent     = status "invoice sent"
         const invoicePending = allClaims.filter(c =>
             c.status?.toLowerCase() === "hire end"
         ).length;
         const invoiceSent = allClaims.filter(c =>
             c.status?.toLowerCase() === "invoice sent"
         ).length;
-
         return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
     })();
 
-    // Type display config  
     const typeConfig: Record<string, { icon: React.ElementType; gradient: string; border: string; text: string; iconBg: string; bar: string }> = {
         taxi: {
             icon: Car,
@@ -580,9 +636,70 @@ export default function ClaimsPage() {
         },
     };
 
+    // ── Reusable date cell renderer ───────────────────────────────────────────
+    const renderDateCell = (
+        claim: Claim,
+        field: "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date",
+        editValue: string,
+        setEditValue: (v: string) => void,
+        isHireField: boolean = false
+    ) => {
+        const isEditing = editingClaimId === claim.claim_id && editingField === field;
+        const isSaving = savingClaimId === claim.claim_id;
+        const isVehicleDamage = claim.claim_type === "vehicle damage";
+
+        if (isHireField && isVehicleDamage) {
+            return <td className="px-3 py-1 whitespace-nowrap border-r border-gray-300 bg-emerald-600" />;
+        }
+
+        return (
+            <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+                {isEditing ? (
+                    <div className="flex items-center gap-1.5">
+                        <input
+                            ref={dateInputRef}
+                            type="date"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                            disabled={isSaving}
+                            autoFocus
+                            className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 min-w-[130px]
+                                ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                        />
+                        {isSaving ? (
+                            <Loader2 size={16} className="text-green-600 animate-spin" />
+                        ) : (
+                            <>
+                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50">
+                                    <Check size={16} />
+                                </button>
+                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <div className="group flex items-center gap-2">
+                        <span className={isSaving ? "opacity-50" : ""}>{formatDate(claim[field])}</span>
+                        {!isSaving && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); startEditing(claim, field); }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0"
+                                title={`Edit ${field.replace(/_/g, " ")}`}
+                            >
+                                <Pencil size={14} />
+                            </button>
+                        )}
+                    </div>
+                )}
+            </td>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
-
             <main className="max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
                 {/* ── Page Header ─────────────────────────────────────────── */}
@@ -623,86 +740,107 @@ export default function ClaimsPage() {
                     SUMMARY DASHBOARD
                 ══════════════════════════════════════════════════════════ */}
                 <div className="mb-10 space-y-6">
-
-                    {/* Section title */}
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
                         <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
                     </div>
 
-                    {/* ── Row 1: Claim Status Summary (Clickable Filters) ─────────────────────── */}
+                    {/* Row 1: Claim Status Summary (Clickable Filters) */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-
                         {/* Total */}
                         <button
                             onClick={() => setStatusFilter("all")}
-                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white col-span-2 sm:col-span-1 transition-all duration-200 cursor-pointer border-2 ${statusFilter === "all" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900"}`}
-                            style={statusFilter === "all" ? { background: "linear-gradient(135deg, rgba(107, 114, 128, 1) 0%, rgba(55, 65, 81, 1) 100%)" } : undefined}
+                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                ${statusFilter === "all"
+                                    ? "border-yellow-300 scale-105 shadow-2xl shadow-yellow-500/50 ring-4 ring-yellow-400/30 bg-gradient-to-br from-slate-700 to-slate-900"
+                                    : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-102 hover:shadow-xl"
+                                }`}
                         >
-                            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/5 rounded-full" />
-                            <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/5 rounded-full" />
-                            <div className="relative">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <BarChart3 size={16} className="text-slate-300" />
-                                    <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total</p>
+                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
+                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/5 rounded-full" />
+                            {statusFilter === "all" && (
+                                <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-3xl" />
+                            )}
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <BarChart3 size={18} className="text-slate-300" />
+                                    <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Claims</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.total}</p>
+                                <p className="text-5xl font-black tracking-tighter">{summary.total}</p>
                             </div>
                         </button>
 
-                        {/* Active Status */}
+                        {/* Active */}
                         <button
                             onClick={() => setStatusFilter("Active")}
-                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Active" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600"}`}
-                            style={statusFilter === "Active" ? { background: "linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(5, 150, 105, 1) 100%)" } : undefined}
+                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                ${statusFilter === "Active"
+                                    ? "border-emerald-400 scale-105 shadow-2xl shadow-emerald-500/60 ring-4 ring-emerald-400/40 bg-gradient-to-br from-emerald-500 to-teal-600"
+                                    : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600 hover:scale-102 hover:shadow-xl"
+                                }`}
                         >
-                            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-                            <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
-                            <div className="relative">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <TrendingUp size={16} className="text-green-100" />
-                                    <p className="text-xs font-semibold text-green-100 uppercase tracking-widest">Active</p>
+                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                            {statusFilter === "Active" && (
+                                <div className="absolute inset-0 bg-emerald-400/25 blur-3xl rounded-3xl" />
+                            )}
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <TrendingUp size={18} className="text-emerald-100" />
+                                    <p className="text-xs font-semibold text-emerald-100 uppercase tracking-widest">Active</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.activeClaims}</p>
+                                <p className="text-5xl font-black tracking-tighter">{summary.activeClaims}</p>
                             </div>
                         </button>
 
                         {/* Non-Active */}
                         <button
                             onClick={() => setStatusFilter("Non Active")}
-                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Non Active" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500"}`}
-                            style={statusFilter === "Non Active" ? { background: "linear-gradient(135deg, rgba(217, 119, 6, 1) 0%, rgba(234, 88, 12, 1) 100%)" } : undefined}
+                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                ${statusFilter === "Non Active"
+                                    ? "border-orange-400 scale-105 shadow-2xl shadow-orange-500/60 ring-4 ring-orange-400/40 bg-gradient-to-br from-orange-500 to-amber-600"
+                                    : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 hover:scale-102 hover:shadow-xl"
+                                }`}
                         >
-                            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-                            <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
-                            <div className="relative">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Clock size={16} className="text-amber-100" />
+                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                            {statusFilter === "Non Active" && (
+                                <div className="absolute inset-0 bg-orange-400/25 blur-3xl rounded-3xl" />
+                            )}
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Clock size={18} className="text-amber-100" />
                                     <p className="text-xs font-semibold text-amber-100 uppercase tracking-widest">Non-Active</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.nonActiveClaims}</p>
+                                <p className="text-5xl font-black tracking-tighter">{summary.nonActiveClaims}</p>
                             </div>
                         </button>
 
                         {/* Closed */}
                         <button
                             onClick={() => setStatusFilter("Closed")}
-                            className={`relative overflow-hidden rounded-2xl p-5 shadow-xl text-white transition-all duration-200 cursor-pointer border-2 ${statusFilter === "Closed" ? "border-yellow-300 ring-2 ring-yellow-200" : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700"}`}
-                            style={statusFilter === "Closed" ? { background: "linear-gradient(135deg, rgba(244, 63, 94, 1) 0%, rgba(190, 24, 93, 1) 100%)" } : undefined}
+                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                ${statusFilter === "Closed"
+                                    ? "border-rose-400 scale-105 shadow-2xl shadow-rose-500/60 ring-4 ring-rose-400/40 bg-gradient-to-br from-rose-500 to-pink-600"
+                                    : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700 hover:scale-102 hover:shadow-xl"
+                                }`}
                         >
-                            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-                            <div className="absolute -bottom-6 -right-2 w-28 h-28 bg-white/10 rounded-full" />
-                            <div className="relative">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <CheckCircle2 size={16} className="text-rose-100" />
+                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                            {statusFilter === "Closed" && (
+                                <div className="absolute inset-0 bg-rose-400/25 blur-3xl rounded-3xl" />
+                            )}
+                            <div className="relative z-10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <CheckCircle2 size={18} className="text-rose-100" />
                                     <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Closed</p>
                                 </div>
-                                <p className="text-5xl font-black">{summary.closedClaims}</p>
+                                <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
                             </div>
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                         {/* Claims by Type — 2/3 */}
                         <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm">
                             <div className="flex items-center gap-2 mb-4">
@@ -711,8 +849,6 @@ export default function ClaimsPage() {
                                 </div>
                                 <h3 className="text-sm font-semibold text-green-900 tracking-tight">Claims by Type</h3>
                             </div>
-
-                            {/* Horizontal no-wrap scrollable layout */}
                             <div className="w-full">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {summary.typeBreakdown.map(({ type, count }) => {
@@ -724,32 +860,27 @@ export default function ClaimsPage() {
                                             iconBg: "bg-gray-100 text-gray-500",
                                             bar: "bg-gray-400",
                                         };
-
                                         const Icon = cfg.icon;
                                         const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
                                         const displayType = type === "learning" ? "Learner" : type;
-
                                         return (
                                             <button
                                                 key={type}
                                                 onClick={() => setSelectedType(type === selectedType ? "" : type)}
                                                 className={`relative bg-gradient-to-br ${cfg.gradient} 
-                        border-2 ${selectedType === type
+                                                    border-2 ${selectedType === type
                                                         ? "border-yellow-300 ring-2 ring-yellow-200 shadow-lg"
                                                         : cfg.border} 
-                        rounded-2xl p-6 flex flex-col gap-4 overflow-hidden 
-                        group hover:shadow-xl hover:-translate-y-0.5 
-                        transition-all duration-200 cursor-pointer w-full`}
+                                                    rounded-2xl p-6 flex flex-col gap-4 overflow-hidden 
+                                                    group hover:shadow-xl hover:-translate-y-0.5 
+                                                    transition-all duration-200 cursor-pointer w-full`}
                                             >
-                                                {/* Header */}
                                                 <div className="flex items-center justify-between">
                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.iconBg}`}>
                                                         <Icon size={20} strokeWidth={2.5} />
                                                     </div>
                                                     <span className={`text-sm font-bold ${cfg.text} opacity-75`}>{pct}%</span>
                                                 </div>
-
-                                                {/* Main Content */}
                                                 <div className="flex-1">
                                                     <p className={`text-4xl font-black leading-none ${cfg.text} tracking-tighter`}>
                                                         {count}
@@ -758,8 +889,6 @@ export default function ClaimsPage() {
                                                         {displayType}
                                                     </p>
                                                 </div>
-
-                                                {/* Progress Bar */}
                                                 <div className="h-1.5 bg-black/10 rounded-full overflow-hidden mt-auto">
                                                     <div
                                                         className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
@@ -781,9 +910,7 @@ export default function ClaimsPage() {
                                 </div>
                                 <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
                             </div>
-
                             <div className="flex-1 flex flex-col gap-3">
-                                {/* Pending */}
                                 <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/70 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
@@ -796,8 +923,6 @@ export default function ClaimsPage() {
                                     </div>
                                     <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
                                 </div>
-
-                                {/* Sent */}
                                 <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/70 rounded-xl">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
@@ -810,8 +935,6 @@ export default function ClaimsPage() {
                                     </div>
                                     <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
                                 </div>
-
-                                {/* Ratio */}
                                 <div className="mt-auto pt-1">
                                     {(() => {
                                         const total = summary.invoicePending + summary.invoiceSent;
@@ -835,7 +958,6 @@ export default function ClaimsPage() {
                             </div>
                         </div>
                     </div>
-                    {/* ── Row 2: Type Breakdown + Invoice Summary ──────────── */}
                 </div>
 
                 {/* ══════════════════════════════════════════════════════════
@@ -853,7 +975,6 @@ export default function ClaimsPage() {
                                     <X size={24} />
                                 </button>
                             </div>
-
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Claimant Name</label>
@@ -905,11 +1026,9 @@ export default function ClaimsPage() {
                                         className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
                                     />
                                 </div>
-
                                 {createError && (
                                     <p className="text-red-600 text-sm font-medium">{createError}</p>
                                 )}
-
                                 <div className="flex gap-3 pt-4">
                                     <button
                                         type="button"
@@ -937,7 +1056,7 @@ export default function ClaimsPage() {
                 )}
 
                 {/* ══════════════════════════════════════════════════════════
-                    FILTERS + LEGEND
+                    FILTERS  (legend removed)
                 ══════════════════════════════════════════════════════════ */}
                 <div className="space-y-6">
                     <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
@@ -952,7 +1071,6 @@ export default function ClaimsPage() {
                                     className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                 />
                             </div>
-
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
                                 <select
@@ -968,7 +1086,6 @@ export default function ClaimsPage() {
                                     ))}
                                 </select>
                             </div>
-
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Council</label>
                                 <select
@@ -981,7 +1098,6 @@ export default function ClaimsPage() {
                                     ))}
                                 </select>
                             </div>
-
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Stages</label>
                                 <select
@@ -999,7 +1115,6 @@ export default function ClaimsPage() {
                                         ))}
                                 </select>
                             </div>
-
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                                 <select
@@ -1013,7 +1128,6 @@ export default function ClaimsPage() {
                                     <option value="Closed">Closed</option>
                                 </select>
                             </div>
-
                             <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                                 <div className="flex-1">
                                     <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
@@ -1041,27 +1155,7 @@ export default function ClaimsPage() {
                             </div>
                         </div>
                     </div>
-
-                    {/* Status legend */}
-                    <div className="flex justify-end">
-                        <div className="flex items-center gap-3 bg-white/60 backdrop-blur-sm border border-green-100 rounded-full px-4 py-3 shadow-sm flex-wrap justify-end">
-                            {Object.entries(STATUS_COLORS)
-                                .filter(([status]) => status !== "default")
-                                .map(([status, data]) => (
-                                    <div key={status} className="relative group">
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-3 h-3 rounded-full ${data.badgeText} ring-1 ring-black/10`} />
-                                            <span className="text-xs font-semibold text-gray-700 min-w-[20px]">{data.number}</span>
-                                        </div>
-                                        <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden group-hover:block">
-                                            <div className="rounded-md bg-gray-900 text-white text-xs px-2 py-1 whitespace-nowrap shadow-lg">
-                                                Stage {data.number} – {data.label}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
+                    {/* Color legend REMOVED */}
                 </div>
 
                 <div className="mb-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
@@ -1070,7 +1164,7 @@ export default function ClaimsPage() {
                 </div>
 
                 {/* ══════════════════════════════════════════════════════════
-                    TABLE  (header is sticky; design unchanged)
+                    TABLE
                 ══════════════════════════════════════════════════════════ */}
                 {loading ? (
                     <div className="flex justify-center py-20">
@@ -1085,12 +1179,33 @@ export default function ClaimsPage() {
                         </p>
                     </div>
                 ) : (
-                    <div ref={tableRef} className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow-xl">
-                        {/* Scrollable container with fixed max-height so the sticky header works */}
+                    <div ref={tableRef}>
                         <div className="overflow-auto max-h-[500px]">
                             <table className="min-w-full divide-y divide-gray-400 text-sm rounded-md">
-                                {/* sticky top-0 keeps the header pinned inside the scrollable div */}
                                 <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
+                                    <tr className="border-0 bg-transparent">
+                                        {/* Invisible filler cells */}
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+
+                                        {/* Visible "Claim Progress" cell */}
+                                        <th
+                                            colSpan={5}
+                                            className="px-3 py-1.5 text-center bg-green-300/80"
+                                            style={{ borderRadius: "8px 8px 0 0" }}
+                                        >
+                                            <span className="text-md font-bold text-green-800 uppercase tracking-widest">
+                                                — Claim Progress —
+                                            </span>
+                                        </th>
+
+                                        {/* Invisible trailing cell */}
+                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                    </tr>
+                                    {/* ── Main header row ── */}
                                     <tr className="border-b border-gray-500">
                                         <th onClick={() => handleSort("closed")} className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Status {getSortArrow("closed")}
@@ -1107,28 +1222,54 @@ export default function ClaimsPage() {
                                         <th onClick={() => handleSort("council")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Council {getSortArrow("council")}
                                         </th>
+
+                                        {/* Stage 1 */}
                                         <th onClick={() => handleSort("claim_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Start Date {getSortArrow("claim_start_date")}
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
+                                                <span>Start Date {getSortArrow("claim_start_date")}</span>
+                                            </div>
                                         </th>
+
+                                        {/* Stage 2 */}
                                         <th onClick={() => handleSort("hire_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Hire Start  {getSortArrow("hire_start_date")}
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
+                                                <span>Hire Start {getSortArrow("hire_start_date")}</span>
+                                            </div>
                                         </th>
+
+                                        {/* Stage 3 */}
                                         <th onClick={() => handleSort("pay_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Client Paid {getSortArrow("pay_date")}
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
+                                                <span>Client Paid {getSortArrow("pay_date")}</span>
+                                            </div>
                                         </th>
+
+                                        {/* Stage 4 */}
                                         <th onClick={() => handleSort("hire_end_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Hire End  {getSortArrow("hire_end_date")}
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
+                                                <span>Hire End {getSortArrow("hire_end_date")}</span>
+                                            </div>
                                         </th>
+
+                                        {/* Stage 5 */}
                                         <th onClick={() => handleSort("invoice_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
-                                            Invoice Sent {getSortArrow("invoice_date")}
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
+                                                <span>Invoice Sent {getSortArrow("invoice_date")}</span>
+                                            </div>
                                         </th>
+
                                         <th onClick={() => handleSort("status")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
                                             Stages {getSortArrow("status")}
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-300 bg-white">
-                                    {claims.map((claim, index) => {
+                                    {claims.map((claim) => {
                                         const isEditing = editingClaimId === claim.claim_id;
                                         const isSaving = savingClaimId === claim.claim_id;
                                         const isClosed = !!(claim.closed_date && claim.closed_by);
@@ -1136,13 +1277,12 @@ export default function ClaimsPage() {
 
                                         return (
                                             <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
-                                                {/* Status column - Active/Non Active/Closed */}
+                                                {/* Status column */}
                                                 <td className="px-3 py-1 text-center border-r border-gray-300">
                                                     <div className="relative group inline-block">
                                                         {(() => {
                                                             let statusText = "Active";
                                                             let bgColor = "bg-green-100 text-green-800";
-
                                                             if (isClosed) {
                                                                 statusText = "Closed";
                                                                 bgColor = "bg-red-100 text-red-800";
@@ -1150,7 +1290,6 @@ export default function ClaimsPage() {
                                                                 statusText = "Non Active";
                                                                 bgColor = "bg-amber-100 text-amber-800";
                                                             }
-
                                                             return (
                                                                 <>
                                                                     <span className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-semibold rounded-full ${bgColor}`}>
@@ -1184,59 +1323,33 @@ export default function ClaimsPage() {
                                                                 disabled={isSaving}
                                                                 autoFocus
                                                                 className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
-          ${isSaving
-                                                                        ? "border-gray-300 bg-gray-50 text-gray-500"
-                                                                        : "border-green-400 focus:ring-green-500 bg-white"
-                                                                    }`}
+                                                                    ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                             />
                                                             {isSaving ? (
                                                                 <Loader2 size={16} className="text-green-600 animate-spin" />
                                                             ) : (
                                                                 <>
-                                                                    <button
-                                                                        onClick={() => saveEdit(claim.claim_id)}
-                                                                        disabled={isSaving}
-                                                                        title="Save"
-                                                                        className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
-                                                                    >
-                                                                        <Check size={16} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={cancelEdit}
-                                                                        disabled={isSaving}
-                                                                        title="Cancel"
-                                                                        className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"
-                                                                    >
-                                                                        <X size={16} />
-                                                                    </button>
+                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
                                                                 </>
                                                             )}
                                                         </div>
                                                     ) : (
                                                         <div className="group flex items-center gap-2">
-                                                            <span
-                                                                className={`break-words whitespace-pre-wrap ${isSaving ? "opacity-50" : ""}`}
-                                                                style={{ wordBreak: "break-word" }}
-                                                            >
+                                                            <span className={`break-words whitespace-pre-wrap ${isSaving ? "opacity-50" : ""}`} style={{ wordBreak: "break-word" }}>
                                                                 {(claim.claimant_name || "—").toUpperCase()}
                                                             </span>
-
                                                             {!isSaving && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        startEditing(claim, "name");
-                                                                    }}
-                                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5"
-                                                                    title="Edit claimant name"
-                                                                >
+                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5" title="Edit claimant name">
                                                                     <Pencil size={14} />
                                                                 </button>
                                                             )}
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
+
+                                                {/* Editable claim type */}
+                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300 w-30 min-w-30">
                                                     {isEditing && editingField === "claim_type" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <select
@@ -1275,8 +1388,11 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
-                                                    {isEditing && editingField === "council" ? (
+                                                {/* Editable council */}
+                                                <td className={`px-3 py-1 border-r border-gray-300 ${claim.claim_type === "vehicle damage" ? "bg-emerald-600" : "text-gray-700"} w-40 min-w-40`}>
+                                                    {claim.claim_type === "vehicle damage" ? (
+                                                        <></>
+                                                    ) : isEditing && editingField === "council" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <select
                                                                 ref={selectRef}
@@ -1312,37 +1428,27 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Start Date */}
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {formatDate(claim.claim_start_date)}
-                                                </td>
+                                                {/* Stage 1 – Start Date (editable via main API) */}
+                                                {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate)}
 
-                                                {/* Hire Start Date */}
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {formatDate(claim.hire_start_date)}
-                                                </td>
+                                                {/* Stage 2 – Hire Start (editable via hire-vehicle-dates API) */}
+                                                {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
 
-                                                {/* Client Paid Date */}
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {formatDate(claim.pay_date)}
-                                                </td>
+                                                {/* Stage 3 – Client Paid (editable via main API) */}
+                                                {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate)}
 
-                                                {/* Hire End Date */}
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {formatDate(claim.hire_end_date)}
-                                                </td>
+                                                {/* Stage 4 – Hire End (editable via hire-vehicle-dates API) */}
+                                                {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
 
-                                                {/* Invoice Sent Date */}
-                                                <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
-                                                    {formatDate(claim.invoice_date)}
-                                                </td>
+                                                {/* Stage 5 – Invoice Sent (editable via main API) */}
+                                                {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate)}
 
-                                                {/* Status badge — now shows Stage N + label */}
+                                                {/* Stage badge */}
                                                 <td className="border-r border-gray-300 px-2 py-1">
                                                     <div className="flex items-center justify-center">
                                                         <span
                                                             className={`px-3 py-1 rounded-full text-xs font-semibold border-2
-            ${statusData.number >= 4
+                                                                ${statusData.number >= 4
                                                                     ? `${statusData.badgeText} text-black border-transparent`
                                                                     : `bg-white ${statusData.color} ${statusData.badgeBg}`
                                                                 }`}
