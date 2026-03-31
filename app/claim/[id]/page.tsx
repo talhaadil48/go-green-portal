@@ -54,7 +54,6 @@ const STATUS_OPTIONS = [
   { value: "client paid", label: "Client Paid" },
   { value: "hire end", label: "Hire End" },
   { value: "invoice sent", label: "Invoice Sent" },
-  { value: "close claim", label: "Close Claim" },
 ];
 
 interface ClaimData {
