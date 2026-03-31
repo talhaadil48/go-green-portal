@@ -103,10 +103,12 @@ export default function ClaimsPage() {
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
     const [editNameValue, setEditNameValue] = useState("");
     const [editCouncilValue, setEditCouncilValue] = useState("");
-    const [editingField, setEditingField] = useState<"name" | "council" | null>(null);
+    const [editTypeValue, setEditTypeValue] = useState("");
+    const [editingField, setEditingField] = useState<"name" | "council" | "claim_type" | null>(null);
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const selectRef = useRef<HTMLSelectElement>(null);
+    const typeRef = useRef<HTMLSelectElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
     // Close claim reason
@@ -399,7 +401,7 @@ export default function ClaimsPage() {
     const handleReopenClaim = (claim_id: string) =>
         performActionWithUsername(claim_id, "/reopen", "reopened_by", "reopen");
 
-    const startEditing = (claim: Claim, field: "name" | "council") => {
+    const startEditing = (claim: Claim, field: "name" | "council" | "claim_type") => {
         if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
         setEditingField(field);
@@ -409,6 +411,9 @@ export default function ClaimsPage() {
         } else if (field === "council") {
             setEditCouncilValue(claim.council || "");
             setTimeout(() => selectRef.current?.focus(), 10);
+        } else if (field === "claim_type") {
+            setEditTypeValue(claim.claim_type || "");
+            setTimeout(() => typeRef.current?.focus(), 10);
         }
     };
 
@@ -417,6 +422,7 @@ export default function ClaimsPage() {
         setEditingField(null);
         setEditNameValue("");
         setEditCouncilValue("");
+        setEditTypeValue("");
         setSavingClaimId(null);
     };
 
@@ -429,6 +435,10 @@ export default function ClaimsPage() {
             alert("Council cannot be empty.");
             return;
         }
+        if (editingField === "claim_type" && !editTypeValue.trim()) {
+            alert("Claim type cannot be empty.");
+            return;
+        }
         if (savingClaimId) return;
         setSavingClaimId(claim_id);
         try {
@@ -437,6 +447,8 @@ export default function ClaimsPage() {
                 payload.claimant_name = editNameValue.trim();
             } else if (editingField === "council") {
                 payload.council = editCouncilValue.trim();
+            } else if (editingField === "claim_type") {
+                payload.claim_type = editTypeValue.trim();
             }
 
             await api.put(
@@ -452,6 +464,8 @@ export default function ClaimsPage() {
                             return { ...c, claimant_name: editNameValue.trim() };
                         } else if (editingField === "council") {
                             return { ...c, council: editCouncilValue.trim() };
+                        } else if (editingField === "claim_type") {
+                            return { ...c, claim_type: editTypeValue.trim() };
                         }
                     }
                     return c;
@@ -461,6 +475,7 @@ export default function ClaimsPage() {
             setEditingField(null);
             setEditNameValue("");
             setEditCouncilValue("");
+            setEditTypeValue("");
         } catch (err: any) {
             alert(err.response?.data?.detail || "Failed to update claim field.");
         } finally {
@@ -1222,7 +1237,42 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
-                                                    {claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}
+                                                    {isEditing && editingField === "claim_type" ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <select
+                                                                ref={typeRef}
+                                                                value={editTypeValue}
+                                                                onChange={(e) => setEditTypeValue(e.target.value)}
+                                                                onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                                disabled={isSaving}
+                                                                autoFocus
+                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                            >
+                                                                {CLAIM_TYPES.map((type) => (
+                                                                    <option key={type} value={type}>
+                                                                        {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            {isSaving ? (
+                                                                <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                            ) : (
+                                                                <>
+                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="group flex items-center gap-2">
+                                                            <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
+                                                            {!isSaving && (
+                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
+                                                                    <Pencil size={14} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
 
                                                 <td className="px-3 py-1 text-gray-700 border-r border-gray-300">
