@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import api from "@/lib/axios";
 import Cookies from 'js-cookie';
+import { useRouter } from 'next/navigation';
 import {
   User,
   Phone,
@@ -521,7 +522,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUsername] = useState<string | null>(null);
-
+  const router = useRouter();
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
       try {
@@ -590,7 +591,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
         { headers: { requiresAuth: true } }
       );
       alert("Claim soft deleted successfully.");
-      window.location.reload();
+      router.push('/claim')
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to soft delete claim.");
     }

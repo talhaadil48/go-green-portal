@@ -47,6 +47,7 @@ interface FleetHistory {
 }
 
 type SortField = "reg_no" | "name" | "model" | "available" | "service_time" | "last_miles_in";
+type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
 
 export default function VehiclesPage() {
@@ -76,11 +77,15 @@ export default function VehiclesPage() {
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
 
+  // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
-
-  // Sorting
   const [sortField, setSortField] = useState<SortField>("reg_no");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Search & Sorting for Fleet History
+  const [historySearch, setHistorySearch] = useState("");
+  const [historySortField, setHistorySortField] = useState<HistorySortField>("hire_start");
+  const [historySortDirection, setHistorySortDirection] = useState<SortDirection>("desc");
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -236,6 +241,15 @@ export default function VehiclesPage() {
     }
   };
 
+  const handleHistorySort = (field: HistorySortField) => {
+    if (historySortField === field) {
+      setHistorySortDirection(historySortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setHistorySortField(field);
+      setHistorySortDirection("asc");
+    }
+  };
+
   // Vehicle Filters
   const allVehicles = vehicles;
   const normalHire = vehicles.filter((v) => !v.is_long_hire);
@@ -246,14 +260,14 @@ export default function VehiclesPage() {
       : activeTab === "normal" ? normalHire
         : longHire;
 
-  // Search
+  // Vehicle Search
   displayed = displayed.filter((v) =>
     v.name?.toLowerCase().includes(search.toLowerCase()) ||
     v.reg_no?.toLowerCase().includes(search.toLowerCase()) ||
     v.model?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Sorting
+  // Vehicle Sorting
   displayed.sort((a, b) => {
     let valA: any, valB: any;
 
@@ -280,6 +294,28 @@ export default function VehiclesPage() {
     return 0;
   });
 
+  // History Search & Filtering
+  let displayedHistory = fleetHistory.filter((h) =>
+    h.car_reg?.toLowerCase().includes(historySearch.toLowerCase()) ||
+    h.claim_id?.toLowerCase().includes(historySearch.toLowerCase())
+  );
+
+  // History Sorting
+  displayedHistory.sort((a, b) => {
+    let valA: any, valB: any;
+
+    if (historySortField === "car_reg") { valA = a.car_reg || ""; valB = b.car_reg || ""; }
+    else if (historySortField === "claim_id") { valA = a.claim_id || ""; valB = b.claim_id || ""; }
+    else if (historySortField === "hire_start") { valA = new Date(a.hire_start).getTime(); valB = new Date(b.hire_start).getTime(); }
+    else if (historySortField === "hire_end") { valA = a.hire_end ? new Date(a.hire_end).getTime() : 0; valB = b.hire_end ? new Date(b.hire_end).getTime() : 0; }
+    else if (historySortField === "miles_out") { valA = a.miles_out || 0; valB = b.miles_out || 0; }
+    else if (historySortField === "miles_in") { valA = a.miles_in || 0; valB = b.miles_in || 0; }
+
+    if (valA < valB) return historySortDirection === "asc" ? -1 : 1;
+    if (valA > valB) return historySortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
   // Stats
   const total = vehicles.length;
   const totalNormal = normalHire.length;
@@ -303,11 +339,11 @@ export default function VehiclesPage() {
             </div>
             <div className="flex gap-4">
               <button
-                onClick={fetchAllData}
-                disabled={loading}
+                onClick={activeTab === "history" ? fetchFleetHistory : fetchAllData}
+                disabled={loading || historyLoading}
                 className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium shadow-sm disabled:opacity-60"
               >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                <RefreshCw size={16} className={(loading || historyLoading) ? "animate-spin" : ""} />
                 Refresh
               </button>
               {activeTab !== "history" && (
@@ -471,18 +507,16 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* Search Bar */}
-        {activeTab !== "history" && (
-          <div className="mb-6">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, model or reg no..."
-              className="w-full max-w-md px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
-            />
-          </div>
-        )}
+        {/* Dynamic Search Bar based on Tab */}
+        <div className="mb-6">
+          <input
+            type="text"
+            value={activeTab === "history" ? historySearch : search}
+            onChange={(e) => activeTab === "history" ? setHistorySearch(e.target.value) : setSearch(e.target.value)}
+            placeholder={activeTab === "history" ? "Search history by Reg No. or Claim ID..." : "Search by name, model or reg no..."}
+            className="w-full max-w-md px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
+          />
+        </div>
 
         {error && (
           <div className="mb-8 p-5 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-medium">
@@ -727,25 +761,75 @@ export default function VehiclesPage() {
               <div className="flex items-center justify-center py-32">
                 <Loader2 className="animate-spin text-emerald-600" size={40} />
               </div>
-            ) : fleetHistory.length === 0 ? (
+            ) : displayedHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 gap-5 text-gray-400">
                 <History size={64} strokeWidth={1.1} />
-                <p className="text-xl font-medium">No fleet history records found</p>
+                <p className="text-xl font-medium">
+                  {historySearch ? "No fleet history records match your search" : "No fleet history records found"}
+                </p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Car Reg No.</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Claim ID</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire Start</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire End</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Miles Out</th>
-                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Miles In</th>
+                    <th
+                      onClick={() => handleHistorySort("car_reg")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Car Reg No.
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleHistorySort("claim_id")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Claim ID
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleHistorySort("hire_start")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Hire Start
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleHistorySort("hire_end")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Hire End
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleHistorySort("miles_out")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Miles Out
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleHistorySort("miles_in")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Miles In
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {fleetHistory.map((record) => (
+                  {displayedHistory.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50/60 transition">
                       <td className="px-5 py-3">
                         <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
