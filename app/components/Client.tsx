@@ -317,7 +317,7 @@ export default function ClientsPage() {
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
                 <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-green-100 sticky top-0 z-10">
+                    <thead className="bg-green-50 sticky top-0 z-10">
                       <tr>
                         {columns.map(({ label, key }) => (
                           <th
