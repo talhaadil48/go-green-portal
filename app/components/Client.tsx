@@ -22,13 +22,13 @@ function formatDate(d: string | null) {
     year: "numeric",
   });
 }
+function formatCurrency(value: number | string | null | undefined) {
+  const num = Number(value) || 0;
 
-function formatCurrency(value: number | null | undefined) {
-  if (value == null) value = 0;
-  return value.toLocaleString("en-GB", {
+  return num.toLocaleString("en-GB", {
     style: "currency",
     currency: "GBP",
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
@@ -248,7 +248,6 @@ export default function ClientsPage() {
                           <td className="px-4 py-2 font-semibold text-green-700 whitespace-nowrap text-sm">
                             {editingId === claim.claim_id ? (
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs text-gray-500">£</span>
                                 <input
                                   type="number"
                                   step="0.01"
@@ -258,7 +257,7 @@ export default function ClientsPage() {
                                 />
                               </div>
                             ) : (
-                              formatCurrency(claim.payment)
+                              `${formatCurrency(claim?.payment ?? 0)}`
                             )}
                           </td>
 
