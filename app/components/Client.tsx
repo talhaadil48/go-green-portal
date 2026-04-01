@@ -51,15 +51,17 @@ export default function ClientsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState("");
   const [editPayDate, setEditPayDate] = useState("");
-  const [saving, setSaving] = useState(false);
+  // Track which row is currently saving for inline loading state
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
 
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDirection>(null);
+  // Set default sorting to claim_id ascending
+  const [sortKey, setSortKey] = useState<SortKey | null>("claim_id");
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -107,7 +109,7 @@ export default function ClientsPage() {
   };
 
   const handleSavePayment = async (claimId: string) => {
-    setSaving(true);
+    setSavingId(claimId);
     setSaveError(null);
 
     try {
@@ -124,13 +126,20 @@ export default function ClientsPage() {
       );
 
       if (res.data.message) {
-        await fetchClaims();
+        // Update the state locally instead of fetching all claims again
+        setClaims((prevClaims) =>
+          prevClaims.map((claim) =>
+            claim.claim_id === claimId
+              ? { ...claim, payment: paymentAmount, pay_date: payDate }
+              : claim
+          )
+        );
         cancelEdit();
       }
     } catch (err: any) {
       setSaveError(err.response?.data?.detail || "Failed to update payment.");
     } finally {
-      setSaving(false);
+      setSavingId(null);
     }
   };
 
@@ -265,10 +274,8 @@ export default function ClientsPage() {
               </div>
             ) : (
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
-                {/* ✅ Scrollable wrapper with fixed max height */}
                 <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    {/* ✅ Sticky thead */}
                     <thead className="bg-green-300 sticky top-0 z-10">
                       <tr>
                         {columns.map(({ label, key }) => (
@@ -317,7 +324,8 @@ export default function ClientsPage() {
                                   step="0.01"
                                   value={editPayment}
                                   onChange={(e) => setEditPayment(e.target.value)}
-                                  className="w-24 px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm"
+                                  disabled={savingId === claim.claim_id}
+                                  className="w-24 px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm disabled:opacity-50"
                                 />
                               </div>
                             ) : (
@@ -332,7 +340,8 @@ export default function ClientsPage() {
                                 type="date"
                                 value={editPayDate}
                                 onChange={(e) => setEditPayDate(e.target.value)}
-                                className="px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm w-full"
+                                disabled={savingId === claim.claim_id}
+                                className="px-2 py-1 border border-green-200 rounded-md focus:ring-1 focus:ring-green-400 text-sm w-full disabled:opacity-50"
                               />
                             ) : (
                               formatDate(claim.pay_date)
@@ -345,14 +354,18 @@ export default function ClientsPage() {
                               <div className="flex gap-1 justify-end">
                                 <button
                                   onClick={() => handleSavePayment(claim.claim_id)}
-                                  disabled={saving}
-                                  className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition disabled:opacity-50"
+                                  disabled={savingId === claim.claim_id}
+                                  className="p-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md transition disabled:opacity-50 flex items-center justify-center min-w-[30px]"
                                 >
-                                  <Check size={15} />
+                                  {savingId === claim.claim_id ? (
+                                    <Loader2 size={15} className="animate-spin" />
+                                  ) : (
+                                    <Check size={15} />
+                                  )}
                                 </button>
                                 <button
                                   onClick={cancelEdit}
-                                  disabled={saving}
+                                  disabled={savingId === claim.claim_id}
                                   className="p-1.5 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md transition disabled:opacity-50"
                                 >
                                   <X size={15} />
