@@ -819,7 +819,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
 
                       {/* PTU Storage Location */}
                       <div>
-                        <span className="sr-sublabel">PTU Storage Location</span>
+                        <span className="sr-sublabel">Storage Location</span>
                         <div style={{
                           background: 'var(--sr-em-pale)',
                           border: '1px solid var(--sr-em-border)',
