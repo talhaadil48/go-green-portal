@@ -113,20 +113,17 @@ function getStageStyle(stageIndex: number, activeIndex: number): {
   const isActive = stageIndex === activeIndex;
   const isFuture = stageIndex > activeIndex;
 
-  // Stages 1-3 (index 0-2): outline style (no fill, black border/text)
-  // Stages 4-5 (index 3-4): filled style with their specific colors
   const stageColors: Record<number, { fill: string; border: string; text: string }> = {
-    3: { fill: '#fb923c', border: '#fb923c', text: '#fff' },   // orange-400
-    4: { fill: '#16a34a', border: '#16a34a', text: '#fff' },   // green-600
+    3: { fill: '#fb923c', border: '#fb923c', text: '#fff' },
+    4: { fill: '#16a34a', border: '#16a34a', text: '#fff' },
   };
 
-  const isOutlineStage = stageIndex <= 2; // stages 1-3
+  const isOutlineStage = stageIndex <= 2;
 
   let circleStyle: React.CSSProperties = {};
   let labelStyle: React.CSSProperties = {};
 
   if (isFuture) {
-    // Future: gray, no fill
     circleStyle = {
       width: 36,
       height: 36,
@@ -143,7 +140,6 @@ function getStageStyle(stageIndex: number, activeIndex: number): {
     };
     labelStyle = { color: '#9ca3af', fontSize: 12, fontWeight: 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
   } else if (isOutlineStage) {
-    // Stages 1-3 active/past: outline box, black
     circleStyle = {
       width: 36,
       height: 36,
@@ -161,7 +157,6 @@ function getStageStyle(stageIndex: number, activeIndex: number): {
     };
     labelStyle = { color: '#111827', fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
   } else {
-    // Stages 4-5 active/past: filled with their color
     const colorCfg = stageColors[stageIndex] ?? { fill: '#374151', border: '#374151', text: '#fff' };
     circleStyle = {
       width: 36,
@@ -181,7 +176,6 @@ function getStageStyle(stageIndex: number, activeIndex: number): {
     labelStyle = { color: colorCfg.border, fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
   }
 
-  // Connector line: black if connecting two active/past, gray otherwise
   const connectorStyle: React.CSSProperties = {
     flex: 1,
     height: 2,
@@ -282,7 +276,7 @@ const styles = `
     border-radius: var(--sr-r-sm);
     font-size: 14px;
     font-weight: 700;
-    text-transform: capitalize;
+    text-transform: uppercase;
   }
 
   .sr-badge.sr-badge-deleted {
@@ -392,6 +386,7 @@ const styles = `
     font-size: 20px;
     font-weight: 700;
     color: var(--sr-text-head);
+    text-transform: uppercase;
   }
 
   .sr-compact {
@@ -419,6 +414,7 @@ const styles = `
     font-weight: 600;
     color: var(--sr-text-body);
     word-break: break-word;
+    text-transform: uppercase;
   }
 
   .sr-invoice-table {
@@ -443,6 +439,7 @@ const styles = `
     font-size: 12px;
     color: var(--sr-text-body);
     border-bottom: 1px solid #e0e6e3;
+    text-transform: uppercase;
   }
 
   .sr-check {
@@ -468,6 +465,7 @@ const styles = `
     font-size: 13px;
     font-weight: 600;
     color: var(--sr-text-body);
+    text-transform: uppercase;
   }
 
   .sr-delete-btn {
@@ -632,11 +630,9 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const invoices = data.invoices || [];
   const hasVehicleChanges = rental?.change_vehicle_history && rental.change_vehicle_history.length > 0;
 
-  // Determine active stage index from claim status
   const statusLower = (claim.status || "").toLowerCase().trim();
   const statusData = STATUS_COLORS[statusLower] || STATUS_COLORS.default;
   const activeStageIndex = STATUS_STAGES.findIndex(s => s.key === statusLower);
-  // If not found, default to -1 (nothing active, all future)
   const resolvedActiveIndex = activeStageIndex >= 0 ? activeStageIndex : -1;
 
   return (
@@ -689,7 +685,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                     <div className="sr-compact" style={{ gap: '16px' }}>
                       <div>
                         <span className="sr-flabel">Full Name</span>
-                        <div className="sr-fv-nm" style={{ textTransform: 'uppercase' }}>
+                        <div className="sr-fv-nm">
                           {claim.claimant_name || "—"}
                         </div>
                       </div>
@@ -776,6 +772,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                         alignItems: 'center',
                         gap: '4px',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+                        textTransform: 'uppercase',
                       }}
                     >
                       <div className="sr-cdot" style={{ background: 'white' }} />
@@ -832,7 +829,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                           <div className="sr-fv-nm" style={{ fontSize: '17px', marginBottom: '4px', color: 'var(--sr-em)' }}>
                             {storage.name}
                           </div>
-                          <div style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--sr-text-body)' }}>
+                          <div style={{ fontSize: '13px', marginBottom: '2px', color: 'var(--sr-text-body)', textTransform: 'uppercase' }}>
                             {storage.city}
                           </div>
                           <div style={{
@@ -840,7 +837,8 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                             fontSize: '12.5px',
                             fontWeight: 600,
                             color: 'var(--sr-em)',
-                            letterSpacing: '0.05em'
+                            letterSpacing: '0.05em',
+                            textTransform: 'uppercase',
                           }}>
                             {storage.postcode}
                           </div>
@@ -1027,7 +1025,8 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                                   fontSize: '12px',
                                   fontWeight: 600,
                                   color: 'var(--sr-em)',
-                                  marginTop: '4px'
+                                  marginTop: '4px',
+                                  textTransform: 'uppercase',
                                 }}>
                                   {change.vehicle_reg}
                                 </div>
