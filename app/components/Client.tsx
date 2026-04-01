@@ -155,7 +155,6 @@ export default function ClientsPage() {
     const aVal = a[sortKey];
     const bVal = b[sortKey];
 
-    // Nulls always go last
     if (aVal === null && bVal === null) return 0;
     if (aVal === null) return 1;
     if (bVal === null) return -1;
@@ -165,7 +164,6 @@ export default function ClientsPage() {
     if (typeof aVal === "number" && typeof bVal === "number") {
       result = aVal - bVal;
     } else {
-      // String or date string — both compare correctly as strings (ISO dates sort lexicographically)
       result = String(aVal).localeCompare(String(bVal));
     }
 
@@ -267,9 +265,11 @@ export default function ClientsPage() {
               </div>
             ) : (
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* ✅ Scrollable wrapper with fixed max height */}
+                <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-green-50/80">
+                    {/* ✅ Sticky thead */}
+                    <thead className="bg-green-300 sticky top-0 z-10">
                       <tr>
                         {columns.map(({ label, key }) => (
                           <th
