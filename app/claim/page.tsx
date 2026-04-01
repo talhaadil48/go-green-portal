@@ -475,10 +475,10 @@ export default function ClaimsPage() {
         try {
             if (editingField === "hire_start_date" || editingField === "hire_end_date") {
                 const currentClaim = allClaims.find(c => c.claim_id === claim_id);
-                const dateIn = editingField === "hire_start_date"
+                const dateOut = editingField === "hire_start_date"
                     ? editHireStartDate || null
                     : (currentClaim?.hire_start_date ? currentClaim.hire_start_date.slice(0, 10) : null);
-                const dateOut = editingField === "hire_end_date"
+                const dateIn = editingField === "hire_end_date"
                     ? editHireEndDate || null
                     : (currentClaim?.hire_end_date ? currentClaim.hire_end_date.slice(0, 10) : null);
 
