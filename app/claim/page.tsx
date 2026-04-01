@@ -102,7 +102,6 @@ export default function ClaimsPage() {
     const [editNameValue, setEditNameValue] = useState("");
     const [editCouncilValue, setEditCouncilValue] = useState("");
     const [editTypeValue, setEditTypeValue] = useState("");
-    // NEW: date edit values
     const [editClaimStartDate, setEditClaimStartDate] = useState("");
     const [editPayDate, setEditPayDate] = useState("");
     const [editInvoiceDate, setEditInvoiceDate] = useState("");
@@ -474,7 +473,6 @@ export default function ClaimsPage() {
         setSavingClaimId(claim_id);
 
         try {
-            // Hire vehicle dates use a separate endpoint
             if (editingField === "hire_start_date" || editingField === "hire_end_date") {
                 const currentClaim = allClaims.find(c => c.claim_id === claim_id);
                 const dateIn = editingField === "hire_start_date"
@@ -503,7 +501,6 @@ export default function ClaimsPage() {
                     })
                 );
             } else {
-                // Main update endpoint
                 const payload: any = {};
                 if (editingField === "name") payload.claimant_name = editNameValue.trim();
                 else if (editingField === "council") payload.council = editCouncilValue.trim();
@@ -642,14 +639,15 @@ export default function ClaimsPage() {
         field: "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date",
         editValue: string,
         setEditValue: (v: string) => void,
-        isHireField: boolean = false
+        isVehicleDamageBlocked: boolean = false
     ) => {
         const isEditing = editingClaimId === claim.claim_id && editingField === field;
         const isSaving = savingClaimId === claim.claim_id;
         const isVehicleDamage = claim.claim_type === "vehicle damage";
 
-        if (isHireField && isVehicleDamage) {
-            return <td className="px-3 py-1 whitespace-nowrap border-r border-gray-300 bg-emerald-600" />;
+        // Block cell with green background for vehicle damage when flagged
+        if (isVehicleDamageBlocked && isVehicleDamage) {
+            return <td className="px-1.5 py-0.5 whitespace-nowrap border-r border-gray-300 bg-emerald-600" />;
         }
 
         return (
@@ -1056,7 +1054,7 @@ export default function ClaimsPage() {
                 )}
 
                 {/* ══════════════════════════════════════════════════════════
-                    FILTERS  (legend removed)
+                    FILTERS
                 ══════════════════════════════════════════════════════════ */}
                 <div className="space-y-6">
                     <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
@@ -1155,10 +1153,9 @@ export default function ClaimsPage() {
                             </div>
                         </div>
                     </div>
-                    {/* Color legend REMOVED */}
                 </div>
 
-                <div className="mb-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
+                <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                     Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                     <span className="font-bold text-green-800">{allClaims.length}</span> claims
                 </div>
@@ -1180,8 +1177,8 @@ export default function ClaimsPage() {
                     </div>
                 ) : (
                     <div ref={tableRef}>
-                        <div className="overflow-auto max-h-[500px]">
-                            <table className="min-w-full divide-y divide-gray-400 text-sm rounded-md">
+                        <div className="overflow-y-auto max-h-[500px]">
+                            <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
                                 <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                                     <tr className="border-0 bg-transparent">
                                         {/* Invisible filler cells */}
@@ -1194,10 +1191,10 @@ export default function ClaimsPage() {
                                         {/* Visible "Claim Progress" cell */}
                                         <th
                                             colSpan={5}
-                                            className="px-3 py-1.5 text-center bg-green-300/80"
+                                            className="px-2 py-1 text-center bg-green-300/80"
                                             style={{ borderRadius: "8px 8px 0 0" }}
                                         >
-                                            <span className="text-md font-bold text-green-800 uppercase tracking-widest">
+                                            <span className="text-xs font-bold text-green-800 uppercase tracking-widest">
                                                 — Claim Progress —
                                             </span>
                                         </th>
@@ -1207,63 +1204,63 @@ export default function ClaimsPage() {
                                     </tr>
                                     {/* ── Main header row ── */}
                                     <tr className="border-b border-gray-500">
-                                        <th onClick={() => handleSort("closed")} className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("closed")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Status {getSortArrow("closed")}
                                         </th>
-                                        <th onClick={() => handleSort("claim_id")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Claim ID {getSortArrow("claim_id")}
                                         </th>
-                                        <th onClick={() => handleSort("claimant_name")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("claimant_name")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Claimant {getSortArrow("claimant_name")}
                                         </th>
-                                        <th onClick={() => handleSort("claim_type")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("claim_type")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Type {getSortArrow("claim_type")}
                                         </th>
-                                        <th onClick={() => handleSort("council")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Council {getSortArrow("council")}
                                         </th>
 
                                         {/* Stage 1 */}
-                                        <th onClick={() => handleSort("claim_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
                                                 <span>Start Date {getSortArrow("claim_start_date")}</span>
                                             </div>
                                         </th>
 
                                         {/* Stage 2 */}
-                                        <th onClick={() => handleSort("hire_start_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
                                                 <span>Hire Start {getSortArrow("hire_start_date")}</span>
                                             </div>
                                         </th>
 
                                         {/* Stage 3 */}
-                                        <th onClick={() => handleSort("pay_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
                                                 <span>Client Paid {getSortArrow("pay_date")}</span>
                                             </div>
                                         </th>
 
                                         {/* Stage 4 */}
-                                        <th onClick={() => handleSort("hire_end_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
                                                 <span>Hire End {getSortArrow("hire_end_date")}</span>
                                             </div>
                                         </th>
 
                                         {/* Stage 5 */}
-                                        <th onClick={() => handleSort("invoice_date")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
+                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
                                                 <span>Invoice Sent {getSortArrow("invoice_date")}</span>
                                             </div>
                                         </th>
 
-                                        <th onClick={() => handleSort("status")} className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50">
+                                        <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                             Stages {getSortArrow("status")}
                                         </th>
                                     </tr>
@@ -1274,11 +1271,12 @@ export default function ClaimsPage() {
                                         const isSaving = savingClaimId === claim.claim_id;
                                         const isClosed = !!(claim.closed_date && claim.closed_by);
                                         const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
+                                        const isVehicleDamage = claim.claim_type === "vehicle damage";
 
                                         return (
                                             <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
                                                 {/* Status column */}
-                                                <td className="px-3 py-1 text-center border-r border-gray-300">
+                                                <td className="px-1.5 py-0.5 text-center border-r border-gray-300">
                                                     <div className="relative group inline-block">
                                                         {(() => {
                                                             let statusText = "Active";
@@ -1292,7 +1290,7 @@ export default function ClaimsPage() {
                                                             }
                                                             return (
                                                                 <>
-                                                                    <span className={`inline-flex cursor-pointer px-2.5 py-0.5 text-xs font-semibold rounded-full ${bgColor}`}>
+                                                                    <span className={`inline-flex cursor-pointer px-2 py-0 text-[10px] font-semibold rounded-full ${bgColor}`}>
                                                                         {statusText}
                                                                     </span>
                                                                     {isClosed && (
@@ -1306,12 +1304,12 @@ export default function ClaimsPage() {
                                                     </div>
                                                 </td>
 
-                                                <td className="px-3 py-1 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                                <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                                     {claim.claim_id.toUpperCase()}
                                                 </td>
 
-                                                {/* Editable claimant name */}
-                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300 w-56 min-w-56">
+                                                {/* Editable claimant name — no fixed width */}
+                                                <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
                                                     {isEditing && editingField === "name" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <input
@@ -1336,7 +1334,7 @@ export default function ClaimsPage() {
                                                         </div>
                                                     ) : (
                                                         <div className="group flex items-center gap-2">
-                                                            <span className={`break-words whitespace-pre-wrap ${isSaving ? "opacity-50" : ""}`} style={{ wordBreak: "break-word" }}>
+                                                            <span className={`whitespace-nowrap ${isSaving ? "opacity-50" : ""}`}>
                                                                 {(claim.claimant_name || "—").toUpperCase()}
                                                             </span>
                                                             {!isSaving && (
@@ -1348,8 +1346,8 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Editable claim type */}
-                                                <td className="px-3 py-1 text-gray-700 border-r border-gray-300 w-30 min-w-30">
+                                                {/* Editable claim type — no fixed width */}
+                                                <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
                                                     {isEditing && editingField === "claim_type" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <select
@@ -1377,7 +1375,7 @@ export default function ClaimsPage() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="group flex items-center gap-2">
+                                                        <div className="group flex items-center gap-2 whitespace-nowrap">
                                                             <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
                                                             {!isSaving && (
                                                                 <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
@@ -1388,9 +1386,9 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Editable council */}
-                                                <td className={`px-3 py-1 border-r border-gray-300 ${claim.claim_type === "vehicle damage" ? "bg-emerald-600" : "text-gray-700"} w-40 min-w-40`}>
-                                                    {claim.claim_type === "vehicle damage" ? (
+                                                {/* Editable council — green blocked for vehicle damage, no fixed width */}
+                                                <td className={`px-1.5 py-0.5 border-r border-gray-300 ${isVehicleDamage ? "bg-emerald-600" : "text-gray-700"}`}>
+                                                    {isVehicleDamage ? (
                                                         <></>
                                                     ) : isEditing && editingField === "council" ? (
                                                         <div className="flex items-center gap-1.5">
@@ -1417,7 +1415,7 @@ export default function ClaimsPage() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <div className="group flex items-center gap-2">
+                                                        <div className="group flex items-center gap-2 whitespace-nowrap">
                                                             <span>{(claim.council || "—")}</span>
                                                             {!isSaving && (
                                                                 <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
@@ -1428,26 +1426,26 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Stage 1 – Start Date (editable via main API) */}
-                                                {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate)}
+                                                {/* Stage 1 – Start Date */}
+                                                {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate, false)}
 
-                                                {/* Stage 2 – Hire Start (editable via hire-vehicle-dates API) */}
+                                                {/* Stage 2 – Hire Start (blocked for vehicle damage) */}
                                                 {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
 
-                                                {/* Stage 3 – Client Paid (editable via main API) */}
-                                                {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate)}
+                                                {/* Stage 3 – Client Paid */}
+                                                {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
 
-                                                {/* Stage 4 – Hire End (editable via hire-vehicle-dates API) */}
+                                                {/* Stage 4 – Hire End (blocked for vehicle damage) */}
                                                 {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
 
-                                                {/* Stage 5 – Invoice Sent (editable via main API) */}
-                                                {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate)}
+                                                {/* Stage 5 – Invoice Sent (also blocked for vehicle damage) */}
+                                                {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
 
                                                 {/* Stage badge */}
-                                                <td className="border-r border-gray-300 px-2 py-1">
+                                                <td className="border-r border-gray-300 px-1 py-0.5">
                                                     <div className="flex items-center justify-center">
                                                         <span
-                                                            className={`px-3 py-1 rounded-full text-xs font-semibold border-2
+                                                            className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
                                                                 ${statusData.number >= 4
                                                                     ? `${statusData.badgeText} text-black border-transparent`
                                                                     : `bg-white ${statusData.color} ${statusData.badgeBg}`
