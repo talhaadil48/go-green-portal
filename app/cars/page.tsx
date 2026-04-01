@@ -28,6 +28,8 @@ interface Vehicle {
   is_long_hire: boolean;
   is_available?: boolean;
   current_holder_claim_id?: string | null;
+  service_time?: string | null;
+  last_miles_in?: number | null;
 }
 
 interface AvailableVehicle {
@@ -40,9 +42,11 @@ interface FleetHistory {
   hire_end: string;
   claim_id: string;
   car_reg: string;
+  miles_in?: number | null;
+  miles_out?: number | null;
 }
 
-type SortField = "reg_no" | "name" | "model" | "available";
+type SortField = "reg_no" | "name" | "model" | "available" | "service_time" | "last_miles_in";
 type SortDirection = "asc" | "desc";
 
 export default function VehiclesPage() {
@@ -64,7 +68,7 @@ export default function VehiclesPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState({ model: "", name: "", reg_no: "" });
+  const [editData, setEditData] = useState({ model: "", name: "", service_time: "" });
   const [saving, setSaving] = useState(false);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -147,16 +151,24 @@ export default function VehiclesPage() {
 
   const startEdit = (vehicle: Vehicle) => {
     setEditingId(vehicle.id);
+    let st = "";
+    if (vehicle.service_time) {
+      try {
+        st = new Date(vehicle.service_time).toISOString().split("T")[0];
+      } catch (e) {
+        // invalid date
+      }
+    }
     setEditData({
       model: vehicle.model,
       name: vehicle.name,
-      reg_no: vehicle.reg_no,
+      service_time: st,
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditData({ model: "", name: "", reg_no: "" });
+    setEditData({ model: "", name: "", service_time: "" });
   };
 
   const saveEdit = async (id: number) => {
@@ -165,7 +177,8 @@ export default function VehiclesPage() {
       const payload = {
         model: editData.model.trim(),
         name: editData.name.trim(),
-        reg_no: editData.reg_no.trim().toUpperCase(),
+        service_time: editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        // Notice: reg_no is intentionally excluded to prevent updates
       };
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
       setVehicles((prev) =>
@@ -247,6 +260,14 @@ export default function VehiclesPage() {
     if (sortField === "reg_no") { valA = a.reg_no || ""; valB = b.reg_no || ""; }
     else if (sortField === "name") { valA = a.name || ""; valB = b.name || ""; }
     else if (sortField === "model") { valA = a.model || ""; valB = b.model || ""; }
+    else if (sortField === "service_time") {
+      valA = a.service_time ? new Date(a.service_time).getTime() : 0;
+      valB = b.service_time ? new Date(b.service_time).getTime() : 0;
+    }
+    else if (sortField === "last_miles_in") {
+      valA = a.last_miles_in || 0;
+      valB = b.last_miles_in || 0;
+    }
     else if (sortField === "available") {
       const isAvailA = activeTab === "long" ? availableLongHireIds.has(a.id) : (a.is_available ?? false);
       const isAvailB = activeTab === "long" ? availableLongHireIds.has(b.id) : (b.is_available ?? false);
@@ -517,19 +538,33 @@ export default function VehiclesPage() {
                         <ArrowUpDown size={14} className="text-gray-400" />
                       </div>
                     </th>
-
-                    {true && (
-                      <th
-                        onClick={() => handleSort("available")}
-                        className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          Available
-                          <ArrowUpDown size={14} className="text-gray-400" />
-                        </div>
-                      </th>
-                    )}
-
+                    <th
+                      onClick={() => handleSort("service_time")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Service Time
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort("last_miles_in")}
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center gap-1">
+                        Last Miles In
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort("available")}
+                      className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        Available
+                        <ArrowUpDown size={14} className="text-gray-400" />
+                      </div>
+                    </th>
                     <th className="text-right px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
                       Actions
                     </th>
@@ -551,11 +586,9 @@ export default function VehiclesPage() {
                         {editingId === v.id ? (
                           <>
                             <td className="px-5 py-2">
-                              <input
-                                value={editData.reg_no}
-                                onChange={(e) => setEditData((p) => ({ ...p, reg_no: e.target.value.toUpperCase() }))}
-                                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm uppercase focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                              />
+                              <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-500 font-mono text-base font-semibold tracking-wider rounded cursor-not-allowed">
+                                {v.reg_no || "—"}
+                              </span>
                             </td>
                             <td className="px-5 py-2">
                               <input
@@ -571,7 +604,18 @@ export default function VehiclesPage() {
                                 className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                               />
                             </td>
-                            {activeTab !== "all" && <td className="px-5 py-2 text-center">-</td>}
+                            <td className="px-5 py-2">
+                              <input
+                                type="date"
+                                value={editData.service_time}
+                                onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
+                                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                              />
+                            </td>
+                            <td className="px-5 py-2 text-gray-500">
+                              {v.last_miles_in ?? "—"}
+                            </td>
+                            <td className="px-5 py-2 text-center">-</td>
                             <td className="px-5 py-2 text-right">
                               <div className="flex justify-end gap-1.5">
                                 <button
@@ -599,19 +643,21 @@ export default function VehiclesPage() {
                             </td>
                             <td className="px-5 py-2.5 font-medium text-gray-900">{v.name || "—"}</td>
                             <td className="px-5 py-2.5 text-gray-700">{v.model || "—"}</td>
+                            <td className="px-5 py-2.5 text-gray-700">
+                              {v.service_time ? new Date(v.service_time).toLocaleDateString("en-GB") : "—"}
+                            </td>
+                            <td className="px-5 py-2.5 text-gray-700">{v.last_miles_in ?? "—"}</td>
 
-                            {true && (
-                              <td className="px-5 py-2.5 text-center">
-                                <span
-                                  className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-rose-100 text-rose-700"
-                                    }`}
-                                >
-                                  {isAvail ? "Yes" : "No"}
-                                </span>
-                              </td>
-                            )}
+                            <td className="px-5 py-2.5 text-center">
+                              <span
+                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-rose-100 text-rose-700"
+                                  }`}
+                              >
+                                {isAvail ? "Yes" : "No"}
+                              </span>
+                            </td>
 
                             <td className="px-5 py-2.5 text-right">
                               <div className="flex justify-end items-center gap-1.5">
@@ -694,6 +740,8 @@ export default function VehiclesPage() {
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Claim ID</th>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire Start</th>
                     <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Hire End</th>
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Miles Out</th>
+                    <th className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">Miles In</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -721,6 +769,12 @@ export default function VehiclesPage() {
                           ? new Date(record.hire_end).toLocaleDateString("en-GB")
                           : "-"
                         }
+                      </td>
+                      <td className="px-5 py-3 text-gray-600">
+                        {record.miles_out ?? "-"}
+                      </td>
+                      <td className="px-5 py-3 text-gray-600">
+                        {record.miles_in ?? "-"}
                       </td>
                     </tr>
                   ))}
