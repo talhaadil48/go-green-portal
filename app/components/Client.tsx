@@ -58,6 +58,10 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
+  
+  // New date filters
+  const [filterHireStart, setFilterHireStart] = useState("");
+  const [filterHireEnd, setFilterHireEnd] = useState("");
 
   // Set default sorting to claim_id ascending
   const [sortKey, setSortKey] = useState<SortKey | null>("claim_id");
@@ -144,6 +148,11 @@ export default function ClientsPage() {
   };
 
   const filteredClaims = claims.filter((claim) => {
+    // Hide rows where claim_id starts with "S" (case-insensitive)
+    if (claim.claim_id.toUpperCase().startsWith("S")) {
+      return false;
+    }
+
     const matchesSearch =
       !search ||
       claim.claim_id.toLowerCase().includes(search.toLowerCase()) ||
@@ -155,7 +164,13 @@ export default function ClientsPage() {
       !filterClaimant ||
       claim.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
 
-    return matchesSearch && matchesClaimId && matchesClaimant;
+    // Date filters (matches "YYYY-MM-DD" prefix of the ISO string)
+    const matchesHireStart = 
+      !filterHireStart || (claim.hire_start_date && claim.hire_start_date.startsWith(filterHireStart));
+    const matchesHireEnd = 
+      !filterHireEnd || (claim.hire_end_date && claim.hire_end_date.startsWith(filterHireEnd));
+
+    return matchesSearch && matchesClaimId && matchesClaimant && matchesHireStart && matchesHireEnd;
   });
 
   const sortedClaims = [...filteredClaims].sort((a, b) => {
@@ -231,30 +246,56 @@ export default function ClientsPage() {
         {activeTab === "clients" && (
           <>
             {/* Filters */}
-            <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Quick search..."
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
               />
               <input
                 type="text"
                 value={filterClaimId}
                 onChange={(e) => setFilterClaimId(e.target.value)}
                 placeholder="Filter Claim ID"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
               />
               <input
                 type="text"
                 value={filterClaimant}
                 onChange={(e) => setFilterClaimant(e.target.value)}
                 placeholder="Filter Claimant Name"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
               />
-              <div className="text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center">
-                {filteredClaims.length} / {claims.length}
+              
+              <div className="relative w-full">
+                <label className="absolute -top-2.5 left-2 bg-white/90 px-1 text-[11px] font-medium text-green-800 rounded-sm">
+                  Hire Start
+                </label>
+                <input
+                  type="date"
+                  value={filterHireStart}
+                  onChange={(e) => setFilterHireStart(e.target.value)}
+                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                />
+              </div>
+
+              <div className="relative w-full">
+                <label className="absolute -top-2.5 left-2 bg-white/90 px-1 text-[11px] font-medium text-green-800 rounded-sm">
+                  Hire End
+                </label>
+                <input
+                  type="date"
+                  value={filterHireEnd}
+                  onChange={(e) => setFilterHireEnd(e.target.value)}
+                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                />
+              </div>
+
+              {/* Show Total Rows */}
+              <div className="text-sm font-semibold text-green-800 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center whitespace-nowrap shadow-sm w-full">
+                Total Rows: {filteredClaims.length}
               </div>
             </div>
 
@@ -270,13 +311,13 @@ export default function ClientsPage() {
               </div>
             ) : sortedClaims.length === 0 ? (
               <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
-                {search || filterClaimId || filterClaimant ? "No matching claims" : "No claims yet"}
+                {search || filterClaimId || filterClaimant || filterHireStart || filterHireEnd ? "No matching claims" : "No claims yet"}
               </div>
             ) : (
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
                 <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-green-50 sticky top-0 z-10">
+                    <thead className="bg-green-100 sticky top-0 z-10">
                       <tr>
                         {columns.map(({ label, key }) => (
                           <th
