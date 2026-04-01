@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import { Loader2, RefreshCw, Edit2, X, Check } from "lucide-react";
+import { Loader2, RefreshCw, Edit2, X, Check, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import api from "@/lib/axios";
 
 interface Claim {
@@ -14,6 +14,9 @@ interface Claim {
   pay_date: string | null;
 }
 
+type SortKey = keyof Claim;
+type SortDirection = "asc" | "desc" | null;
+
 function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
@@ -22,15 +25,21 @@ function formatDate(d: string | null) {
     year: "numeric",
   });
 }
+
 function formatCurrency(value: number | string | null | undefined) {
   const num = Number(value) || 0;
-
   return num.toLocaleString("en-GB", {
     style: "currency",
     currency: "GBP",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function SortIcon({ direction }: { direction: SortDirection }) {
+  if (direction === "asc") return <ChevronUp size={14} className="inline ml-1 text-green-700" />;
+  if (direction === "desc") return <ChevronDown size={14} className="inline ml-1 text-green-700" />;
+  return <ChevronsUpDown size={14} className="inline ml-1 text-green-400 opacity-60" />;
 }
 
 export default function ClientsPage() {
@@ -48,6 +57,9 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
+
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>(null);
 
   const fetchClaims = async () => {
     setLoading(true);
@@ -67,6 +79,18 @@ export default function ClientsPage() {
       fetchClaims();
     }
   }, [activeTab]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey !== key) {
+      setSortKey(key);
+      setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else if (sortDir === "desc") {
+      setSortKey(null);
+      setSortDir(null);
+    }
+  };
 
   const startEditingPayment = (claim: Claim) => {
     setEditingId(claim.claim_id);
@@ -116,11 +140,47 @@ export default function ClientsPage() {
       claim.claim_id.toLowerCase().includes(search.toLowerCase()) ||
       claim.claimant_name?.toLowerCase().includes(search.toLowerCase());
 
-    const matchesClaimId = !filterClaimId || claim.claim_id.toLowerCase().includes(filterClaimId.toLowerCase());
-    const matchesClaimant = !filterClaimant || claim.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
+    const matchesClaimId =
+      !filterClaimId || claim.claim_id.toLowerCase().includes(filterClaimId.toLowerCase());
+    const matchesClaimant =
+      !filterClaimant ||
+      claim.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
 
     return matchesSearch && matchesClaimId && matchesClaimant;
   });
+
+  const sortedClaims = [...filteredClaims].sort((a, b) => {
+    if (!sortKey || !sortDir) return 0;
+
+    const aVal = a[sortKey];
+    const bVal = b[sortKey];
+
+    // Nulls always go last
+    if (aVal === null && bVal === null) return 0;
+    if (aVal === null) return 1;
+    if (bVal === null) return -1;
+
+    let result = 0;
+
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      result = aVal - bVal;
+    } else {
+      // String or date string — both compare correctly as strings (ISO dates sort lexicographically)
+      result = String(aVal).localeCompare(String(bVal));
+    }
+
+    return sortDir === "asc" ? result : -result;
+  });
+
+  const columns: { label: string; key: SortKey }[] = [
+    { label: "Claim ID", key: "claim_id" },
+    { label: "Claimant", key: "claimant_name" },
+    { label: "Start Date", key: "claim_start_date" },
+    { label: "Hire Start", key: "hire_start_date" },
+    { label: "Hire End", key: "hire_end_date" },
+    { label: "Payment", key: "payment" },
+    { label: "Pay Date", key: "pay_date" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
@@ -157,7 +217,6 @@ export default function ClientsPage() {
             >
               Clients
             </button>
-            
           </div>
         </div>
 
@@ -202,7 +261,7 @@ export default function ClientsPage() {
               <div className="flex justify-center py-16">
                 <Loader2 className="w-12 h-12 text-green-600 animate-spin" />
               </div>
-            ) : filteredClaims.length === 0 ? (
+            ) : sortedClaims.length === 0 ? (
               <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
                 {search || filterClaimId || filterClaimant ? "No matching claims" : "No claims yet"}
               </div>
@@ -212,21 +271,26 @@ export default function ClientsPage() {
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
                     <thead className="bg-green-50/80">
                       <tr>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Claim ID</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Claimant</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Start Date</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Hire Start</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Hire End</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Payment</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider">Pay Date</th>
-                        <th className="px-4 py-2.5 text-right text-xs font-bold text-green-900 uppercase tracking-wider w-20">Action</th>
+                        {columns.map(({ label, key }) => (
+                          <th
+                            key={key}
+                            onClick={() => handleSort(key)}
+                            className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider cursor-pointer select-none hover:bg-green-100/60 transition-colors"
+                          >
+                            {label}
+                            <SortIcon direction={sortKey === key ? sortDir : null} />
+                          </th>
+                        ))}
+                        <th className="px-4 py-2.5 text-right text-xs font-bold text-green-900 uppercase tracking-wider w-20">
+                          Action
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {filteredClaims.map((claim) => (
-                        <tr 
-                          key={claim.claim_id} 
-                          className="hover:bg-green-50/50 transition-colors h-11"  // ← Tight row height
+                      {sortedClaims.map((claim) => (
+                        <tr
+                          key={claim.claim_id}
+                          className="hover:bg-green-50/50 transition-colors h-11"
                         >
                           <td className="px-4 py-2 font-medium text-green-900 whitespace-nowrap text-sm">
                             {claim.claim_id}
@@ -317,7 +381,7 @@ export default function ClientsPage() {
           </>
         )}
 
-        {/* Fleet Tab - unchanged */}
+        {/* Fleet Tab */}
         {activeTab === "fleet" && (
           <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-2xl shadow overflow-hidden">
             <div className="px-8 py-16 text-center">
