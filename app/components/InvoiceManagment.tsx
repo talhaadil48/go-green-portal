@@ -14,7 +14,9 @@ interface ClaimInvoice {
   docs: string | null;
   storage_bill: number | null;
   rent_bill: number | null;
-  user_name: string | null;       // ← NEW
+  user_name: string | null;
+  payment_amount: string | null;
+  payment_date: string | null;
 }
 
 interface LongHireInvoice {
@@ -23,7 +25,7 @@ interface LongHireInvoice {
   hirer_name: string | null;
   amount: number | null;
   date_sent: string | null;
-  user_name: string | null;       // ← NEW
+  user_name: string | null;
 }
 
 function formatDate(d: string | null) {
@@ -34,6 +36,15 @@ function formatDate(d: string | null) {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatShortDate(d: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 
@@ -49,63 +60,54 @@ function formatCurrency(value: number | null | undefined) {
 
 function getInfoBadge(info: string | null) {
   if (!info) return <span className="text-xs text-slate-400">—</span>;
-
-  const upper = info.toUpperCase();
-  if (upper.includes("SENT") || upper.includes("PENDING") || upper.includes("DRAFT")) {
-    return (
-      <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-        {info}
-      </span>
-    );
-  }
-  return <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">{info}</span>;
+  return (
+    <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+      {info}
+    </span>
+  );
 }
 
 export default function InvoiceManagementPage() {
   const router = useRouter();
 
-  // Tab state
   const [activeTab, setActiveTab] = useState<"claim" | "longhire">("claim");
 
-  // Claim Invoices
   const [claimInvoices, setClaimInvoices] = useState<ClaimInvoice[]>([]);
   const [loadingClaim, setLoadingClaim] = useState(true);
   const [errorClaim, setErrorClaim] = useState<string | null>(null);
 
-  // Long Hire Invoices
   const [longHireInvoices, setLongHireInvoices] = useState<LongHireInvoice[]>([]);
   const [loadingLongHire, setLoadingLongHire] = useState(true);
   const [errorLongHire, setErrorLongHire] = useState<string | null>(null);
 
-  // Editing state (only for claim invoices)
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState({
     info: "",
     storage_bill: "",
     rent_bill: "",
-    user_name: "",           // ← NEW
+    user_name: "",
+    payment_amount: "",
+    payment_date: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Shared Filters
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
-  // Claim-specific
   const [filterClaimant, setFilterClaimant] = useState("");
   const [filterInfo, setFilterInfo] = useState("");
-  const [filterSentBy, setFilterSentBy] = useState("");    // ← optional new filter
-  // Long-hire specific
+  const [filterSentBy, setFilterSentBy] = useState("");
   const [filterHirer, setFilterHirer] = useState("");
 
-  // Create form – Claim Invoices
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createFormData, setCreateFormData] = useState({
     claim_id: "",
     claimant_name: "",
     storage_bill: "",
     rent_bill: "",
-    user_name: "",                                 // ← optional: you may want to auto-fill or remove
+    user_name: "",
+    payment_amount: "",
+    payment_date: "",
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -141,24 +143,25 @@ export default function InvoiceManagementPage() {
     fetchLongHireInvoices();
   }, []);
 
-  // ── Create Claim Invoice ────────────────────────────────────────────────
   const handleCreateClaimInvoice = async (e: FormEvent) => {
     e.preventDefault();
     setCreating(true);
     setCreateError(null);
-
     try {
       const payload = {
         claim_id: createFormData.claim_id.trim() || null,
         claimant_name: createFormData.claimant_name.trim() || null,
         storage_bill: createFormData.storage_bill ? Number(createFormData.storage_bill) : null,
         rent_bill: createFormData.rent_bill ? Number(createFormData.rent_bill) : null,
-        user_name: createFormData.user_name.trim() || null,     // ← added (optional)
+        user_name: createFormData.user_name.trim() || null,
+        payment_amount: createFormData.payment_amount.trim() || null,
+        payment_date: createFormData.payment_date.trim() || null,
       };
-
       await api.post("/api/invoice", payload, { headers: { requiresAuth: true } });
-
-      setCreateFormData({ claim_id: "", claimant_name: "", storage_bill: "", rent_bill: "", user_name: "" });
+      setCreateFormData({
+        claim_id: "", claimant_name: "", storage_bill: "", rent_bill: "",
+        user_name: "", payment_amount: "", payment_date: "",
+      });
       setShowCreateForm(false);
       await fetchClaimInvoices();
     } catch (err: any) {
@@ -168,44 +171,41 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  // ── Start / Cancel / Save Edit ──────────────────────────────────────────
   const startEditing = (inv: ClaimInvoice) => {
     setEditingId(inv.id);
     setEditFormData({
       info: inv.info || "",
       storage_bill: inv.storage_bill?.toString() || "",
       rent_bill: inv.rent_bill?.toString() || "",
-      user_name: inv.user_name || "",               // ← NEW
+      user_name: inv.user_name || "",
+      payment_amount: inv.payment_amount || "",
+      payment_date: inv.payment_date ? inv.payment_date.slice(0, 10) : "",
     });
     setSaveError(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditFormData({ info: "", storage_bill: "", rent_bill: "", user_name: "" });
+    setEditFormData({ info: "", storage_bill: "", rent_bill: "", user_name: "", payment_amount: "", payment_date: "" });
     setSaveError(null);
   };
 
   const handleSaveEdit = async (invoiceId: number) => {
     setSaving(true);
     setSaveError(null);
-
     try {
       const payload = {
         info: editFormData.info.trim() || null,
         storage_bill: editFormData.storage_bill ? Number(editFormData.storage_bill) : null,
         rent_bill: editFormData.rent_bill ? Number(editFormData.rent_bill) : null,
-        user_name: editFormData.user_name.trim() || null,     // ← NEW
+        user_name: editFormData.user_name.trim() || null,
+        payment_amount: editFormData.payment_amount.trim() || null,
+        payment_date: editFormData.payment_date.trim() || null,
       };
-
       const res = await api.put(`/api/invoice/${invoiceId}`, payload, {
         headers: { requiresAuth: true },
       });
-
-      if (!res.data.success) {
-        throw new Error(res.data.message || "Update failed");
-      }
-
+      if (!res.data.success) throw new Error(res.data.message || "Update failed");
       await fetchClaimInvoices();
       cancelEdit();
     } catch (err: any) {
@@ -215,7 +215,6 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  // Filtering – Claim Invoices
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
     const matchesSearch =
       !search ||
@@ -223,16 +222,13 @@ export default function InvoiceManagementPage() {
       inv.claim_id?.toLowerCase().includes(search.toLowerCase()) ||
       inv.claimant_name?.toLowerCase().includes(search.toLowerCase()) ||
       inv.user_name?.toLowerCase().includes(search.toLowerCase());
-
     const matchesClaimId = !filterClaimId || inv.claim_id?.toLowerCase().includes(filterClaimId.toLowerCase());
     const matchesClaimant = !filterClaimant || inv.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
     const matchesInfo = !filterInfo || inv.info?.toLowerCase().includes(filterInfo.toLowerCase());
     const matchesSentBy = !filterSentBy || inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase());
-
     return matchesSearch && matchesClaimId && matchesClaimant && matchesInfo && matchesSentBy;
   });
 
-  // Filtering – Long Hire Invoices
   const filteredLongHireInvoices = longHireInvoices.filter((inv) => {
     const matchesSearch =
       !search ||
@@ -240,11 +236,9 @@ export default function InvoiceManagementPage() {
       inv.claim_id?.toLowerCase().includes(search.toLowerCase()) ||
       inv.hirer_name?.toLowerCase().includes(search.toLowerCase()) ||
       inv.user_name?.toLowerCase().includes(search.toLowerCase());
-
     const matchesClaimId = !filterClaimId || inv.claim_id?.toLowerCase().includes(filterClaimId.toLowerCase());
     const matchesHirer = !filterHirer || inv.hirer_name?.toLowerCase().includes(filterHirer.toLowerCase());
     const matchesSentBy = !filterSentBy || inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase());
-
     return matchesSearch && matchesClaimId && matchesHirer && matchesSentBy;
   });
 
@@ -260,25 +254,18 @@ export default function InvoiceManagementPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">
-              Invoice Management
-            </h1>
+            <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">Invoice Management</h1>
             <p className="mt-1 text-lg text-green-700/80">Transport / RTA & Long Term Hire invoices</p>
           </div>
-
           <div className="flex gap-3 mt-4 md:mt-0">
             <button
-              onClick={() => {
-                fetchClaimInvoices();
-                fetchLongHireInvoices();
-              }}
+              onClick={() => { fetchClaimInvoices(); fetchLongHireInvoices(); }}
               disabled={isLoading}
               className="px-5 py-2 bg-white border border-green-200 text-green-700 rounded-xl hover:bg-green-50 transition disabled:opacity-50 flex items-center gap-2 text-sm"
             >
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
               Refresh All
             </button>
-
             {isClaimTab && (
               <button
                 onClick={() => setShowCreateForm(true)}
@@ -294,26 +281,19 @@ export default function InvoiceManagementPage() {
         {/* Tabs */}
         <div className="mb-6 border-b border-green-200">
           <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab("claim")}
-              className={`pb-3 px-1 text-lg font-medium transition-colors ${
-                activeTab === "claim"
-                  ? "text-green-700 border-b-4 border-green-600"
-                  : "text-green-600/70 hover:text-green-700"
-              }`}
-            >
-              Claim Invoices
-            </button>
-            <button
-              onClick={() => setActiveTab("longhire")}
-              className={`pb-3 px-1 text-lg font-medium transition-colors ${
-                activeTab === "longhire"
-                  ? "text-green-700 border-b-4 border-green-600"
-                  : "text-green-600/70 hover:text-green-700"
-              }`}
-            >
-              Long Term Hire
-            </button>
+            {(["claim", "longhire"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3 px-1 text-lg font-medium transition-colors ${
+                  activeTab === tab
+                    ? "text-green-700 border-b-4 border-green-600"
+                    : "text-green-600/70 hover:text-green-700"
+                }`}
+              >
+                {tab === "claim" ? "Claim Invoices" : "Long Term Hire"}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -322,59 +302,34 @@ export default function InvoiceManagementPage() {
           <div className="mb-10 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-green-100/60 p-6">
             <h2 className="text-xl font-bold text-green-800 mb-5">Create New Claim Invoice</h2>
             <form onSubmit={handleCreateClaimInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {[
+                { label: "Claim ID", key: "claim_id", placeholder: "TC123", type: "text" },
+                { label: "Claimant Name", key: "claimant_name", placeholder: "Muhammad Ahmed", type: "text" },
+                { label: "Storage Bill (£)", key: "storage_bill", placeholder: "0", type: "number" },
+                { label: "Rent Bill (£)", key: "rent_bill", placeholder: "0", type: "number" },
+                { label: "Sent By (optional)", key: "user_name", placeholder: "Your name", type: "text" },
+                { label: "Payment Amount (optional)", key: "payment_amount", placeholder: "e.g. £500", type: "text" },
+              ].map(({ label, key, placeholder, type }) => (
+                <div key={key}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+                  <input
+                    type={type}
+                    value={createFormData[key as keyof typeof createFormData]}
+                    onChange={(e) => setCreateFormData((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                  />
+                </div>
+              ))}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Claim ID</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Payment Date (optional)</label>
                 <input
-                  type="text"
-                  value={createFormData.claim_id}
-                  onChange={(e) => setCreateFormData((p) => ({ ...p, claim_id: e.target.value }))}
-                  placeholder="TC123"
+                  type="date"
+                  value={createFormData.payment_date}
+                  onChange={(e) => setCreateFormData((p) => ({ ...p, payment_date: e.target.value }))}
                   className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Claimant Name</label>
-                <input
-                  type="text"
-                  value={createFormData.claimant_name}
-                  onChange={(e) => setCreateFormData((p) => ({ ...p, claimant_name: e.target.value }))}
-                  placeholder="Muhammad Ahmed"
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Storage Bill (£)</label>
-                <input
-                  type="number"
-                  value={createFormData.storage_bill}
-                  onChange={(e) => setCreateFormData((p) => ({ ...p, storage_bill: e.target.value }))}
-                  placeholder="0"
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Rent Bill (£)</label>
-                <input
-                  type="number"
-                  value={createFormData.rent_bill}
-                  onChange={(e) => setCreateFormData((p) => ({ ...p, rent_bill: e.target.value }))}
-                  placeholder="0"
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-                />
-              </div>
-
-              {/* Optional: you can remove or keep — depends if you want to set sender manually on create */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Sent By (optional)</label>
-                <input
-                  type="text"
-                  value={createFormData.user_name}
-                  onChange={(e) => setCreateFormData((p) => ({ ...p, user_name: e.target.value }))}
-                  placeholder="Your name / auto-filled?"
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-                />
-              </div>
-
               <div className="md:col-span-2 flex justify-end gap-3 mt-2">
                 <button
                   type="button"
@@ -388,17 +343,9 @@ export default function InvoiceManagementPage() {
                   disabled={creating}
                   className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-6 rounded-full shadow flex items-center gap-2 disabled:opacity-60 text-sm"
                 >
-                  {creating ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create"
-                  )}
+                  {creating ? <><Loader2 size={14} className="animate-spin" />Creating...</> : "Create"}
                 </button>
               </div>
-
               {createError && (
                 <p className="md:col-span-2 text-red-600 text-center text-sm mt-2">{createError}</p>
               )}
@@ -409,72 +356,44 @@ export default function InvoiceManagementPage() {
         {/* Filters */}
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Quick search..."
             className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
           />
           <input
-            type="text"
-            value={filterClaimId}
-            onChange={(e) => setFilterClaimId(e.target.value)}
+            type="text" value={filterClaimId} onChange={(e) => setFilterClaimId(e.target.value)}
             placeholder="Filter Claim ID"
             className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
           />
-
           {isClaimTab ? (
             <>
-              <input
-                type="text"
-                value={filterClaimant}
-                onChange={(e) => setFilterClaimant(e.target.value)}
+              <input type="text" value={filterClaimant} onChange={(e) => setFilterClaimant(e.target.value)}
                 placeholder="Filter Claimant"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-              />
-              <input
-                type="text"
-                value={filterInfo}
-                onChange={(e) => setFilterInfo(e.target.value)}
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
+              <input type="text" value={filterInfo} onChange={(e) => setFilterInfo(e.target.value)}
                 placeholder="Filter Info / Status"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-              />
-              <input
-                type="text"
-                value={filterSentBy}
-                onChange={(e) => setFilterSentBy(e.target.value)}
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
+              <input type="text" value={filterSentBy} onChange={(e) => setFilterSentBy(e.target.value)}
                 placeholder="Filter Sent By"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-              />
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
             </>
           ) : (
             <>
-              <input
-                type="text"
-                value={filterHirer}
-                onChange={(e) => setFilterHirer(e.target.value)}
+              <input type="text" value={filterHirer} onChange={(e) => setFilterHirer(e.target.value)}
                 placeholder="Filter Hirer Name"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-              />
-              <input
-                type="text"
-                value={filterSentBy}
-                onChange={(e) => setFilterSentBy(e.target.value)}
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
+              <input type="text" value={filterSentBy} onChange={(e) => setFilterSentBy(e.target.value)}
                 placeholder="Filter Sent By"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-              />
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
             </>
           )}
-
           <div className="text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center">
             {filteredCount} / {totalCount}
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-            {error}
-          </div>
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>
         )}
 
         {/* Table */}
@@ -495,23 +414,24 @@ export default function InvoiceManagementPage() {
                 <thead className="bg-green-50/70">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claim ID</th>
-
                     {isClaimTab ? (
                       <>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claimant</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date / Time</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Info</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th> {/* NEW */}
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Storage</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Hire</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Total</th>
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Payment Amt</th>
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Payment Date</th>
                         <th className="px-3 py-2 text-center font-semibold text-green-800">Actions</th>
                       </>
                     ) : (
                       <>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Hirer</th>
                         <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date Sent</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th> {/* NEW */}
+                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th>
                         <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Amount</th>
                       </>
                     )}
@@ -521,88 +441,109 @@ export default function InvoiceManagementPage() {
                   {isClaimTab
                     ? filteredClaimInvoices.map((inv) => {
                         const isEditing = editingId === inv.id;
-
                         return (
                           <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
                             <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
                             <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
-                              {inv.claimant_name?.toUpperCase() || "—"} 
+                              {inv.claimant_name?.toUpperCase() || "—"}
                             </td>
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                               {formatDate(inv.invoice_datetime)}
                             </td>
 
+                            {/* Info */}
                             <td className="px-3 py-1.5 border-r border-gray-300 text-center">
                               {isEditing ? (
                                 <input
                                   type="text"
                                   value={editFormData.info}
-                                  onChange={(e) =>
-                                    setEditFormData((p) => ({ ...p, info: e.target.value }))
-                                  }
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, info: e.target.value }))}
                                   className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                                   placeholder="e.g. SENT"
                                 />
-                              ) : (
-                                getInfoBadge(inv.info)
-                              )}
+                              ) : getInfoBadge(inv.info)}
                             </td>
 
-                            {/* NEW — Sent By column (editable in claim tab) */}
+                            {/* Sent By */}
                             <td className="px-3 py-1.5 border-r border-gray-300">
                               {isEditing ? (
                                 <input
                                   type="text"
                                   value={editFormData.user_name}
-                                  onChange={(e) =>
-                                    setEditFormData((p) => ({ ...p, user_name: e.target.value }))
-                                  }
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, user_name: e.target.value }))}
                                   className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                                   placeholder="Name"
                                 />
                               ) : (
-                                <span className="truncate block max-w-[140px]">
-                                  {inv.user_name || "—"}
-                                </span>
+                                <span className="truncate block max-w-[140px]">{inv.user_name || "—"}</span>
                               )}
                             </td>
 
+                            {/* Storage */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {isEditing ? (
                                 <input
                                   type="number"
                                   value={editFormData.storage_bill}
-                                  onChange={(e) =>
-                                    setEditFormData((p) => ({ ...p, storage_bill: e.target.value }))
-                                  }
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, storage_bill: e.target.value }))}
                                   className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                                   placeholder="0"
                                 />
-                              ) : (
-                                formatCurrency(inv.storage_bill)
-                              )}
+                              ) : formatCurrency(inv.storage_bill)}
                             </td>
 
+                            {/* Rent/Hire */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {isEditing ? (
                                 <input
                                   type="number"
                                   value={editFormData.rent_bill}
-                                  onChange={(e) =>
-                                    setEditFormData((p) => ({ ...p, rent_bill: e.target.value }))
-                                  }
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, rent_bill: e.target.value }))}
                                   className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                                   placeholder="0"
                                 />
-                              ) : (
-                                formatCurrency(inv.rent_bill)
-                              )}
+                              ) : formatCurrency(inv.rent_bill)}
                             </td>
 
+                            {/* Total */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {formatCurrency((inv.rent_bill || 0) + (inv.storage_bill || 0))}
                             </td>
 
+                            {/* Payment Amount */}
+                            <td className="px-3 py-1.5 border-r border-gray-300">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editFormData.payment_amount}
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, payment_amount: e.target.value }))}
+                                  className="w-24 px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  placeholder="e.g. £500"
+                                />
+                              ) : (
+                                <span className={inv.payment_amount ? "text-green-700 font-medium" : "text-slate-400"}>
+                                  {inv.payment_amount || "—"}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Payment Date */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                              {isEditing ? (
+                                <input
+                                  type="date"
+                                  value={editFormData.payment_date}
+                                  onChange={(e) => setEditFormData((p) => ({ ...p, payment_date: e.target.value }))}
+                                  className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                />
+                              ) : (
+                                <span className={inv.payment_date ? "text-green-700 font-medium" : "text-slate-400"}>
+                                  {formatShortDate(inv.payment_date)}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Actions */}
                             <td className="px-3 py-1.5 text-center">
                               {isEditing ? (
                                 <div className="flex items-center justify-center gap-2">
@@ -614,20 +555,12 @@ export default function InvoiceManagementPage() {
                                   >
                                     <Check size={16} />
                                   </button>
-                                  <button
-                                    onClick={cancelEdit}
-                                    className="text-red-600 hover:text-red-800"
-                                    title="Cancel"
-                                  >
+                                  <button onClick={cancelEdit} className="text-red-600 hover:text-red-800" title="Cancel">
                                     <X size={16} />
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  onClick={() => startEditing(inv)}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Edit invoice"
-                                >
+                                <button onClick={() => startEditing(inv)} className="text-green-600 hover:text-green-800" title="Edit invoice">
                                   <Edit2 size={16} />
                                 </button>
                               )}
@@ -638,21 +571,10 @@ export default function InvoiceManagementPage() {
                     : filteredLongHireInvoices.map((inv) => (
                         <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
                           <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
-                            {inv.hirer_name || "—"}
-                          </td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
-                            {formatDate(inv.date_sent)}
-                          </td>
-
-                          {/* NEW — Sent By for long hire (not editable) */}
-                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[140px]">
-                            {inv.user_name || "—"}
-                          </td>
-
-                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                            {formatCurrency(inv.amount)}
-                          </td>
+                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">{inv.hirer_name || "—"}</td>
+                          <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">{formatDate(inv.date_sent)}</td>
+                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[140px]">{inv.user_name || "—"}</td>
+                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">{formatCurrency(inv.amount)}</td>
                         </tr>
                       ))}
                 </tbody>

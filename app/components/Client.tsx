@@ -157,16 +157,7 @@ export default function ClientsPage() {
             >
               Clients
             </button>
-            <button
-              onClick={() => setActiveTab("fleet")}
-              className={`pb-3 px-1 text-lg font-medium transition-colors ${
-                activeTab === "fleet"
-                  ? "text-green-700 border-b-4 border-green-600"
-                  : "text-green-600/70 hover:text-green-700"
-              }`}
-            >
-              Fleet
-            </button>
+            
           </div>
         </div>
 
