@@ -645,11 +645,14 @@ export default function ClaimsPage() {
         const isSaving = savingClaimId === claim.claim_id;
         const isVehicleDamage = claim.claim_type === "vehicle damage";
 
-        // Block cell with green dash line for vehicle damage when flagged
-        if (isVehicleDamageBlocked && isVehicleDamage) {
-            return <td className="px-1.5 py-1 text-emerald-500 text-center whitespace-nowrap border-r border-gray-300 font-semibold">____________</td>;
-        }
-
+// Block cell with green thick line for vehicle damage when flagged
+if (isVehicleDamageBlocked && isVehicleDamage) {
+    return (
+        <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
+            <hr className="border-emerald-500 border-[2px]  w-[50%]" />
+        </td>
+    );
+}
         return (
             <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                 {isEditing ? (
@@ -1386,34 +1389,32 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Editable council — green dash for vehicle damage, no fixed width */}
-                                                <td className={`px-1.5 py-0.5 border-r border-gray-300 ${isVehicleDamage ? "text-emerald-500 text-center font-semibold" : "text-gray-700"}`}>
+                                                <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
                                                     {isVehicleDamage ? (
-                                                        "____________"
-                                                    ) : isEditing && editingField === "council" ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <select
-                                                                ref={selectRef}
-                                                                value={editCouncilValue}
-                                                                onChange={(e) => setEditCouncilValue(e.target.value)}
-                                                                onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
-                                                                disabled={isSaving}
-                                                                autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
-                                                            >
-                                                                {COUNCIL_OPTIONS.slice(1).map((opt) => (
-                                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                                ))}
-                                                            </select>
-                                                            {isSaving ? (
-                                                                <Loader2 size={16} className="text-green-600 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                        <hr className="border-emerald-500 border-[2px]  w-[50%] text-center" />
+                                                    ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
+                                                        <select
+                                                            ref={selectRef}
+                                                            value={editCouncilValue}
+                                                            onChange={(e) => setEditCouncilValue(e.target.value)}
+                                                            onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                            disabled={isSaving}
+                                                            autoFocus
+                                                            className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                        >
+                                                            {COUNCIL_OPTIONS.slice(1).map((opt) => (
+                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        {isSaving ? (
+                                                            <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                     ) : (
                                                         <div className="group flex items-center gap-2 whitespace-nowrap">
                                                             <span>{(claim.council || "—")}</span>
