@@ -645,9 +645,9 @@ export default function ClaimsPage() {
         const isSaving = savingClaimId === claim.claim_id;
         const isVehicleDamage = claim.claim_type === "vehicle damage";
 
-        // Block cell with green background for vehicle damage when flagged
+        // Block cell with green dash line for vehicle damage when flagged
         if (isVehicleDamageBlocked && isVehicleDamage) {
-            return <td className="px-1.5 py-0.5 whitespace-nowrap border-r border-gray-300 bg-emerald-600" />;
+            return <td className="px-1.5 py-1 text-emerald-500 text-center whitespace-nowrap border-r border-gray-300 font-semibold">____________</td>;
         }
 
         return (
@@ -1386,10 +1386,10 @@ export default function ClaimsPage() {
                                                     )}
                                                 </td>
 
-                                                {/* Editable council — green blocked for vehicle damage, no fixed width */}
-                                                <td className={`px-1.5 py-0.5 border-r border-gray-300 ${isVehicleDamage ? "bg-emerald-600" : "text-gray-700"}`}>
+                                                {/* Editable council — green dash for vehicle damage, no fixed width */}
+                                                <td className={`px-1.5 py-0.5 border-r border-gray-300 ${isVehicleDamage ? "text-emerald-500 text-center font-semibold" : "text-gray-700"}`}>
                                                     {isVehicleDamage ? (
-                                                        <></>
+                                                        "____________"
                                                     ) : isEditing && editingField === "council" ? (
                                                         <div className="flex items-center gap-1.5">
                                                             <select
