@@ -12,8 +12,11 @@ import { RentalAgreement } from "@/app/components/RentalAgreement";
 import DocumentManager from "@/app/components/Document";
 import InvoiceManager from "@/app/components/InnvoiceManager";
 import SummaryPage from "@/app/components/Summary";
-import { CheckCircle, AlertCircle, Loader2, Unlock } from "lucide-react";
+import { CheckCircle, AlertCircle, Loader2, Unlock, Lock } from "lucide-react";
 import { use } from "react";
+
+// Password for unlock
+const UNLOCK_PASSWORD = "GG2026gg";
 
 type TabKey =
   | "summary"
@@ -104,6 +107,12 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [refNo, setRefNo] = useState<string>("");
   const [refNoSaving, setRefNoSaving] = useState(false);
   const [refNoMessage, setRefNoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Password unlock modal states
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState("");
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const visibleTabs = getVisibleTabs(claimData?.claim_type);
 
@@ -223,7 +232,43 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     checkAndLockClaim().finally(fetchClaim);
   }, [claimId, username]);
 
-  // Manual unlock
+  // Manual unlock with password
+  const handlePasswordUnlock = async () => {
+    if (!unlockPassword) {
+      setUnlockError("Please enter the password");
+      return;
+    }
+
+    if (unlockPassword !== UNLOCK_PASSWORD) {
+      setUnlockError("Incorrect password");
+      setUnlockPassword("");
+      return;
+    }
+
+    setUnlockLoading(true);
+    setUnlockError(null);
+
+    try {
+      await api.put(
+        `/api/claims/${claimId}/lock`,
+        { locked: false },
+        { headers: { requiresAuth: true } }
+      );
+
+      setLockData({ locked: false, locked_by: null });
+      setShowPasswordModal(false);
+      setUnlockPassword("");
+      
+      // Refresh the page or re-check lock status
+      window.location.reload();
+    } catch (err: any) {
+      setUnlockError(err.response?.data?.detail || "Failed to unlock claim");
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
+  // Manual unlock (old button)
   const handleManualUnlock = async () => {
     await unlockClaim();
     setLockData({ locked: false, locked_by: null });
@@ -282,21 +327,94 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  // Locked by other user screen
+  // Locked by other user screen with password unlock option
   if (error && !lockChecking && lockData?.locked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-red-800 mb-3">Claim is Locked</h2>
+          <Lock className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-red-800 mb-2">Claim is Locked</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            <span className="font-semibold">Claim ID:</span> {claimData?.claim_id?.toUpperCase() || claimId?.toUpperCase()}
+          </p>
           <p className="text-gray-700 text-lg mb-8">{error}</p>
-          <button
-            onClick={() => router.push("/claim")}
-            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition text-lg"
-          >
-            OK
-          </button>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition text-lg flex items-center justify-center gap-2"
+            >
+              <Unlock size={20} />
+              Unlock with Password
+            </button>
+            <button
+              onClick={() => router.push("/claim")}
+              className="w-full py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-xl transition text-lg"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
+
+        {/* Password Modal */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="max-w-sm w-full bg-white rounded-2xl shadow-2xl p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Enter Password to Unlock</h3>
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={unlockPassword}
+                onChange={(e) => {
+                  setUnlockPassword(e.target.value);
+                  setUnlockError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && unlockPassword) {
+                    handlePasswordUnlock();
+                  }
+                }}
+                disabled={unlockLoading}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4 disabled:opacity-60"
+              />
+              {unlockError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {unlockError}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setUnlockPassword("");
+                    setUnlockError(null);
+                  }}
+                  disabled={unlockLoading}
+                  className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePasswordUnlock}
+                  disabled={unlockLoading || !unlockPassword}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {unlockLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Unlocking...
+                    </>
+                  ) : (
+                    <>
+                      <Unlock size={16} />
+                      Unlock
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

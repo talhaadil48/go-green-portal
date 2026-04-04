@@ -5,6 +5,7 @@ import api from "@/lib/axios";
 import { useRouter } from "next/navigation";
 import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock, Plus, TrendingUp, FileText, Clock, CheckCircle2, AlertCircle, BarChart3, Receipt, Car, Crown, BookOpen, User, LayoutGrid } from "lucide-react";
 import Cookies from "js-cookie";
+import { OverviewSkeleton, ClaimsTableSkeleton } from "@/app/components/Loading";
 
 interface Claim {
     claim_id: string;
@@ -737,6 +738,33 @@ export default function ClaimsPage() {
                     </div>
                 )}
 
+                {/* Loading State */}
+                {loading && (
+                    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
+                            <Loader2 size={48} className="text-green-600 animate-spin" />
+                            <p className="text-lg font-semibold text-gray-800">Loading claims...</p>
+                            <p className="text-sm text-gray-600">Please wait while we fetch your data</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Show skeleton when loading, otherwise show content */}
+                {loading ? (
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
+                            <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
+                        </div>
+                        <OverviewSkeleton />
+                        <div className="flex items-center gap-3 mt-10">
+                            <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
+                            <h2 className="text-xl font-bold text-green-800 tracking-tight">All Claims</h2>
+                        </div>
+                        <ClaimsTableSkeleton />
+                    </div>
+                ) : (
+                    <>
                 {/* ══════════════════════════════════════════════════════════
                     SUMMARY DASHBOARD
                 ══════════════════════════════════════════════════════════ */}
@@ -1463,6 +1491,8 @@ export default function ClaimsPage() {
                             </table>
                         </div>
                     </div>
+                )}
+                    </>
                 )}
             </main>
         </div>
