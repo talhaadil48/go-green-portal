@@ -10,14 +10,10 @@ const api = axios.create({
 const getUser = () => {
   const access_token = Cookies.get("access_token");
   const refresh_token = Cookies.get("refresh_token");
-
-  if (access_token && refresh_token) {
-    return {
-      access_token,
-      refresh_token,
-    };
-  }
-  return null;
+  return {
+    access_token,
+    refresh_token
+  };
 };
 // Add request interceptor to attach access token if needed
 api.interceptors.request.use(
