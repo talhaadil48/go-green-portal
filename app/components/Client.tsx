@@ -344,7 +344,7 @@ export default function ClientsPage() {
                             {claim.claim_id}
                           </td>
                           <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
-                            {claim.claimant_name || "—"}
+                            {claim.claimant_name?.toUpperCase() || "—"}
                           </td>
                           <td className="px-4 py-2 text-gray-700 whitespace-nowrap text-sm">
                             {formatDate(claim.claim_start_date)}
