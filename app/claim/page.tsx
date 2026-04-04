@@ -238,6 +238,13 @@ export default function ClaimsPage() {
                     return sortDirection === "asc" ? cmp : -cmp;
                 }
 
+                if (sortColumn === "status") {
+                    const aNum = STATUS_COLORS[a.status?.toLowerCase()]?.number ?? 0;
+                    const bNum = STATUS_COLORS[b.status?.toLowerCase()]?.number ?? 0;
+                    const comparison = aNum - bNum;
+                    return sortDirection === "asc" ? comparison : -comparison;
+                }
+
                 if (["claim_start_date", "hire_start_date", "pay_date", "hire_end_date", "invoice_date"].includes(sortColumn as string)) {
                     let field: "claim_start_date" | "hire_start_date" | "pay_date" | "hire_end_date" | "invoice_date" = "claim_start_date";
                     if (sortColumn === "hire_start_date") field = "hire_start_date";
