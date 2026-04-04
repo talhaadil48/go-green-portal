@@ -69,12 +69,9 @@ interface ClaimData {
   closed_date?: string | null;
   reason?: string;
   ref_no?: string | null;        // <-- Added for sovereign claims
+  locked?: boolean;              // <-- From API response
+  locked_by?: string | null;     // <-- From API response
   [key: string]: any;
-}
-
-interface LockData {
-  locked: boolean;
-  locked_by: string | null;
 }
 
 export const UnsavedChangesContext = React.createContext<{
@@ -90,11 +87,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
   const [claimData, setClaimData] = useState<ClaimData | null>(null);
-  const [lockData, setLockData] = useState<LockData | null>(null);
   const [username, setUsername] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [lockChecking, setLockChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -134,7 +129,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   // ====================== AUTO UNLOCK LOGIC ======================
   const unlockClaim = useCallback(async () => {
-    if (!claimId || !username || !lockData?.locked) return;
+    if (!claimId || !username || !claimData?.locked) return;
 
     try {
       const formData = new FormData();
@@ -150,7 +145,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     } catch (err) {
       console.warn("Failed to unlock claim on exit:", err);
     }
-  }, [claimId, username, lockData?.locked]);
+  }, [claimId, username, claimData?.locked]);
 
   useEffect(() => {
     if (!claimId || !username) return;
@@ -165,72 +160,61 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     };
   }, [unlockClaim]);
 
-  // Check and lock claim
-  const checkAndLockClaim = async () => {
-    if (!username) {
-      setError("Unable to determine current user. Please login again.");
-      setLockChecking(false);
-      return;
-    }
+  // Lock claim after fetching data
+  const lockClaimAfterFetch = useCallback(async (claimInfo: ClaimData) => {
+    if (!username) return;
 
-    setLockChecking(true);
     try {
-      const lockRes = await api.get(`/api/claims/${claimId}/lock`, {
-        headers: { requiresAuth: true },
-      });
-      const lockInfo: LockData = lockRes.data;
-      setLockData(lockInfo);
-
       const currentUserLower = username.toLowerCase();
-      const lockedByLower = lockInfo.locked_by?.toLowerCase() || "";
+      const lockedByLower = claimInfo.locked_by?.toLowerCase() || "";
 
-      if (lockInfo.locked && lockedByLower !== currentUserLower) {
-        setError(`This claim is currently locked by ${lockInfo.locked_by}.`);
-        setLockChecking(false);
+      // Check if already locked by another user
+      if (claimInfo.locked && lockedByLower !== currentUserLower) {
+        setError(`This claim is currently locked by ${claimInfo.locked_by}.`);
         return;
       }
 
+      // Lock the claim for current user
       await api.put(
         `/api/claims/${claimId}/lock`,
         { locked: true, locked_by: username },
         { headers: { requiresAuth: true } }
       );
 
-      const updatedLockRes = await api.get(`/api/claims/${claimId}/lock`, {
-        headers: { requiresAuth: true },
-      });
-      setLockData(updatedLockRes.data);
+      // Update local state with locked status
+      setClaimData(prev => prev ? { ...prev, locked: true, locked_by: username } : null);
     } catch (err: any) {
       console.error("Lock operation failed:", err);
       setError(err.response?.data?.detail || "Failed to lock the claim.");
-    } finally {
-      setLockChecking(false);
     }
-  };
+  }, [claimId, username]);
 
-  // Fetch claim data
-  const fetchClaim = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/api/claims/${claimId}`, {
-        headers: { requiresAuth: true },
-      });
-      const data = res.data;
-      setClaimData(data);
-      setSelectedStatus(data.status || "claim created");
-      setRefNo(data.ref_no || "");   // Initialize ref_no
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Could not load claim details.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Main effect: Lock → Fetch
+  // Fetch claim data and handle locking in one go
   useEffect(() => {
     if (!claimId || !username) return;
-    checkAndLockClaim().finally(fetchClaim);
-  }, [claimId, username]);
+
+    const fetchAndLock = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/api/claims/${claimId}`, {
+          headers: { requiresAuth: true },
+        });
+        const data = res.data;
+        setClaimData(data);
+        setSelectedStatus(data.status || "claim created");
+        setRefNo(data.ref_no || "");
+
+        // Check and lock the claim
+        await lockClaimAfterFetch(data);
+      } catch (err: any) {
+        setError(err.response?.data?.detail || "Could not load claim details.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAndLock();
+  }, [claimId, username, lockClaimAfterFetch]);
 
   // Manual unlock with password
   const handlePasswordUnlock = async () => {
@@ -255,7 +239,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         { headers: { requiresAuth: true } }
       );
 
-      setLockData({ locked: false, locked_by: null });
+      setClaimData(prev => prev ? { ...prev, locked: false, locked_by: null } : null);
       setShowPasswordModal(false);
       setUnlockPassword("");
       
@@ -271,7 +255,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   // Manual unlock (old button)
   const handleManualUnlock = async () => {
     await unlockClaim();
-    setLockData({ locked: false, locked_by: null });
+    setClaimData(prev => prev ? { ...prev, locked: false, locked_by: null } : null);
     router.push("/claim");
   };
 
@@ -328,7 +312,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   };
 
   // Locked by other user screen with password unlock option
-  if (error && !lockChecking && lockData?.locked) {
+  if (error && claimData?.locked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -473,7 +457,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 Refresh
               </button>
 
-              {lockData?.locked && (
+              {claimData?.locked && (
                 <button
                   onClick={handleManualUnlock}
                   className="unlock-btn action-btn flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition"
@@ -485,10 +469,10 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
             </div>
           </div>
 
-          {(loading || lockChecking) ? (
+          {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
-              <span className="ml-3 text-gray-600">Checking lock status & loading claim...</span>
+              <span className="ml-3 text-gray-600">Loading claim...</span>
             </div>
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">{error}</div>
