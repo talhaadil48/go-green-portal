@@ -313,7 +313,7 @@ export default function ClaimsPage() {
         setCreateError(null);
         try {
             const payload: any = {
-                claimant_name: formData.claimant_name.trim() || undefined,
+                claimant_name: formData.claimant_name.trim().toUpperCase() || undefined,
                 claim_type: formData.claim_type.trim() || "learning",
                 council: formData.council.trim() || undefined,
             };
@@ -645,14 +645,14 @@ export default function ClaimsPage() {
         const isSaving = savingClaimId === claim.claim_id;
         const isVehicleDamage = claim.claim_type === "vehicle damage";
 
-// Block cell with green thick line for vehicle damage when flagged
-if (isVehicleDamageBlocked && isVehicleDamage) {
-    return (
-        <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
-            <hr className="border-emerald-500 border-[2px]  w-[50%]" />
-        </td>
-    );
-}
+        // Block cell with green thick line for vehicle damage when flagged
+        if (isVehicleDamageBlocked && isVehicleDamage) {
+            return (
+                <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
+                    <hr className="border-emerald-500 border-[2px]  w-[50%]" />
+                </td>
+            );
+        }
         return (
             <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                 {isEditing ? (
