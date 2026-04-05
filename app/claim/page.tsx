@@ -61,7 +61,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire end": { color: "text-amber-100", number: 4, label: "Hire End", badgeBg: "border-amber-100", badgeText: "bg-amber-100" },
+    "hire end": { color: "text-[#F5879F]", number: 4, label: "Hire End", badgeBg: "border-[#F5879F]", badgeText: "bg-[#F5879F]" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
