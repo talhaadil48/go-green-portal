@@ -68,9 +68,11 @@ interface ClaimData {
   closed_by?: string | null;
   closed_date?: string | null;
   reason?: string;
-  ref_no?: string | null;        // <-- Added for sovereign claims
-  locked?: boolean;              // <-- From API response
-  locked_by?: string | null;     // <-- From API response
+  ref_no?: string | null;        
+  is_disputed?: boolean;
+  dispute_reason?: string | null;
+  locked?: boolean;              
+  locked_by?: string | null;     
   [key: string]: any;
 }
 
@@ -93,20 +95,14 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Status update states
+  // Form states for the combined single-line update
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [statusSaving, setStatusSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // Ref No states (for sovereign claims)
   const [refNo, setRefNo] = useState<string>("");
-  const [refNoSaving, setRefNoSaving] = useState(false);
-  const [refNoMessage, setRefNoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // Disputed status states
   const [isDisputed, setIsDisputed] = useState<boolean>(false);
-  const [disputedSaving, setDisputedSaving] = useState(false);
-  const [disputedMessage, setDisputedMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [disputeReason, setDisputeReason] = useState<string>("");
+  
+  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Password unlock modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -209,6 +205,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         setSelectedStatus(data.status || "claim created");
         setRefNo(data.ref_no || "");
         setIsDisputed(data.is_disputed || false);
+        setDisputeReason(data.dispute_reason || "");
 
         // Check and lock the claim
         await lockClaimAfterFetch(data);
@@ -258,7 +255,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  // Manual unlock (old button)
   const handleManualUnlock = async () => {
     await unlockClaim();
     setClaimData(prev => prev ? { ...prev, locked: false, locked_by: null } : null);
@@ -271,79 +267,80 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   const refreshPage = () => window.location.reload();
 
-  const handleUpdateStatus = async () => {
-    if (!selectedStatus || !claimData) return;
-    if (selectedStatus === claimData.status) {
-      setStatusMessage({ type: "success", text: "No change needed" });
-      return;
-    }
+  const isSovereign = claimData?.claim_type?.toLowerCase() === "sovereign";
 
-    setStatusSaving(true);
-    setStatusMessage(null);
-
-    try {
-      await api.put(`/api/claims/${claimId}/status`, { status: selectedStatus }, {
-        headers: { requiresAuth: true },
-      });
-      setClaimData((prev) => (prev ? { ...prev, status: selectedStatus } : null));
-      setStatusMessage({ type: "success", text: "Status updated successfully" });
-    } catch (err: any) {
-      setStatusMessage({ type: "error", text: err.response?.data?.detail || "Failed to update status" });
-    } finally {
-      setStatusSaving(false);
-    }
-  };
-
-  // Update Ref No (only for sovereign claims)
-  const handleUpdateRefNo = async () => {
-    if (!refNo.trim() || !claimData) return;
-
-    setRefNoSaving(true);
-    setRefNoMessage(null);
-
-    try {
-      await api.put(
-        `/api/claims/ref-no/${claimId}`,
-        { ref_no: refNo.trim() },
-        { headers: { requiresAuth: true } }
-      );
-
-      setClaimData((prev) => (prev ? { ...prev, ref_no: refNo.trim() } : null));
-      setRefNoMessage({ type: "success", text: "Reference number updated successfully" });
-    } catch (err: any) {
-      setRefNoMessage({ type: "error", text: err.response?.data?.detail || "Failed to update reference number" });
-    } finally {
-      setRefNoSaving(false);
-    }
-  };
-
-  // Update Disputed Status
-  const handleUpdateDisputed = async () => {
+  // Unified Update Handler
+  const handleUpdateDetails = async () => {
     if (!claimData) return;
+    setIsUpdatingDetails(true);
+    setUpdateMessage(null);
 
-    setDisputedSaving(true);
-    setDisputedMessage(null);
+    const promises: Promise<any>[] = [];
+    const updatedData = { ...claimData };
+    let madeChanges = false;
 
     try {
-      await api.put(
-        `/api/claims/${claimId}/disputed`,
-        { is_disputed: isDisputed },
-        { headers: { requiresAuth: true } }
-      );
+      // 1. Status Check
+      if (selectedStatus !== claimData.status) {
+        promises.push(
+          api.put(`/api/claims/${claimId}/status`, { status: selectedStatus }, { headers: { requiresAuth: true } })
+        );
+        updatedData.status = selectedStatus;
+        madeChanges = true;
+      }
 
-      setClaimData((prev) => (prev ? { ...prev, is_disputed: isDisputed } : null));
-      setDisputedMessage({ type: "success", text: "Disputed status updated successfully" });
+      // 2. Disputed Check
+      const finalDisputeReason = isDisputed ? disputeReason.trim() : "";
+      if (isDisputed !== claimData.is_disputed || finalDisputeReason !== (claimData.dispute_reason || "")) {
+        promises.push(
+          api.put(
+            `/api/claims/${claimId}/disputed`,
+            { is_disputed: isDisputed, dispute_reason: finalDisputeReason },
+            { headers: { requiresAuth: true } }
+          )
+        );
+        updatedData.is_disputed = isDisputed;
+        updatedData.dispute_reason = finalDisputeReason;
+        madeChanges = true;
+      }
+
+      // 3. Ref No Check (Sovereign)
+      if (isSovereign && refNo.trim() !== (claimData.ref_no || "")) {
+        promises.push(
+          api.put(
+            `/api/claims/ref-no/${claimId}`,
+            { ref_no: refNo.trim() },
+            { headers: { requiresAuth: true } }
+          )
+        );
+        updatedData.ref_no = refNo.trim();
+        madeChanges = true;
+      }
+
+      if (!madeChanges) {
+        setUpdateMessage({ type: "success", text: "No changes needed" });
+        setIsUpdatingDetails(false);
+        return;
+      }
+
+      await Promise.all(promises);
+      setClaimData(updatedData);
+      setUpdateMessage({ type: "success", text: "Claim details updated successfully" });
     } catch (err: any) {
-      setDisputedMessage({ type: "error", text: err.response?.data?.detail || "Failed to update disputed status" });
+      setUpdateMessage({ type: "error", text: err.response?.data?.detail || "Failed to update details" });
     } finally {
-      setDisputedSaving(false);
+      setIsUpdatingDetails(false);
+      // clear message after 3 seconds
+      setTimeout(() => setUpdateMessage(null), 3000);
     }
   };
+
 
   // Locked by other user screen with password unlock option
   if (error && claimData?.locked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
+        {/* Same lock screen UI... */}
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
           <Lock className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-red-800 mb-2">Claim is Locked</h2>
@@ -432,8 +429,6 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  const isSovereign = claimData?.claim_type?.toLowerCase() === "sovereign";
-
   return (
     <div className={`min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-12 ${isClosed ? "disabled-all" : ""}`}>
       {/* Disable all inputs globally when claim is closed */}
@@ -506,142 +501,130 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           ) : error ? (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">{error}</div>
           ) : claimData ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
-              <div>
-                <p className="text-gray-500">Claim ID</p>
-                <p className="font-medium text-gray-900 mt-1">{claimData.claim_id?.toUpperCase() || "—"}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Claimant Name</p>
-                <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name || "—"}</p>
-              </div>
-              <div>
-                <p className="text-gray-500">Claim Type</p>
-                <p className="font-medium text-gray-900 mt-1">
-                  {claimData.claim_type
-                    ? claimData.claim_type === "learning"
-                      ? "Learner"
-                      : claimData.claim_type.charAt(0).toUpperCase() + claimData.claim_type.slice(1)
-                    : "—"}
-                </p>
-              </div>
-
-              {/* Status */}
-              <div>
-                <p className="text-gray-500">Status</p>
-                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    disabled={statusSaving || isClosed}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={handleUpdateStatus}
-                    disabled={statusSaving || selectedStatus === claimData.status || isClosed}
-                    className={`px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition ${statusSaving || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                      }`}
-                  >
-                    {statusSaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Update"
-                    )}
-                  </button>
+            <div className="space-y-6">
+              {/* Top Read-Only Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+                <div>
+                  <p className="text-gray-500">Claim ID</p>
+                  <p className="font-medium text-gray-900 mt-1">{claimData.claim_id?.toUpperCase() || "—"}</p>
                 </div>
-
-                {statusMessage && (
-                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${statusMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
-                    {statusMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                    {statusMessage.text}
-                  </div>
-                )}
-              </div>
-
-              {/* Disputed Status */}
-              <div>
-                <p className="text-gray-500">Disputed Status</p>
-                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <select
-                    value={isDisputed ? "yes" : "no"}
-                    onChange={(e) => setIsDisputed(e.target.value === "yes")}
-                    disabled={disputedSaving || isClosed}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
-                  </select>
-
-                  <button
-                    onClick={handleUpdateDisputed}
-                    disabled={disputedSaving || isDisputed === claimData.is_disputed || isClosed}
-                    className={`px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition ${disputedSaving || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                      }`}
-                  >
-                    {disputedSaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Update"
-                    )}
-                  </button>
+                <div>
+                  <p className="text-gray-500">Claimant Name</p>
+                  <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name || "—"}</p>
                 </div>
-
-                {disputedMessage && (
-                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${disputedMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
-                    {disputedMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                    {disputedMessage.text}
-                  </div>
-                )}
+                <div>
+                  <p className="text-gray-500">Claim Type</p>
+                  <p className="font-medium text-gray-900 mt-1">
+                    {claimData.claim_type
+                      ? claimData.claim_type === "learning"
+                        ? "Learner"
+                        : claimData.claim_type.charAt(0).toUpperCase() + claimData.claim_type.slice(1)
+                      : "—"}
+                  </p>
+                </div>
               </div>
 
-              {/* Sovereign Ref No - shown only for sovereign claims */}
-              {isSovereign && (
-                <div className="lg:col-span-2">
-                  <p className="text-gray-500">Reference Number (Ref No)</p>
-                  <div className="mt-1 flex gap-3">
-                    <input
-                      type="text"
-                      value={refNo}
-                      onChange={(e) => setRefNo(e.target.value)}
-                      disabled={refNoSaving || isClosed}
-                      placeholder="Enter reference number"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
-                    />
-                    <button
-                      onClick={handleUpdateRefNo}
-                      disabled={refNoSaving || !refNo.trim() || refNo === claimData.ref_no || isClosed}
-                      className={`px-5 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition ${refNoSaving || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+              <hr className="border-gray-100" />
+
+              {/* Single Line Update Section */}
+              <div className="flex flex-col xl:flex-row xl:items-end gap-4">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 xl:flex gap-4 items-start xl:items-center">
+                  
+                  {/* Status Dropdown */}
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-xs text-gray-500 mb-1">Status</label>
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => setSelectedStatus(e.target.value)}
+                      disabled={isUpdatingDetails || isClosed}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {refNoSaving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Update Ref No"
-                      )}
-                    </button>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {refNoMessage && (
-                    <div className={`mt-2 text-sm flex items-center gap-1.5 ${refNoMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
-                      {refNoMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                      {refNoMessage.text}
+                  {/* Disputed Status */}
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-xs text-gray-500 mb-1">Disputed</label>
+                    <select
+                      value={isDisputed ? "yes" : "no"}
+                      onChange={(e) => setIsDisputed(e.target.value === "yes")}
+                      disabled={isUpdatingDetails || isClosed}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+
+                  {/* Disputed Reason (Conditional) */}
+                  {isDisputed && (
+                    <div className="flex-2 min-w-[200px] xl:w-64">
+                      <label className="block text-xs text-gray-500 mb-1">Dispute Reason</label>
+                      <input
+                        type="text"
+                        value={disputeReason}
+                        onChange={(e) => setDisputeReason(e.target.value)}
+                        placeholder="Enter reason..."
+                        disabled={isUpdatingDetails || isClosed}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
+                      />
                     </div>
                   )}
+
+                  {/* Ref No (Sovereign Only) */}
+                  {isSovereign && (
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-xs text-gray-500 mb-1">Ref No</label>
+                      <input
+                        type="text"
+                        value={refNo}
+                        onChange={(e) => setRefNo(e.target.value)}
+                        placeholder="Reference no."
+                        disabled={isUpdatingDetails || isClosed}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Single Update Button */}
+                <div className="flex flex-col items-start xl:items-end min-w-[120px]">
+                  <button
+                    onClick={handleUpdateDetails}
+                    disabled={
+                      isUpdatingDetails || 
+                      isClosed ||
+                      (selectedStatus === claimData.status &&
+                       isDisputed === (claimData.is_disputed || false) &&
+                       (isDisputed ? disputeReason === (claimData.dispute_reason || "") : true) &&
+                       (!isSovereign || refNo === (claimData.ref_no || "")))
+                    }
+                    className={`px-6 py-2 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition w-full xl:w-auto mt-auto mb-[2px] ${
+                      isUpdatingDetails || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    {isUpdatingDetails ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Update Details"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Combined Feedback Message */}
+              {updateMessage && (
+                <div className={`mt-2 text-sm flex items-center gap-1.5 ${updateMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                  {updateMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                  {updateMessage.text}
                 </div>
               )}
             </div>

@@ -194,11 +194,11 @@ export default function ClaimsPage() {
 
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
-                ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
+                !claim.is_disputed && ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
-                ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())
+                claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())
             );
         } else if (statusFilter === "Closed") {
             filtered = filtered.filter((claim) =>
@@ -586,10 +586,10 @@ export default function ClaimsPage() {
     const summary = (() => {
         const total = allClaims.length;
         const activeClaims = allClaims.filter(c =>
-            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
+            !c.is_disputed && ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
-            ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
+            c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
         ).length;
         const closedClaims = allClaims.filter(c =>
             c.status?.toLowerCase() === "close claim" || (c.closed_date && c.closed_by)
@@ -1311,8 +1311,8 @@ export default function ClaimsPage() {
                                         const isClosed = !!(claim.closed_date && claim.closed_by);
                                         const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
                                         const isVehicleDamage = claim.claim_type === "vehicle damage";
-                                        const rowBgColor = claim.is_disputed ? "bg-red-50" : "bg-white";
-                                        const hoverBgColor = claim.is_disputed ? "hover:bg-red-100/80" : "hover:bg-green-100/80";
+                                        const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
+                                        const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
 
                                         return (
                                             <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
@@ -1325,7 +1325,7 @@ export default function ClaimsPage() {
                                                             if (isClosed) {
                                                                 statusText = "Closed";
                                                                 bgColor = "bg-red-100 text-red-800";
-                                                            } else if (["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
+                                                            } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
                                                                 statusText = "Non Active";
                                                                 bgColor = "bg-amber-100 text-amber-800";
                                                             }
@@ -1483,15 +1483,21 @@ export default function ClaimsPage() {
                                                 {/* Stage badge */}
                                                 <td className="border-r border-gray-300 px-1 py-0.5">
                                                     <div className="flex items-center justify-center">
-                                                        <span
-                                                            className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
-                                                                ${statusData.number >= 4
-                                                                    ? `${statusData.badgeText} text-black border-transparent`
-                                                                    : `bg-white ${statusData.color} ${statusData.badgeBg}`
-                                                                }`}
-                                                        >
-                                                            {statusData.number}
-                                                        </span>
+                                                        {isClosed ? (
+                                                            <div className="w-7 h-7 bg-black rounded-full" title="Closed"></div>
+                                                        ) : claim.is_disputed ? (
+                                                            <div className="w-7 h-7 bg-red-500 rounded-full" title="Disputed"></div>
+                                                        ) : (
+                                                            <span
+                                                                className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
+                                                                    ${statusData.number >= 4
+                                                                        ? `${statusData.badgeText} text-black border-transparent`
+                                                                        : `bg-white ${statusData.color} ${statusData.badgeBg}`
+                                                                    }`}
+                                                            >
+                                                                {statusData.number}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

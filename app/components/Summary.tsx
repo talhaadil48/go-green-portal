@@ -29,6 +29,8 @@ interface SummaryData {
     closed_date: string | null;
     closed_by: string | null;
     recently_deleted: boolean;
+    is_disputed?: boolean;
+    dispute_reason?: string | null;
   };
   accident_claim?: {
     checklist_vd?: boolean;
@@ -325,6 +327,11 @@ const styles = `
     background: linear-gradient(135deg, rgba(232, 247, 241, 0.5), var(--sr-white));
   }
 
+  .sr-card-danger {
+    border-color: var(--sr-danger-border);
+    background: linear-gradient(135deg, rgba(253, 241, 240, 0.5), var(--sr-white));
+  }
+
   .sr-chead {
     display: flex;
     align-items: center;
@@ -523,6 +530,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [userName, setUsername] = useState<string | null>(null);
   const router = useRouter();
+  
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
       try {
@@ -645,11 +653,25 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
           {/* HEADER */}
           <header className="sr-header">
             <div>
-              <p className={`sr-logo ${statusData.badgeText} ${statusData.badgeBg}`}>
-                {statusData.number}
-              </p>
+              {claim.is_disputed ? (
+                <p className="sr-logo" style={{ background: 'var(--sr-danger)' }}>
+                  <AlertCircle size={24} color="#ffffff" />
+                </p>
+              ) : (
+                <p className={`sr-logo ${statusData.badgeText} ${statusData.badgeBg}`}>
+                  {statusData.number}
+                </p>
+              )}
+              
               <h1 className="sr-title">Claim Summary</h1>
-              <p className="sr-ref">Reference <em>#{claim.claim_id || "—"}</em></p>
+              <p className="sr-ref">
+                Reference <em>#{claim.claim_id || "—"}</em>
+                {claim.is_disputed && (
+                  <span style={{ display: 'block', color: 'var(--sr-danger)', marginTop: '6px', fontSize: '13px' }}>
+                    <strong>Disputed:</strong> {claim.dispute_reason || "No reason provided"}
+                  </span>
+                )}
+              </p>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -674,10 +696,12 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
               <div className="sr-section">
 
                 {/* Claimant Details */}
-                <div className="sr-card sr-card-em">
+                <div className={`sr-card ${claim.is_disputed ? 'sr-card-danger' : 'sr-card-em'}`}>
                   <div className="sr-chead">
                     <div className="sr-clabel">
-                      <div className="sr-cicon"><User size={18} /></div>
+                      <div className="sr-cicon" style={claim.is_disputed ? { background: 'var(--sr-danger-pale)', color: 'var(--sr-danger)' } : {}}>
+                        <User size={18} />
+                      </div>
                       <span className="sr-ctitle">Claimant Details</span>
                     </div>
                   </div>
