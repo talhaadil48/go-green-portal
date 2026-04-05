@@ -28,6 +28,7 @@ interface Claim {
     status: string;
     hire_end_date: string | null;
     reason: string | null;
+    is_disputed: boolean;
 }
 
 type SortColumn =
@@ -60,7 +61,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire end": { color: "text-orange-400", number: 4, label: "Hire End", badgeBg: "border-orange-400", badgeText: "bg-orange-400" },
+    "hire end": { color: "text-orange-200", number: 4, label: "Hire End", badgeBg: "border-orange-200", badgeText: "bg-orange-200" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
@@ -1310,9 +1311,11 @@ export default function ClaimsPage() {
                                         const isClosed = !!(claim.closed_date && claim.closed_by);
                                         const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
                                         const isVehicleDamage = claim.claim_type === "vehicle damage";
+                                        const rowBgColor = claim.is_disputed ? "bg-red-50" : "bg-white";
+                                        const hoverBgColor = claim.is_disputed ? "hover:bg-red-100/80" : "hover:bg-green-100/80";
 
                                         return (
-                                            <tr key={claim.claim_id} className="hover:bg-green-100/80 transition-colors">
+                                            <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
                                                 {/* Status column */}
                                                 <td className="px-1.5 py-0.5 text-center border-r border-gray-300">
                                                     <div className="relative group inline-block">

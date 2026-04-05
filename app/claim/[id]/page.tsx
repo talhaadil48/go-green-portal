@@ -103,6 +103,11 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [refNoSaving, setRefNoSaving] = useState(false);
   const [refNoMessage, setRefNoMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Disputed status states
+  const [isDisputed, setIsDisputed] = useState<boolean>(false);
+  const [disputedSaving, setDisputedSaving] = useState(false);
+  const [disputedMessage, setDisputedMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Password unlock modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [unlockPassword, setUnlockPassword] = useState("");
@@ -203,6 +208,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         setClaimData(data);
         setSelectedStatus(data.status || "claim created");
         setRefNo(data.ref_no || "");
+        setIsDisputed(data.is_disputed || false);
 
         // Check and lock the claim
         await lockClaimAfterFetch(data);
@@ -308,6 +314,29 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       setRefNoMessage({ type: "error", text: err.response?.data?.detail || "Failed to update reference number" });
     } finally {
       setRefNoSaving(false);
+    }
+  };
+
+  // Update Disputed Status
+  const handleUpdateDisputed = async () => {
+    if (!claimData) return;
+
+    setDisputedSaving(true);
+    setDisputedMessage(null);
+
+    try {
+      await api.put(
+        `/api/claims/${claimId}/disputed`,
+        { is_disputed: isDisputed },
+        { headers: { requiresAuth: true } }
+      );
+
+      setClaimData((prev) => (prev ? { ...prev, is_disputed: isDisputed } : null));
+      setDisputedMessage({ type: "success", text: "Disputed status updated successfully" });
+    } catch (err: any) {
+      setDisputedMessage({ type: "error", text: err.response?.data?.detail || "Failed to update disputed status" });
+    } finally {
+      setDisputedSaving(false);
     }
   };
 
@@ -535,6 +564,45 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   <div className={`mt-2 text-sm flex items-center gap-1.5 ${statusMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
                     {statusMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                     {statusMessage.text}
+                  </div>
+                )}
+              </div>
+
+              {/* Disputed Status */}
+              <div>
+                <p className="text-gray-500">Disputed Status</p>
+                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <select
+                    value={isDisputed ? "yes" : "no"}
+                    onChange={(e) => setIsDisputed(e.target.value === "yes")}
+                    disabled={disputedSaving || isClosed}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+
+                  <button
+                    onClick={handleUpdateDisputed}
+                    disabled={disputedSaving || isDisputed === claimData.is_disputed || isClosed}
+                    className={`px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 transition ${disputedSaving || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                      }`}
+                  >
+                    {disputedSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Update"
+                    )}
+                  </button>
+                </div>
+
+                {disputedMessage && (
+                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${disputedMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                    {disputedMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                    {disputedMessage.text}
                   </div>
                 )}
               </div>
