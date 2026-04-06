@@ -194,7 +194,10 @@ export default function ClaimsPage() {
 
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
-                !claim.is_disputed && ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
+                !claim.is_disputed &&
+                !claim.closed_date &&
+                !claim.closed_by &&
+                ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
@@ -586,7 +589,10 @@ export default function ClaimsPage() {
     const summary = (() => {
         const total = allClaims.length;
         const activeClaims = allClaims.filter(c =>
-            !c.is_disputed && ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
+            !c.is_disputed &&
+            !c.closed_date &&
+            !c.closed_by &&
+            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
             c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
@@ -773,741 +779,741 @@ export default function ClaimsPage() {
                     </div>
                 ) : (
                     <>
-                {/* ══════════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════════
                     SUMMARY DASHBOARD
                 ══════════════════════════════════════════════════════════ */}
-                <div className="mb-10 space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-                        <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
-                    </div>
+                        <div className="mb-10 space-y-6">
+                            <div className="flex items-center gap-3">
+                                <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
+                                <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
+                            </div>
 
-                    {/* Row 1: Claim Status Summary (Clickable Filters) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {/* Total */}
-                        <button
-                            onClick={() => setStatusFilter("all")}
-                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                            {/* Row 1: Claim Status Summary (Clickable Filters) */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {/* Total */}
+                                <button
+                                    onClick={() => setStatusFilter("all")}
+                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
                                 ${statusFilter === "all"
-                                    ? "border-yellow-300 scale-105 shadow-2xl shadow-yellow-500/50 ring-4 ring-yellow-400/30 bg-gradient-to-br from-slate-700 to-slate-900"
-                                    : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-102 hover:shadow-xl"
-                                }`}
-                        >
-                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
-                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/5 rounded-full" />
-                            {statusFilter === "all" && (
-                                <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-3xl" />
-                            )}
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <BarChart3 size={18} className="text-slate-300" />
-                                    <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Claims</p>
-                                </div>
-                                <p className="text-5xl font-black tracking-tighter">{summary.total}</p>
-                            </div>
-                        </button>
+                                            ? "border-yellow-300 scale-105 shadow-2xl shadow-yellow-500/50 ring-4 ring-yellow-400/30 bg-gradient-to-br from-slate-700 to-slate-900"
+                                            : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-102 hover:shadow-xl"
+                                        }`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
+                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/5 rounded-full" />
+                                    {statusFilter === "all" && (
+                                        <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-3xl" />
+                                    )}
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <BarChart3 size={18} className="text-slate-300" />
+                                            <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Claims</p>
+                                        </div>
+                                        <p className="text-5xl font-black tracking-tighter">{summary.total}</p>
+                                    </div>
+                                </button>
 
-                        {/* Active */}
-                        <button
-                            onClick={() => setStatusFilter("Active")}
-                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                {/* Active */}
+                                <button
+                                    onClick={() => setStatusFilter("Active")}
+                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
                                 ${statusFilter === "Active"
-                                    ? "border-emerald-400 scale-105 shadow-2xl shadow-emerald-500/60 ring-4 ring-emerald-400/40 bg-gradient-to-br from-emerald-500 to-teal-600"
-                                    : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600 hover:scale-102 hover:shadow-xl"
-                                }`}
-                        >
-                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                            {statusFilter === "Active" && (
-                                <div className="absolute inset-0 bg-emerald-400/25 blur-3xl rounded-3xl" />
-                            )}
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <TrendingUp size={18} className="text-emerald-100" />
-                                    <p className="text-xs font-semibold text-emerald-100 uppercase tracking-widest">Active</p>
-                                </div>
-                                <p className="text-5xl font-black tracking-tighter">{summary.activeClaims}</p>
-                            </div>
-                        </button>
+                                            ? "border-emerald-400 scale-105 shadow-2xl shadow-emerald-500/60 ring-4 ring-emerald-400/40 bg-gradient-to-br from-emerald-500 to-teal-600"
+                                            : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600 hover:scale-102 hover:shadow-xl"
+                                        }`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                                    {statusFilter === "Active" && (
+                                        <div className="absolute inset-0 bg-emerald-400/25 blur-3xl rounded-3xl" />
+                                    )}
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <TrendingUp size={18} className="text-emerald-100" />
+                                            <p className="text-xs font-semibold text-emerald-100 uppercase tracking-widest">Active</p>
+                                        </div>
+                                        <p className="text-5xl font-black tracking-tighter">{summary.activeClaims}</p>
+                                    </div>
+                                </button>
 
-                        {/* Non-Active */}
-                        <button
-                            onClick={() => setStatusFilter("Non Active")}
-                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                {/* Non-Active */}
+                                <button
+                                    onClick={() => setStatusFilter("Non Active")}
+                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
                                 ${statusFilter === "Non Active"
-                                    ? "border-orange-400 scale-105 shadow-2xl shadow-orange-500/60 ring-4 ring-orange-400/40 bg-gradient-to-br from-orange-500 to-amber-600"
-                                    : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 hover:scale-102 hover:shadow-xl"
-                                }`}
-                        >
-                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                            {statusFilter === "Non Active" && (
-                                <div className="absolute inset-0 bg-orange-400/25 blur-3xl rounded-3xl" />
-                            )}
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Clock size={18} className="text-amber-100" />
-                                    <p className="text-xs font-semibold text-amber-100 uppercase tracking-widest">Non-Active</p>
-                                </div>
-                                <p className="text-5xl font-black tracking-tighter">{summary.nonActiveClaims}</p>
-                            </div>
-                        </button>
+                                            ? "border-orange-400 scale-105 shadow-2xl shadow-orange-500/60 ring-4 ring-orange-400/40 bg-gradient-to-br from-orange-500 to-amber-600"
+                                            : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 hover:scale-102 hover:shadow-xl"
+                                        }`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                                    {statusFilter === "Non Active" && (
+                                        <div className="absolute inset-0 bg-orange-400/25 blur-3xl rounded-3xl" />
+                                    )}
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <Clock size={18} className="text-amber-100" />
+                                            <p className="text-xs font-semibold text-amber-100 uppercase tracking-widest">Non-Active</p>
+                                        </div>
+                                        <p className="text-5xl font-black tracking-tighter">{summary.nonActiveClaims}</p>
+                                    </div>
+                                </button>
 
-                        {/* Closed */}
-                        <button
-                            onClick={() => setStatusFilter("Closed")}
-                            className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                {/* Closed */}
+                                <button
+                                    onClick={() => setStatusFilter("Closed")}
+                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
                                 ${statusFilter === "Closed"
-                                    ? "border-rose-400 scale-105 shadow-2xl shadow-rose-500/60 ring-4 ring-rose-400/40 bg-gradient-to-br from-rose-500 to-pink-600"
-                                    : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700 hover:scale-102 hover:shadow-xl"
-                                }`}
-                        >
-                            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                            <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                            {statusFilter === "Closed" && (
-                                <div className="absolute inset-0 bg-rose-400/25 blur-3xl rounded-3xl" />
-                            )}
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <CheckCircle2 size={18} className="text-rose-100" />
-                                    <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Closed</p>
-                                </div>
-                                <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
+                                            ? "border-rose-400 scale-105 shadow-2xl shadow-rose-500/60 ring-4 ring-rose-400/40 bg-gradient-to-br from-rose-500 to-pink-600"
+                                            : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700 hover:scale-102 hover:shadow-xl"
+                                        }`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                                    {statusFilter === "Closed" && (
+                                        <div className="absolute inset-0 bg-rose-400/25 blur-3xl rounded-3xl" />
+                                    )}
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <CheckCircle2 size={18} className="text-rose-100" />
+                                            <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Closed</p>
+                                        </div>
+                                        <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
+                                    </div>
+                                </button>
                             </div>
-                        </button>
-                    </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                        {/* Claims by Type — 2/3 */}
-                        <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-                                    <FileText size={14} className="text-green-600" />
-                                </div>
-                                <h3 className="text-sm font-semibold text-green-900 tracking-tight">Claims by Type</h3>
-                            </div>
-                            <div className="w-full">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                    {summary.typeBreakdown.map(({ type, count }) => {
-                                        const cfg = typeConfig[type] || {
-                                            icon: LayoutGrid,
-                                            gradient: "from-gray-50 to-gray-100",
-                                            border: "border-gray-200",
-                                            text: "text-gray-800",
-                                            iconBg: "bg-gray-100 text-gray-500",
-                                            bar: "bg-gray-400",
-                                        };
-                                        const Icon = cfg.icon;
-                                        const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
-                                        const displayType = type === "learning" ? "Learner" : type;
-                                        return (
-                                            <button
-                                                key={type}
-                                                onClick={() => setSelectedType(type === selectedType ? "" : type)}
-                                                className={`relative bg-gradient-to-br ${cfg.gradient} 
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                {/* Claims by Type — 2/3 */}
+                                <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
+                                            <FileText size={14} className="text-green-600" />
+                                        </div>
+                                        <h3 className="text-sm font-semibold text-green-900 tracking-tight">Claims by Type</h3>
+                                    </div>
+                                    <div className="w-full">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                            {summary.typeBreakdown.map(({ type, count }) => {
+                                                const cfg = typeConfig[type] || {
+                                                    icon: LayoutGrid,
+                                                    gradient: "from-gray-50 to-gray-100",
+                                                    border: "border-gray-200",
+                                                    text: "text-gray-800",
+                                                    iconBg: "bg-gray-100 text-gray-500",
+                                                    bar: "bg-gray-400",
+                                                };
+                                                const Icon = cfg.icon;
+                                                const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                                                const displayType = type === "learning" ? "Learner" : type;
+                                                return (
+                                                    <button
+                                                        key={type}
+                                                        onClick={() => setSelectedType(type === selectedType ? "" : type)}
+                                                        className={`relative bg-gradient-to-br ${cfg.gradient} 
                                                     border-2 ${selectedType === type
-                                                        ? "border-yellow-300 ring-2 ring-yellow-200 shadow-lg"
-                                                        : cfg.border} 
+                                                                ? "border-yellow-300 ring-2 ring-yellow-200 shadow-lg"
+                                                                : cfg.border} 
                                                     rounded-2xl p-6 flex flex-col gap-4 overflow-hidden 
                                                     group hover:shadow-xl hover:-translate-y-0.5 
                                                     transition-all duration-200 cursor-pointer w-full`}
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.iconBg}`}>
-                                                        <Icon size={20} strokeWidth={2.5} />
-                                                    </div>
-                                                    <span className={`text-sm font-bold ${cfg.text} opacity-75`}>{pct}%</span>
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.iconBg}`}>
+                                                                <Icon size={20} strokeWidth={2.5} />
+                                                            </div>
+                                                            <span className={`text-sm font-bold ${cfg.text} opacity-75`}>{pct}%</span>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className={`text-4xl font-black leading-none ${cfg.text} tracking-tighter`}>
+                                                                {count}
+                                                            </p>
+                                                            <p className="text-base font-medium text-gray-600 mt-1 capitalize">
+                                                                {displayType}
+                                                            </p>
+                                                        </div>
+                                                        <div className="h-1.5 bg-black/10 rounded-full overflow-hidden mt-auto">
+                                                            <div
+                                                                className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
+                                                                style={{ width: `${pct}%` }}
+                                                            />
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Invoice Summary — 1/3 */}
+                                <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm flex flex-col">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
+                                            <Receipt size={14} className="text-green-600" />
+                                        </div>
+                                        <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
+                                    </div>
+                                    <div className="flex-1 flex flex-col gap-3">
+                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/70 rounded-xl">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                                                    <Clock size={15} className="text-amber-600" strokeWidth={2.2} />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <p className={`text-4xl font-black leading-none ${cfg.text} tracking-tighter`}>
-                                                        {count}
-                                                    </p>
-                                                    <p className="text-base font-medium text-gray-600 mt-1 capitalize">
-                                                        {displayType}
-                                                    </p>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-amber-800">Pending</p>
+                                                    <p className="text-[10px] text-amber-400 font-medium">Hire End status</p>
                                                 </div>
-                                                <div className="h-1.5 bg-black/10 rounded-full overflow-hidden mt-auto">
-                                                    <div
-                                                        className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
-                                                        style={{ width: `${pct}%` }}
-                                                    />
+                                            </div>
+                                            <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/70 rounded-xl">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                                    <CheckCircle2 size={15} className="text-emerald-600" strokeWidth={2.2} />
                                                 </div>
-                                            </button>
-                                        );
-                                    })}
+                                                <div>
+                                                    <p className="text-xs font-semibold text-emerald-800">Sent</p>
+                                                    <p className="text-[10px] text-emerald-400 font-medium">Invoice sent / Closed</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
+                                        </div>
+                                        <div className="mt-auto pt-1">
+                                            {(() => {
+                                                const total = summary.invoicePending + summary.invoiceSent;
+                                                const ratio = total > 0 ? Math.round((summary.invoiceSent / total) * 100) : 0;
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <span className="text-[11px] text-gray-400 font-medium">Sent ratio</span>
+                                                            <span className="text-[11px] font-bold text-emerald-600">{ratio}%</span>
+                                                        </div>
+                                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-700"
+                                                                style={{ width: `${ratio}%` }}
+                                                            />
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Invoice Summary — 1/3 */}
-                        <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm flex flex-col">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-                                    <Receipt size={14} className="text-green-600" />
-                                </div>
-                                <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
-                            </div>
-                            <div className="flex-1 flex flex-col gap-3">
-                                <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/70 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                                            <Clock size={15} className="text-amber-600" strokeWidth={2.2} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-amber-800">Pending</p>
-                                            <p className="text-[10px] text-amber-400 font-medium">Hire End status</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
-                                </div>
-                                <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/70 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                            <CheckCircle2 size={15} className="text-emerald-600" strokeWidth={2.2} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-emerald-800">Sent</p>
-                                            <p className="text-[10px] text-emerald-400 font-medium">Invoice sent / Closed</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
-                                </div>
-                                <div className="mt-auto pt-1">
-                                    {(() => {
-                                        const total = summary.invoicePending + summary.invoiceSent;
-                                        const ratio = total > 0 ? Math.round((summary.invoiceSent / total) * 100) : 0;
-                                        return (
-                                            <>
-                                                <div className="flex justify-between items-center mb-1.5">
-                                                    <span className="text-[11px] text-gray-400 font-medium">Sent ratio</span>
-                                                    <span className="text-[11px] font-bold text-emerald-600">{ratio}%</span>
-                                                </div>
-                                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-700"
-                                                        style={{ width: `${ratio}%` }}
-                                                    />
-                                                </div>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ══════════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════════
                     CREATE CLAIM MODAL
                 ══════════════════════════════════════════════════════════ */}
-                {showCreateModal && (
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold text-green-800">Create New Claim</h2>
-                                <button
-                                    onClick={() => { setShowCreateModal(false); setCreateError(null); }}
-                                    className="text-gray-500 hover:text-gray-700"
-                                >
-                                    <X size={24} />
-                                </button>
+                        {showCreateModal && (
+                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-green-800">Create New Claim</h2>
+                                        <button
+                                            onClick={() => { setShowCreateModal(false); setCreateError(null); }}
+                                            className="text-gray-500 hover:text-gray-700"
+                                        >
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claimant Name</label>
+                                            <input
+                                                type="text"
+                                                name="claimant_name"
+                                                value={formData.claimant_name}
+                                                onChange={handleChange}
+                                                placeholder="e.g. John Doe"
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim Type</label>
+                                            <select
+                                                name="claim_type"
+                                                value={formData.claim_type}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                                            >
+                                                {CLAIM_TYPES.map((type) => (
+                                                    <option key={type} value={type}>
+                                                        {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Council</label>
+                                            <select
+                                                name="council"
+                                                value={formData.council}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                                            >
+                                                {COUNCIL_OPTIONS.slice(1).map((opt) => (
+                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim ID (optional)</label>
+                                            <input
+                                                type="text"
+                                                name="claim_id"
+                                                value={formData.claim_id}
+                                                onChange={handleChange}
+                                                placeholder="e.g. TC-333"
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                                            />
+                                        </div>
+                                        {createError && (
+                                            <p className="text-red-600 text-sm font-medium">{createError}</p>
+                                        )}
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowCreateModal(false); setCreateError(null); }}
+                                                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={creating}
+                                                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-10 rounded-xl shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2"
+                                            >
+                                                {creating ? (
+                                                    <>
+                                                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        Creating...
+                                                    </>
+                                                ) : "Create Claim"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Claimant Name</label>
-                                    <input
-                                        type="text"
-                                        name="claimant_name"
-                                        value={formData.claimant_name}
-                                        onChange={handleChange}
-                                        placeholder="e.g. John Doe"
-                                        className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim Type</label>
-                                    <select
-                                        name="claim_type"
-                                        value={formData.claim_type}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
-                                    >
-                                        {CLAIM_TYPES.map((type) => (
-                                            <option key={type} value={type}>
-                                                {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Council</label>
-                                    <select
-                                        name="council"
-                                        value={formData.council}
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
-                                    >
-                                        {COUNCIL_OPTIONS.slice(1).map((opt) => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Claim ID (optional)</label>
-                                    <input
-                                        type="text"
-                                        name="claim_id"
-                                        value={formData.claim_id}
-                                        onChange={handleChange}
-                                        placeholder="e.g. TC-333"
-                                        className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
-                                    />
-                                </div>
-                                {createError && (
-                                    <p className="text-red-600 text-sm font-medium">{createError}</p>
-                                )}
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => { setShowCreateModal(false); setCreateError(null); }}
-                                        className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={creating}
-                                        className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-3 px-10 rounded-xl shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2"
-                                    >
-                                        {creating ? (
-                                            <>
-                                                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : "Create Claim"}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                        )}
 
-                {/* ══════════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════════
                     FILTERS
                 ══════════════════════════════════════════════════════════ */}
-                <div className="space-y-6">
-                    <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Claimant / ID..."
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
-                                <select
-                                    value={selectedType}
-                                    onChange={(e) => setSelectedType(e.target.value)}
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                >
-                                    <option value="">All Types</option>
-                                    {CLAIM_TYPES.map(type => (
-                                        <option key={type} value={type}>
-                                            {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Council</label>
-                                <select
-                                    value={selectedCouncil}
-                                    onChange={(e) => setSelectedCouncil(e.target.value)}
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                >
-                                    {COUNCIL_OPTIONS.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Stages</label>
-                                <select
-                                    value={selectedStage}
-                                    onChange={(e) => setSelectedStage(e.target.value)}
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                >
-                                    <option value="">All Stages</option>
-                                    {Object.entries(STATUS_COLORS)
-                                        .filter(([k]) => k !== "default")
-                                        .map(([s, d]) => (
-                                            <option key={s} value={s}>
-                                                Stage {d.number} – {d.label}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="Active">Active</option>
-                                    <option value="Non Active">Non Active</option>
-                                    <option value="Closed">Closed</option>
-                                </select>
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-end gap-2">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
-                                    <div className="flex gap-2">
+                        <div className="space-y-6">
+                            <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                                         <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                        />
-                                        <input
-                                            type="date"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                            type="text"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            placeholder="Claimant / ID..."
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                                        <select
+                                            value={selectedType}
+                                            onChange={(e) => setSelectedType(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        >
+                                            <option value="">All Types</option>
+                                            {CLAIM_TYPES.map(type => (
+                                                <option key={type} value={type}>
+                                                    {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Council</label>
+                                        <select
+                                            value={selectedCouncil}
+                                            onChange={(e) => setSelectedCouncil(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        >
+                                            {COUNCIL_OPTIONS.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Stages</label>
+                                        <select
+                                            value={selectedStage}
+                                            onChange={(e) => setSelectedStage(e.target.value)}
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        >
+                                            <option value="">All Stages</option>
+                                            {Object.entries(STATUS_COLORS)
+                                                .filter(([k]) => k !== "default")
+                                                .map(([s, d]) => (
+                                                    <option key={s} value={s}>
+                                                        Stage {d.number} – {d.label}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                        <select
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        >
+                                            <option value="all">All Status</option>
+                                            <option value="Active">Active</option>
+                                            <option value="Non Active">Non Active</option>
+                                            <option value="Closed">Closed</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="date"
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                                />
+                                                <input
+                                                    type="date"
+                                                    value={endDate}
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    className="flex-1 px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={clearFilters}
+                                            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={clearFilters}
-                                    className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
-                                >
-                                    Clear
-                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
-                    Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
-                    <span className="font-bold text-green-800">{allClaims.length}</span> claims
-                </div>
+                        <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
+                            Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
+                            <span className="font-bold text-green-800">{allClaims.length}</span> claims
+                        </div>
 
-                {/* ══════════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════════
                     TABLE
                 ══════════════════════════════════════════════════════════ */}
-                {loading ? (
-                    <div className="flex justify-center py-20">
-                        <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
-                    </div>
-                ) : claims.length === 0 ? (
-                    <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
-                        <p className="text-xl text-green-700/80">
-                            {searchTerm || selectedType || selectedCouncil || selectedStage || statusFilter !== "all" || startDate || endDate
-                                ? "No matching claims found"
-                                : "No claims yet — create one above!"}
-                        </p>
-                    </div>
-                ) : (
-                    <div ref={tableRef}>
-                        <div className="overflow-y-auto max-h-[500px]">
-                            <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
-                                <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
-                                    <tr className="border-0 bg-transparent">
-                                        {/* Invisible filler cells */}
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
+                        {loading ? (
+                            <div className="flex justify-center py-20">
+                                <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+                            </div>
+                        ) : claims.length === 0 ? (
+                            <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
+                                <p className="text-xl text-green-700/80">
+                                    {searchTerm || selectedType || selectedCouncil || selectedStage || statusFilter !== "all" || startDate || endDate
+                                        ? "No matching claims found"
+                                        : "No claims yet — create one above!"}
+                                </p>
+                            </div>
+                        ) : (
+                            <div ref={tableRef}>
+                                <div className="overflow-y-auto max-h-[500px]">
+                                    <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
+                                        <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
+                                            <tr className="border-0 bg-transparent">
+                                                {/* Invisible filler cells */}
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
 
-                                        {/* Visible "Claim Progress" cell */}
-                                        <th
-                                            colSpan={5}
-                                            className="px-2 py-1 text-center bg-green-300/80"
-                                            style={{ borderRadius: "8px 8px 0 0" }}
-                                        >
-                                            <span className="text-xs font-bold text-green-800 uppercase tracking-widest">
-                                                — Claim Progress —
-                                            </span>
-                                        </th>
+                                                {/* Visible "Claim Progress" cell */}
+                                                <th
+                                                    colSpan={5}
+                                                    className="px-2 py-1 text-center bg-green-300/80"
+                                                    style={{ borderRadius: "8px 8px 0 0" }}
+                                                >
+                                                    <span className="text-xs font-bold text-green-800 uppercase tracking-widest">
+                                                        — Claim Progress —
+                                                    </span>
+                                                </th>
 
-                                        {/* Invisible trailing cell */}
-                                        <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                    </tr>
-                                    {/* ── Main header row ── */}
-                                    <tr className="border-b border-gray-500">
-                                        <th onClick={() => handleSort("closed")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Status {getSortArrow("closed")}
-                                        </th>
-                                        <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Claim ID {getSortArrow("claim_id")}
-                                        </th>
-                                        <th onClick={() => handleSort("claimant_name")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Claimant {getSortArrow("claimant_name")}
-                                        </th>
-                                        <th onClick={() => handleSort("claim_type")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Type {getSortArrow("claim_type")}
-                                        </th>
-                                        <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Council {getSortArrow("council")}
-                                        </th>
-
-                                        {/* Stage 1 */}
-                                        <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
-                                                <span>Start Date {getSortArrow("claim_start_date")}</span>
-                                            </div>
-                                        </th>
-
-                                        {/* Stage 2 */}
-                                        <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
-                                                <span>Hire Start {getSortArrow("hire_start_date")}</span>
-                                            </div>
-                                        </th>
-
-                                        {/* Stage 3 */}
-                                        <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
-                                                <span>Client Paid {getSortArrow("pay_date")}</span>
-                                            </div>
-                                        </th>
-
-                                        {/* Stage 4 */}
-                                        <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
-                                                <span>Hire End {getSortArrow("hire_end_date")}</span>
-                                            </div>
-                                        </th>
-
-                                        {/* Stage 5 */}
-                                        <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
-                                                <span>Invoice Sent {getSortArrow("invoice_date")}</span>
-                                            </div>
-                                        </th>
-
-                                        <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                            Stages {getSortArrow("status")}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-300 bg-white">
-                                    {claims.map((claim) => {
-                                        const isEditing = editingClaimId === claim.claim_id;
-                                        const isSaving = savingClaimId === claim.claim_id;
-                                        const isClosed = !!(claim.closed_date && claim.closed_by);
-                                        const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
-                                        const isVehicleDamage = claim.claim_type === "vehicle damage";
-                                        const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
-                                        const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
-
-                                        return (
-                                            <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
-                                                {/* Status column */}
-                                                <td className="px-1.5 py-0.5 text-center border-r border-gray-300">
-                                                    <div className="relative group inline-block">
-                                                        {(() => {
-                                                            let statusText = "Active";
-                                                            let bgColor = "bg-green-100 text-green-800";
-                                                            if (isClosed) {
-                                                                statusText = "Closed";
-                                                                bgColor = "bg-red-100 text-red-800";
-                                                            } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
-                                                                statusText = "Non Active";
-                                                                bgColor = "bg-amber-100 text-amber-800";
-                                                            }
-                                                            return (
-                                                                <>
-                                                                    <span className={`inline-flex cursor-pointer px-2 py-0 text-[10px] font-semibold rounded-full ${bgColor}`}>
-                                                                        {statusText}
-                                                                    </span>
-                                                                    {isClosed && (
-                                                                        <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-100">
-                                                                            Closed by {claim.closed_by} on {formatDate(claim.closed_date)} | Reason: {claim.reason}
-                                                                        </div>
-                                                                    )}
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </td>
-
-                                                <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
-                                                    {claim.claim_id.toUpperCase()}
-                                                </td>
-
-                                                {/* Editable claimant name — no fixed width */}
-                                                <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
-                                                    {isEditing && editingField === "name" ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <input
-                                                                ref={inputRef}
-                                                                type="text"
-                                                                value={editNameValue}
-                                                                onChange={(e) => setEditNameValue(e.target.value)}
-                                                                onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
-                                                                disabled={isSaving}
-                                                                autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
-                                                                    ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
-                                                            />
-                                                            {isSaving ? (
-                                                                <Loader2 size={16} className="text-green-600 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="group flex items-center gap-2">
-                                                            <span className={`whitespace-nowrap ${isSaving ? "opacity-50" : ""}`}>
-                                                                {(claim.claimant_name || "—").toUpperCase()}
-                                                            </span>
-                                                            {!isSaving && (
-                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5" title="Edit claimant name">
-                                                                    <Pencil size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-
-                                                {/* Editable claim type — no fixed width */}
-                                                <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
-                                                    {isEditing && editingField === "claim_type" ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <select
-                                                                ref={typeRef}
-                                                                value={editTypeValue}
-                                                                onChange={(e) => setEditTypeValue(e.target.value)}
-                                                                onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
-                                                                disabled={isSaving}
-                                                                autoFocus
-                                                                className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
-                                                            >
-                                                                {CLAIM_TYPES.map((type) => (
-                                                                    <option key={type} value={type}>
-                                                                        {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            {isSaving ? (
-                                                                <Loader2 size={16} className="text-green-600 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                                    <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="group flex items-center gap-2 whitespace-nowrap">
-                                                            <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
-                                                            {!isSaving && (
-                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
-                                                                    <Pencil size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-
-                                                <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
-                                                    {isVehicleDamage ? (
-                                                        <hr className="border-emerald-500 border-[2px]  w-[50%] text-center" />
-                                                    ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
-                                                        <select
-                                                            ref={selectRef}
-                                                            value={editCouncilValue}
-                                                            onChange={(e) => setEditCouncilValue(e.target.value)}
-                                                            onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
-                                                            disabled={isSaving}
-                                                            autoFocus
-                                                            className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
-                                                        >
-                                                            {COUNCIL_OPTIONS.slice(1).map((opt) => (
-                                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                            ))}
-                                                        </select>
-                                                        {isSaving ? (
-                                                            <Loader2 size={16} className="text-green-600 animate-spin" />
-                                                        ) : (
-                                                            <>
-                                                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    ) : (
-                                                        <div className="group flex items-center gap-2 whitespace-nowrap">
-                                                            <span>{(claim.council || "—")}</span>
-                                                            {!isSaving && (
-                                                                <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
-                                                                    <Pencil size={14} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-
-                                                {/* Stage 1 – Start Date */}
-                                                {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate, false)}
-
-                                                {/* Stage 2 – Hire Start (blocked for vehicle damage) */}
-                                                {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
-
-                                                {/* Stage 3 – Client Paid */}
-                                                {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
-
-                                                {/* Stage 4 – Hire End (blocked for vehicle damage) */}
-                                                {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
-
-                                                {/* Stage 5 – Invoice Sent (also blocked for vehicle damage) */}
-                                                {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
-
-                                                {/* Stage badge */}
-                                                <td className="border-r border-gray-300 px-1 py-0.5">
-                                                    <div className="flex items-center justify-center">
-                                                        {isClosed ? (
-                                                            <div className="w-3 h-3 bg-black rounded-full" title="Closed"></div>
-                                                        ) : claim.is_disputed ? (
-                                                            <div className="w-3 h-3 bg-red-500 rounded-full" title="Disputed"></div>
-                                                        ) : (
-                                                            <span
-                                                                className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
-                                                                    ${statusData.number >= 4
-                                                                        ? `${statusData.badgeText} text-black border-transparent`
-                                                                        : `bg-white ${statusData.color} ${statusData.badgeBg}`
-                                                                    }`}
-                                                            >
-                                                                {statusData.number}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </td>
+                                                {/* Invisible trailing cell */}
+                                                <th className="border-0 bg-transparent p-0" colSpan={1} />
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+                                            {/* ── Main header row ── */}
+                                            <tr className="border-b border-gray-500">
+                                                <th onClick={() => handleSort("closed")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Status {getSortArrow("closed")}
+                                                </th>
+                                                <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Claim ID {getSortArrow("claim_id")}
+                                                </th>
+                                                <th onClick={() => handleSort("claimant_name")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Claimant {getSortArrow("claimant_name")}
+                                                </th>
+                                                <th onClick={() => handleSort("claim_type")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Type {getSortArrow("claim_type")}
+                                                </th>
+                                                <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Council {getSortArrow("council")}
+                                                </th>
+
+                                                {/* Stage 1 */}
+                                                <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
+                                                        <span>Start Date {getSortArrow("claim_start_date")}</span>
+                                                    </div>
+                                                </th>
+
+                                                {/* Stage 2 */}
+                                                <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
+                                                        <span>Hire Start {getSortArrow("hire_start_date")}</span>
+                                                    </div>
+                                                </th>
+
+                                                {/* Stage 3 */}
+                                                <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
+                                                        <span>Client Paid {getSortArrow("pay_date")}</span>
+                                                    </div>
+                                                </th>
+
+                                                {/* Stage 4 */}
+                                                <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
+                                                        <span>Hire End {getSortArrow("hire_end_date")}</span>
+                                                    </div>
+                                                </th>
+
+                                                {/* Stage 5 */}
+                                                <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
+                                                        <span>Invoice Sent {getSortArrow("invoice_date")}</span>
+                                                    </div>
+                                                </th>
+
+                                                <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                                    Stages {getSortArrow("status")}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-300 bg-white">
+                                            {claims.map((claim) => {
+                                                const isEditing = editingClaimId === claim.claim_id;
+                                                const isSaving = savingClaimId === claim.claim_id;
+                                                const isClosed = !!(claim.closed_date && claim.closed_by);
+                                                const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
+                                                const isVehicleDamage = claim.claim_type === "vehicle damage";
+                                                const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
+                                                const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
+
+                                                return (
+                                                    <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
+                                                        {/* Status column */}
+                                                        <td className="px-1.5 py-0.5 text-center border-r border-gray-300">
+                                                            <div className="relative group inline-block">
+                                                                {(() => {
+                                                                    let statusText = "Active";
+                                                                    let bgColor = "bg-green-100 text-green-800";
+                                                                    if (isClosed) {
+                                                                        statusText = "Closed";
+                                                                        bgColor = "bg-red-100 text-red-800";
+                                                                    } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
+                                                                        statusText = "Non Active";
+                                                                        bgColor = "bg-amber-100 text-amber-800";
+                                                                    }
+                                                                    return (
+                                                                        <>
+                                                                            <span className={`inline-flex cursor-pointer px-2 py-0 text-[10px] font-semibold rounded-full ${bgColor}`}>
+                                                                                {statusText}
+                                                                            </span>
+                                                                            {isClosed && (
+                                                                                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-100">
+                                                                                    Closed by {claim.closed_by} on {formatDate(claim.closed_date)} | Reason: {claim.reason}
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </td>
+
+                                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                                            {claim.claim_id.toUpperCase()}
+                                                        </td>
+
+                                                        {/* Editable claimant name — no fixed width */}
+                                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                                            {isEditing && editingField === "name" ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <input
+                                                                        ref={inputRef}
+                                                                        type="text"
+                                                                        value={editNameValue}
+                                                                        onChange={(e) => setEditNameValue(e.target.value)}
+                                                                        onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                                        disabled={isSaving}
+                                                                        autoFocus
+                                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
+                                                                    ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                                    />
+                                                                    {isSaving ? (
+                                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                                    ) : (
+                                                                        <>
+                                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="group flex items-center gap-2">
+                                                                    <span className={`whitespace-nowrap ${isSaving ? "opacity-50" : ""}`}>
+                                                                        {(claim.claimant_name || "—").toUpperCase()}
+                                                                    </span>
+                                                                    {!isSaving && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5" title="Edit claimant name">
+                                                                            <Pencil size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Editable claim type — no fixed width */}
+                                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                                            {isEditing && editingField === "claim_type" ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <select
+                                                                        ref={typeRef}
+                                                                        value={editTypeValue}
+                                                                        onChange={(e) => setEditTypeValue(e.target.value)}
+                                                                        onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                                        disabled={isSaving}
+                                                                        autoFocus
+                                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                                    >
+                                                                        {CLAIM_TYPES.map((type) => (
+                                                                            <option key={type} value={type}>
+                                                                                {type === "learning" ? "Learner" : type.charAt(0).toUpperCase() + type.slice(1)}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {isSaving ? (
+                                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                                    ) : (
+                                                                        <>
+                                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="group flex items-center gap-2 whitespace-nowrap">
+                                                                    <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
+                                                                    {!isSaving && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
+                                                                            <Pencil size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
+                                                            {isVehicleDamage ? (
+                                                                <hr className="border-emerald-500 border-[2px]  w-[50%] text-center" />
+                                                            ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
+                                                                <select
+                                                                    ref={selectRef}
+                                                                    value={editCouncilValue}
+                                                                    onChange={(e) => setEditCouncilValue(e.target.value)}
+                                                                    onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
+                                                                    disabled={isSaving}
+                                                                    autoFocus
+                                                                    className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                                >
+                                                                    {COUNCIL_OPTIONS.slice(1).map((opt) => (
+                                                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                    ))}
+                                                                </select>
+                                                                {isSaving ? (
+                                                                    <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                                ) : (
+                                                                    <>
+                                                                        <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
+                                                                        <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            ) : (
+                                                                <div className="group flex items-center gap-2 whitespace-nowrap">
+                                                                    <span>{(claim.council || "—")}</span>
+                                                                    {!isSaving && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
+                                                                            <Pencil size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Stage 1 – Start Date */}
+                                                        {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate, false)}
+
+                                                        {/* Stage 2 – Hire Start (blocked for vehicle damage) */}
+                                                        {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
+
+                                                        {/* Stage 3 – Client Paid */}
+                                                        {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
+
+                                                        {/* Stage 4 – Hire End (blocked for vehicle damage) */}
+                                                        {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
+
+                                                        {/* Stage 5 – Invoice Sent (also blocked for vehicle damage) */}
+                                                        {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
+
+                                                        {/* Stage badge */}
+                                                        <td className="border-r border-gray-300 px-1 py-0.5">
+                                                            <div className="flex items-center justify-center">
+                                                                {isClosed ? (
+                                                                    <div className="w-3 h-3 bg-gradient-to-br from-rose-500 via-rose-600 to-rose-700 rounded-full" title="Closed"></div>
+                                                                ) : claim.is_disputed ? (
+                                                                    <div className="w-4 h-[2px] bg-green-500" title="Disputed"></div>
+                                                                ) : (
+                                                                    <span
+                                                                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
+                                                                    ${statusData.number >= 4
+                                                                                ? `${statusData.badgeText} text-black border-transparent`
+                                                                                : `bg-white ${statusData.color} ${statusData.badgeBg}`
+                                                                            }`}
+                                                                    >
+                                                                        {statusData.number}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </>
                 )}
             </main>

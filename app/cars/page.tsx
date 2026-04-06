@@ -49,6 +49,7 @@ interface FleetHistory {
 type SortField = "reg_no" | "name" | "model" | "available" | "service_time" | "last_miles_in";
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
+type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -61,7 +62,7 @@ export default function VehiclesPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"all" | "normal" | "long" | "history">("all");
+  const [activeTab, setActiveTab] = useState<TabType>("all");
 
   const [formData, setFormData] = useState({ model: "", name: "", reg_no: "" });
   const [creating, setCreating] = useState(false);
@@ -183,7 +184,6 @@ export default function VehiclesPage() {
         model: editData.model.trim(),
         name: editData.name.trim(),
         service_time: editData.service_time ? new Date(editData.service_time).toISOString() : null,
-        // Notice: reg_no is intentionally excluded to prevent updates
       };
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
       setVehicles((prev) =>
@@ -250,15 +250,19 @@ export default function VehiclesPage() {
     }
   };
 
+  // Helper function to check if a vehicle is available globally
+  const checkIsAvail = (v: Vehicle) => v.is_long_hire ? availableLongHireIds.has(v.id) : (v.is_available ?? false);
+
   // Vehicle Filters
   const allVehicles = vehicles;
   const normalHire = vehicles.filter((v) => !v.is_long_hire);
   const longHire = vehicles.filter((v) => v.is_long_hire);
 
-  let displayed =
-    activeTab === "all" ? allVehicles
-      : activeTab === "normal" ? normalHire
-        : longHire;
+  let displayed = allVehicles;
+  if (activeTab === "normal") displayed = normalHire;
+  else if (activeTab === "long") displayed = longHire;
+  else if (activeTab === "normal_avail") displayed = normalHire.filter(v => checkIsAvail(v));
+  else if (activeTab === "long_avail") displayed = longHire.filter(v => checkIsAvail(v));
 
   // Vehicle Search
   displayed = displayed.filter((v) =>
@@ -283,10 +287,8 @@ export default function VehiclesPage() {
       valB = b.last_miles_in || 0;
     }
     else if (sortField === "available") {
-      const isAvailA = activeTab === "long" ? availableLongHireIds.has(a.id) : (a.is_available ?? false);
-      const isAvailB = activeTab === "long" ? availableLongHireIds.has(b.id) : (b.is_available ?? false);
-      valA = isAvailA ? 1 : 0;
-      valB = isAvailB ? 1 : 0;
+      valA = checkIsAvail(a) ? 1 : 0;
+      valB = checkIsAvail(b) ? 1 : 0;
     }
 
     if (valA < valB) return sortDirection === "asc" ? -1 : 1;
@@ -320,8 +322,8 @@ export default function VehiclesPage() {
   const total = vehicles.length;
   const totalNormal = normalHire.length;
   const totalLong = longHire.length;
-  const availNormal = vehicles.filter((v) => !v.is_long_hire && v.is_available).length;
-  const availLong = longHire.filter((v) => availableLongHireIds.has(v.id)).length;
+  const availNormal = normalHire.filter((v) => checkIsAvail(v)).length;
+  const availLong = longHire.filter((v) => checkIsAvail(v)).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50/30">
@@ -358,9 +360,12 @@ export default function VehiclesPage() {
             </div>
           </div>
 
-          {/* Summary Cards */}
+          {/* Summary Cards - Clickable Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
+            <div 
+              onClick={() => setActiveTab("all")}
+              className={`bg-white rounded-2xl border ${activeTab === "all" ? "border-gray-400 ring-2 ring-gray-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total</p>
@@ -369,7 +374,10 @@ export default function VehiclesPage() {
                 <Car size={28} className="text-emerald-600 opacity-80" />
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
+            <div 
+              onClick={() => setActiveTab("normal")}
+              className={`bg-white rounded-2xl border ${activeTab === "normal" ? "border-blue-400 ring-2 ring-blue-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Daily Hire</p>
@@ -378,7 +386,10 @@ export default function VehiclesPage() {
                 <Clock size={28} className="text-blue-600 opacity-80" />
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
+            <div 
+              onClick={() => setActiveTab("long")}
+              className={`bg-white rounded-2xl border ${activeTab === "long" ? "border-purple-400 ring-2 ring-purple-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Long Hire</p>
@@ -387,7 +398,10 @@ export default function VehiclesPage() {
                 <Calendar size={28} className="text-purple-600 opacity-80" />
               </div>
             </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
+            <div 
+              onClick={() => setActiveTab("normal_avail")}
+              className={`bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border ${activeTab === "normal_avail" ? "border-emerald-400 ring-2 ring-emerald-200" : "border-emerald-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Daily Hire Avail</p>
@@ -398,7 +412,10 @@ export default function VehiclesPage() {
                 </div>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-100 shadow-md hover:shadow-lg transition-all duration-300 p-6">
+            <div 
+              onClick={() => setActiveTab("long_avail")}
+              className={`bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border ${activeTab === "long_avail" ? "border-teal-400 ring-2 ring-teal-200" : "border-teal-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-teal-700 uppercase tracking-wide">Long Hire Avail</p>
@@ -415,25 +432,31 @@ export default function VehiclesPage() {
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200">
           <div className="flex space-x-2">
-            {(["all", "normal", "long", "history"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${activeTab === tab
-                  ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
-                  }`}
-              >
-                {tab === "all" && "All Vehicles"}
-                {tab === "normal" && "Claim Vehicles"}
-                {tab === "long" && "Long Hire Vehicles"}
-                {tab === "history" && (
-                  <span className="flex items-center gap-2">
-                    <History size={16} /> Fleet History
-                  </span>
-                )}
-              </button>
-            ))}
+            {(["all", "normal", "long", "history"] as const).map((tab) => {
+              // Determine if this tab should appear active (e.g. if we are on a sub-filter of this tab)
+              const isActive = activeTab === tab || 
+                               (tab === "normal" && activeTab === "normal_avail") || 
+                               (tab === "long" && activeTab === "long_avail");
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${isActive
+                    ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
+                    }`}
+                >
+                  {tab === "all" && "All Vehicles"}
+                  {tab === "normal" && "Daily Hire Vehicles"}
+                  {tab === "long" && "Long Hire Vehicles"}
+                  {tab === "history" && (
+                    <span className="flex items-center gap-2">
+                      <History size={16} /> Fleet History
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -607,10 +630,7 @@ export default function VehiclesPage() {
                 <tbody className="divide-y divide-gray-100">
                   {displayed.map((v) => {
                     const isLong = v.is_long_hire;
-                    const isAvail =
-                      activeTab === "long"
-                        ? availableLongHireIds.has(v.id)
-                        : (v.is_available ?? false);
+                    const isAvail = checkIsAvail(v);
                     const isToggling = togglingLongHireId === v.id;
                     const hasClaim = !!v.current_holder_claim_id;
                     const showClaimLink = hasClaim && !isLong;

@@ -510,7 +510,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 </div>
                 <div>
                   <p className="text-gray-500">Claimant Name</p>
-                  <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name || "—"}</p>
+                  <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name?.toUpperCase() || "—"}</p>
                 </div>
                 <div>
                   <p className="text-gray-500">Claim Type</p>
