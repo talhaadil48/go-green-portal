@@ -1484,9 +1484,9 @@ export default function ClaimsPage() {
                                                 <td className="border-r border-gray-300 px-1 py-0.5">
                                                     <div className="flex items-center justify-center">
                                                         {isClosed ? (
-                                                            <div className="w-7 h-7 bg-black rounded-full" title="Closed"></div>
+                                                            <div className="w-3 h-3 bg-black rounded-full" title="Closed"></div>
                                                         ) : claim.is_disputed ? (
-                                                            <div className="w-7 h-7 bg-red-500 rounded-full" title="Disputed"></div>
+                                                            <div className="w-3 h-3 bg-red-500 rounded-full" title="Disputed"></div>
                                                         ) : (
                                                             <span
                                                                 className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
