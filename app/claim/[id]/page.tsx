@@ -532,7 +532,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   
                   {/* Status Dropdown */}
                   <div className="flex-1 min-w-[150px]">
-                    <label className="block text-xs text-gray-500 mb-1">Status</label>
+                    <label className="block text-xs text-gray-500 mb-1">Hire Stage</label>
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value)}

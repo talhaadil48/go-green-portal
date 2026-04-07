@@ -1096,7 +1096,7 @@ export default function ClaimsPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
                     <div>
                         <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
-                            Claims Dashboard
+                            Hire Dashboard
                         </h1>
                         <p className="mt-2 text-lg text-green-700/80">
                             Manage all your claims in one place
