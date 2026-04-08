@@ -76,10 +76,17 @@ export default function Navbar() {
               {/* Desktop menu */}
               <div className="hidden md:flex items-center space-x-8 font-medium">
                 <Link
-                  href="/claim"
+                  href="/claim?view=active"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
                   Claims
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
+                </Link>
+                <Link
+                  href="/claim?view=closed"
+                  className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
+                >
+                  Closed Claims
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link

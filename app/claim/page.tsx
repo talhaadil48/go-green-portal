@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect, FormEvent, ChangeEvent, useRef, useMemo } from "react";
+import { useState, useEffect, FormEvent, ChangeEvent, useRef, useMemo, Suspense } from "react";
 import Link from "next/link";
 import api from "@/lib/axios";
-import { useRouter } from "next/navigation";
-import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock, Plus, TrendingUp, FileText, Clock, CheckCircle2, AlertCircle, BarChart3, Receipt, Car, Crown, BookOpen, User, LayoutGrid, MessageSquarePlus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, Trash2, Pencil, Check, X, Loader2, Lock, Unlock, Plus, TrendingUp, FileText, Clock, CheckCircle2, AlertCircle, BarChart3, Receipt, Car, Crown, BookOpen, User, LayoutGrid, MessageSquarePlus, Activity } from "lucide-react";
 import Cookies from "js-cookie";
 import { OverviewSkeleton, ClaimsTableSkeleton } from "@/app/components/Loading";
 
@@ -60,8 +60,8 @@ const COUNCIL_OPTIONS = [
 
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire start": { color: "text-gray-900", number: 2, label: "Hire Start", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "client paid": { color: "text-gray-900", number: 3, label: "Client Paid", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+    "hire start": { color: "text-gray-900", number: 2, label: "Active Hire", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
+    "client paid": { color: "text-gray-900", number: 3, label: "Settled in Hire", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire end": { color: "text-[#FA6020]", number: 4, label: "Hire End", badgeBg: "border-[#FA6020]", badgeText: "bg-[#FA6020]" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
@@ -104,12 +104,17 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; gradient: string; b
     },
 };
 
-export default function ClaimsPage() {
+function ClaimsContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const param = searchParams.get("view") || "closed";
+    const isActivePage = param === "active";
+
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
+    const [vehiclesCount, setVehiclesCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const router = useRouter();
 
     const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -119,7 +124,6 @@ export default function ClaimsPage() {
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
     const [selectedStage, setSelectedStage] = useState("");
-    const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Non Active" | "Closed">("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -163,6 +167,8 @@ export default function ClaimsPage() {
     const dateInputRef = useRef<HTMLInputElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
+    const isClaimClosed = (claim: Claim) => !!(claim.closed_date && claim.closed_by) || claim.status?.toLowerCase() === "close claim";
+
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
             try {
@@ -185,7 +191,7 @@ export default function ClaimsPage() {
             const targetScroll = elementTop - window.innerHeight * 0.4;
             window.scrollTo({ top: targetScroll, behavior: "smooth" });
         }
-    }, [selectedType, statusFilter, selectedCouncil, selectedStage, searchTerm, startDate, endDate]);
+    }, [selectedType, selectedCouncil, selectedStage, searchTerm, startDate, endDate, isActivePage]);
 
     const fetchClaims = async () => {
         setLoading(true);
@@ -195,7 +201,16 @@ export default function ClaimsPage() {
                 headers: { requiresAuth: true },
             });
             setAllClaims(res.data);
-            setClaims(res.data);
+            
+            // Also fetch vehicles count
+            try {
+                const vehiclesRes = await api.get("/api/cars/count", { headers: { requiresAuth: true }});
+                if (vehiclesRes.data?.success) {
+                    setVehiclesCount(vehiclesRes.data.count);
+                }
+            } catch (err) {
+                console.error("Failed to fetch vehicles count", err);
+            }
         } catch (err: any) {
             console.error(err);
             setError("Failed to load claims. Please try again.");
@@ -210,6 +225,13 @@ export default function ClaimsPage() {
 
     useEffect(() => {
         let filtered = [...allClaims];
+
+        // Base view filter
+        if (isActivePage) {
+            filtered = filtered.filter(claim => !isClaimClosed(claim));
+        } else {
+            filtered = filtered.filter(claim => isClaimClosed(claim));
+        }
 
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
@@ -230,23 +252,6 @@ export default function ClaimsPage() {
 
         if (selectedStage) {
             filtered = filtered.filter((claim) => claim.status === selectedStage);
-        }
-
-        if (statusFilter === "Active") {
-            filtered = filtered.filter((claim) =>
-                !claim.is_disputed &&
-                !claim.closed_date &&
-                !claim.closed_by &&
-                ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
-            );
-        } else if (statusFilter === "Non Active") {
-            filtered = filtered.filter((claim) =>
-                claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())
-            );
-        } else if (statusFilter === "Closed") {
-            filtered = filtered.filter((claim) =>
-                claim.status?.toLowerCase() === "close claim" || (claim.closed_date && claim.closed_by)
-            );
         }
 
         if (startDate || endDate) {
@@ -301,8 +306,8 @@ export default function ClaimsPage() {
                 }
 
                 if (sortColumn === "closed") {
-                    const aClosed = !!(a.closed_date && a.closed_by);
-                    const bClosed = !!(b.closed_date && b.closed_by);
+                    const aClosed = isClaimClosed(a);
+                    const bClosed = isClaimClosed(b);
                     const comparison = aClosed === bClosed ? 0 : aClosed ? 1 : -1;
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
@@ -324,11 +329,11 @@ export default function ClaimsPage() {
         selectedType,
         selectedCouncil,
         selectedStage,
-        statusFilter,
         startDate,
         endDate,
         sortColumn,
         sortDirection,
+        isActivePage
     ]);
 
     const handleSort = (column: SortColumn) => {
@@ -434,37 +439,6 @@ export default function ClaimsPage() {
             alert("Failed to add update. Please try again.");
         } finally {
             setAddingUpdate(false);
-        }
-    };
-
-    const performActionWithUsername = async (
-        claimId: string,
-        apiPath: string,
-        bodyKey: string,
-        actionName: string
-    ) => {
-        if (!userName) {
-            alert("User session not found. Please log in again.");
-            return;
-        }
-        const confirmationPassword = prompt(
-            "Security Confirmation\n\nPlease enter the confirmation password to proceed."
-        );
-        if (!confirmationPassword) return;
-        if (confirmationPassword !== "12345678") {
-            alert("Incorrect confirmation password.");
-            return;
-        }
-        if (!window.confirm(`You want to ${actionName} claim ${claimId}?`)) return;
-        try {
-            await api.put(
-                `/api/claims/${claimId}${apiPath}`,
-                { [bodyKey]: userName },
-                { headers: { requiresAuth: true } }
-            );
-            await fetchClaims();
-        } catch (err: any) {
-            alert(err.response?.data?.detail || `Failed to ${actionName} claim.`);
         }
     };
 
@@ -638,7 +612,6 @@ export default function ClaimsPage() {
         setSelectedType("");
         setSelectedCouncil("");
         setSelectedStage("");
-        setStatusFilter("all");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -647,31 +620,47 @@ export default function ClaimsPage() {
 
     // ── Summary calculations (Memoized) ──────────────────────────────────────────────────
     const summary = useMemo(() => {
-        const total = allClaims.length;
-        const activeClaims = allClaims.filter(c =>
-            !c.is_disputed &&
-            !c.closed_date &&
-            !c.closed_by &&
-            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
+        if (!isActivePage) {
+            // Dummy static values for Closed page
+            return {
+                vehicles: 0,
+                activeHire: 0,
+                settledInHire: 0,
+                hireEnd: 0,
+                invoiceSent: 0,
+                typeBreakdown: CLAIM_TYPES.map(type => ({ type, count: 0 })),
+                invoicePending: 0,
+                invoiceSentTotal: 0
+            };
+        }
+
+        const activeHire = allClaims.filter(c => 
+            c.status?.toLowerCase() === "hire start" && !isClaimClosed(c) && !c.is_disputed
         ).length;
-        const nonActiveClaims = allClaims.filter(c =>
-            c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
+
+        const settledInHire = allClaims.filter(c => 
+            c.status?.toLowerCase() === "client paid" && !isClaimClosed(c) && !c.is_disputed
         ).length;
-        const closedClaims = allClaims.filter(c =>
-            c.status?.toLowerCase() === "close claim" || (c.closed_date && c.closed_by)
+
+        const hireEnd = allClaims.filter(c => 
+            c.status?.toLowerCase() === "hire end" && !isClaimClosed(c) && !c.is_disputed
         ).length;
+
+        const invoiceSent = allClaims.filter(c => 
+            c.status?.toLowerCase() === "invoice sent" && !isClaimClosed(c) && !c.is_disputed
+        ).length;
+
+        const filteredTypes = allClaims.filter(c => !isClaimClosed(c));
         const typeBreakdown = CLAIM_TYPES.map(type => ({
             type,
-            count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
+            count: filteredTypes.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
-        const invoicePending = allClaims.filter(c =>
-            c.status?.toLowerCase() === "hire end"
-        ).length;
-        const invoiceSent = allClaims.filter(c =>
-            c.status?.toLowerCase() === "invoice sent"
-        ).length;
-        return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
-    }, [allClaims]);
+        
+        const invoicePending = hireEnd;
+        const invoiceSentTotal = invoiceSent;
+
+        return { vehicles: vehiclesCount, activeHire, settledInHire, hireEnd, invoiceSent, typeBreakdown, invoicePending, invoiceSentTotal };
+    }, [allClaims, isActivePage, vehiclesCount]);
 
     // ── Reusable date cell renderer ───────────────────────────────────────────
     const renderDateCell = (
@@ -689,7 +678,7 @@ export default function ClaimsPage() {
         if (isVehicleDamageBlocked && isVehicleDamage) {
             return (
                 <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
-                    <hr className="border-emerald-500 border-[2px]  w-[50%]" />
+                    <hr className="border-emerald-500 border-[2px]  w-[50%] mx-auto" />
                 </td>
             );
         }
@@ -752,7 +741,7 @@ export default function ClaimsPage() {
             return (
                 <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                     <p className="text-xl text-green-700/80">
-                        {searchTerm || selectedType || selectedCouncil || selectedStage || statusFilter !== "all" || startDate || endDate
+                        {searchTerm || selectedType || selectedCouncil || selectedStage || startDate || endDate
                             ? "No matching claims found"
                             : "No claims yet — create one above!"}
                     </p>
@@ -766,33 +755,23 @@ export default function ClaimsPage() {
                     <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
                         <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                             <tr className="border-0 bg-transparent">
-                                {/* Invisible filler cells */}
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
-
-                                {/* Visible "Claim Progress" cell */}
                                 <th
                                     colSpan={5}
-                                    className="px-2 py-1 text-center bg-green-300/80"
+                                    className="px-2 py-1 text-center bg-green-800"
                                     style={{ borderRadius: "8px 8px 0 0" }}
                                 >
-                                    <span className="text-xs font-bold text-green-800 uppercase tracking-widest">
+                                    <span className="text-xs font-bold text-white uppercase tracking-widest">
                                         — Claim Progress —
                                     </span>
                                 </th>
-
-                                {/* Invisible trailing cells for Updates and Status */}
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                             </tr>
-                            {/* ── Main header row ── */}
                             <tr className="border-b border-gray-500">
-                                <th onClick={() => handleSort("closed")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    Status {getSortArrow("closed")}
-                                </th>
                                 <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Claim ID {getSortArrow("claim_id")}
                                 </th>
@@ -805,51 +784,39 @@ export default function ClaimsPage() {
                                 <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Council {getSortArrow("council")}
                                 </th>
-
-                                {/* Stage 1 */}
                                 <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">1</span>
                                         <span>Start Date {getSortArrow("claim_start_date")}</span>
                                     </div>
                                 </th>
-
-                                {/* Stage 2 */}
                                 <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">2</span>
                                         <span>Hire Start {getSortArrow("hire_start_date")}</span>
                                     </div>
                                 </th>
-
-                                {/* Stage 3 */}
                                 <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">3</span>
                                         <span>Client Paid {getSortArrow("pay_date")}</span>
                                     </div>
                                 </th>
-
-                                {/* Stage 4 */}
                                 <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">4</span>
                                         <span>Hire End {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
-
-                                {/* Stage 5 */}
                                 <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">5</span>
                                         <span>Invoice Sent {getSortArrow("invoice_date")}</span>
                                     </div>
                                 </th>
-
                                 <th className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
                                     Updates
                                 </th>
-
                                 <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Stages {getSortArrow("status")}
                                 </th>
@@ -859,7 +826,7 @@ export default function ClaimsPage() {
                             {claims.map((claim) => {
                                 const isEditing = editingClaimId === claim.claim_id;
                                 const isSaving = savingClaimId === claim.claim_id;
-                                const isClosed = !!(claim.closed_date && claim.closed_by);
+                                const isClosed = isClaimClosed(claim);
                                 const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
                                 const isVehicleDamage = claim.claim_type === "vehicle damage";
                                 const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
@@ -867,40 +834,9 @@ export default function ClaimsPage() {
 
                                 return (
                                     <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
-                                        {/* Status column */}
-                                        <td className="px-1.5 py-0.5 text-center border-r border-gray-300 whitespace-nowrap">
-                                            <div className="relative group inline-block">
-                                                {(() => {
-                                                    let statusText = "Active";
-                                                    let bgColor = "bg-green-100 text-green-800";
-                                                    if (isClosed) {
-                                                        statusText = "Closed";
-                                                        bgColor = "bg-red-100 text-red-800";
-                                                    } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
-                                                        statusText = "Non Active";
-                                                        bgColor = "bg-amber-100 text-amber-800";
-                                                    }
-                                                    return (
-                                                        <>
-                                                            <span className={`inline-flex whitespace-nowrap cursor-pointer px-2 py-0 text-[10px] font-semibold rounded-full ${bgColor}`}>
-                                                                {statusText}
-                                                            </span>
-                                                            {isClosed && (
-                                                                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-100">
-                                                                    Closed by {claim.closed_by} on {formatDate(claim.closed_date)} | Reason: {claim.reason}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </td>
-
-                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-center" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                             {claim.claim_id.toUpperCase()}
                                         </td>
-
-                                        {/* Editable claimant name — no fixed width */}
                                         <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
                                             {isEditing && editingField === "name" ? (
                                                 <div className="flex items-center gap-1.5">
@@ -937,8 +873,6 @@ export default function ClaimsPage() {
                                                 </div>
                                             )}
                                         </td>
-
-                                        {/* Editable claim type — no fixed width */}
                                         <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
                                             {isEditing && editingField === "claim_type" ? (
                                                 <div className="flex items-center gap-1.5">
@@ -977,10 +911,9 @@ export default function ClaimsPage() {
                                                 </div>
                                             )}
                                         </td>
-
                                         <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
                                             {isVehicleDamage ? (
-                                                <hr className="border-emerald-500 border-[2px]  w-[50%] text-center" />
+                                                <hr className="border-emerald-500 border-[2px]  w-[50%] text-center mx-auto" />
                                             ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
                                                 <select
                                                     ref={selectRef}
@@ -1015,23 +948,11 @@ export default function ClaimsPage() {
                                                 </div>
                                             )}
                                         </td>
-
-                                        {/* Stage 1 – Start Date */}
                                         {renderDateCell(claim, "claim_start_date", editClaimStartDate, setEditClaimStartDate, false)}
-
-                                        {/* Stage 2 – Hire Start (blocked for vehicle damage) */}
                                         {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
-
-                                        {/* Stage 3 – Client Paid */}
                                         {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
-
-                                        {/* Stage 4 – Hire End (blocked for vehicle damage) */}
                                         {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
-
-                                        {/* Stage 5 – Invoice Sent (also blocked for vehicle damage) */}
                                         {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
-
-                                        {/* Updates Column */}
                                         <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
@@ -1044,8 +965,6 @@ export default function ClaimsPage() {
                                                 )}
                                             </div>
                                         </td>
-
-                                        {/* Stage badge */}
                                         <td className="border-r border-gray-300 px-1 py-0.5">
                                             <div className="flex items-center justify-center">
                                                 {isClosed ? (
@@ -1080,7 +999,6 @@ export default function ClaimsPage() {
         selectedType,
         selectedCouncil,
         selectedStage,
-        statusFilter,
         startDate,
         endDate,
         editingClaimId,
@@ -1095,24 +1013,25 @@ export default function ClaimsPage() {
         editHireEndDate,
         editInvoiceDate,
         sortColumn,
-        sortDirection
+        sortDirection,
+        isActivePage
     ]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
             <main className="max-w-[1550px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-                {/* ── Page Header ─────────────────────────────────────────── */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
                     <div>
                         <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
                             Hire Dashboard
                         </h1>
                         <p className="mt-2 text-lg text-green-700/80">
-                            Manage all your claims in one place
+                            {isActivePage ? "Active Claims Overview" : "Closed Claims Overview"}
                         </p>
                     </div>
-                    <div className="flex gap-3 mt-4 md:mt-0">
+                    <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
+                     
                         <button
                             onClick={fetchClaims}
                             disabled={loading}
@@ -1136,7 +1055,6 @@ export default function ClaimsPage() {
                     </div>
                 )}
 
-                {/* Loading State */}
                 {loading && (
                     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
                         <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
@@ -1147,7 +1065,6 @@ export default function ClaimsPage() {
                     </div>
                 )}
 
-                {/* Show skeleton when loading, otherwise show content */}
                 {loading ? (
                     <div className="space-y-8">
                         <div className="flex items-center gap-3">
@@ -1157,118 +1074,91 @@ export default function ClaimsPage() {
                         <OverviewSkeleton />
                         <div className="flex items-center gap-3 mt-10">
                             <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-                            <h2 className="text-xl font-bold text-green-800 tracking-tight">All Claims</h2>
+                            <h2 className="text-xl font-bold text-green-800 tracking-tight">{isActivePage ? "Active Claims" : "Closed Claims"}</h2>
                         </div>
                         <ClaimsTableSkeleton />
                     </div>
                 ) : (
                     <>
-                        {/* ══════════════════════════════════════════════════════════
-                    SUMMARY DASHBOARD
-                ══════════════════════════════════════════════════════════ */}
                         <div className="mb-10 space-y-6">
                             <div className="flex items-center gap-3">
                                 <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
                                 <h2 className="text-xl font-bold text-green-800 tracking-tight">Overview</h2>
                             </div>
 
-                            {/* Row 1: Claim Status Summary (Clickable Filters) */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                {/* Total */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                                 <button
-                                    onClick={() => setStatusFilter("all")}
-                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
-                                ${statusFilter === "all"
-                                            ? "border-yellow-300 scale-105 shadow-2xl shadow-yellow-500/50 ring-4 ring-yellow-400/30 bg-gradient-to-br from-slate-700 to-slate-900"
-                                            : "border-transparent bg-gradient-to-br from-slate-700 to-slate-900 hover:scale-102 hover:shadow-xl"
-                                        }`}
+                                    onClick={clearFilters}
+                                    className="text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-slate-700 to-slate-900 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 border-transparent"
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
-                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/5 rounded-full" />
-                                    {statusFilter === "all" && (
-                                        <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-3xl" />
-                                    )}
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <BarChart3 size={18} className="text-slate-300" />
-                                            <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Claims</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Car size={16} className="text-slate-300" />
+                                            <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Vehicles</p>
                                         </div>
-                                        <p className="text-5xl font-black tracking-tighter">{summary.total}</p>
+                                        <p className="text-4xl font-black tracking-tighter">{summary.vehicles}</p>
                                     </div>
                                 </button>
 
-                                {/* Active */}
                                 <button
-                                    onClick={() => setStatusFilter("Active")}
-                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
-                                ${statusFilter === "Active"
-                                            ? "border-emerald-400 scale-105 shadow-2xl shadow-emerald-500/60 ring-4 ring-emerald-400/40 bg-gradient-to-br from-emerald-500 to-teal-600"
-                                            : "border-transparent bg-gradient-to-br from-green-500 to-emerald-600 hover:scale-102 hover:shadow-xl"
-                                        }`}
+                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "" : "hire start")}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-blue-500 to-blue-700 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
-                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                                    {statusFilter === "Active" && (
-                                        <div className="absolute inset-0 bg-emerald-400/25 blur-3xl rounded-3xl" />
-                                    )}
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <TrendingUp size={18} className="text-emerald-100" />
-                                            <p className="text-xs font-semibold text-emerald-100 uppercase tracking-widest">Active</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Activity size={16} className="text-blue-100" />
+                                            <p className="text-[10px] font-semibold text-blue-100 uppercase tracking-widest">Active Hire</p>
                                         </div>
-                                        <p className="text-5xl font-black tracking-tighter">{summary.activeClaims}</p>
+                                        <p className="text-4xl font-black tracking-tighter">{summary.activeHire}</p>
                                     </div>
                                 </button>
 
-                                {/* Non-Active */}
                                 <button
-                                    onClick={() => setStatusFilter("Non Active")}
-                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
-                                ${statusFilter === "Non Active"
-                                            ? "border-orange-400 scale-105 shadow-2xl shadow-orange-500/60 ring-4 ring-orange-400/40 bg-gradient-to-br from-orange-500 to-amber-600"
-                                            : "border-transparent bg-gradient-to-br from-amber-500 to-orange-500 hover:scale-102 hover:shadow-xl"
-                                        }`}
+                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "" : "client paid")}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
-                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                                    {statusFilter === "Non Active" && (
-                                        <div className="absolute inset-0 bg-orange-400/25 blur-3xl rounded-3xl" />
-                                    )}
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <Clock size={18} className="text-amber-100" />
-                                            <p className="text-xs font-semibold text-amber-100 uppercase tracking-widest">Non-Active</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <CheckCircle2 size={16} className="text-indigo-100" />
+                                            <p className="text-[10px] font-semibold text-indigo-100 uppercase tracking-widest">Settled in Hire</p>
                                         </div>
-                                        <p className="text-5xl font-black tracking-tighter">{summary.nonActiveClaims}</p>
+                                        <p className="text-4xl font-black tracking-tighter">{summary.settledInHire}</p>
                                     </div>
                                 </button>
 
-                                {/* Closed */}
                                 <button
-                                    onClick={() => setStatusFilter("Closed")}
-                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
-                                ${statusFilter === "Closed"
-                                            ? "border-rose-400 scale-105 shadow-2xl shadow-rose-500/60 ring-4 ring-rose-400/40 bg-gradient-to-br from-rose-500 to-pink-600"
-                                            : "border-transparent bg-gradient-to-br from-rose-500 to-rose-700 hover:scale-102 hover:shadow-xl"
-                                        }`}
+                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-orange-500 to-amber-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
-                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
-                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
-                                    {statusFilter === "Closed" && (
-                                        <div className="absolute inset-0 bg-rose-400/25 blur-3xl rounded-3xl" />
-                                    )}
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <CheckCircle2 size={18} className="text-rose-100" />
-                                            <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Closed</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Clock size={16} className="text-amber-100" />
+                                            <p className="text-[10px] font-semibold text-amber-100 uppercase tracking-widest">Hire End</p>
                                         </div>
-                                        <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
+                                        <p className="text-4xl font-black tracking-tighter">{summary.hireEnd}</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={() => setSelectedStage(selectedStage === "invoice sent" ? "" : "invoice sent")}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-green-500 to-emerald-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "invoice sent" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Receipt size={16} className="text-emerald-100" />
+                                            <p className="text-[10px] font-semibold text-emerald-100 uppercase tracking-widest">Invoice Sent</p>
+                                        </div>
+                                        <p className="text-4xl font-black tracking-tighter">{summary.invoiceSent}</p>
                                     </div>
                                 </button>
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                                {/* Claims by Type — 2/3 */}
                                 <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
@@ -1288,7 +1178,8 @@ export default function ClaimsPage() {
                                                     bar: "bg-gray-400",
                                                 };
                                                 const Icon = cfg.icon;
-                                                const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                                                const totalInView = claims.length;
+                                                const pct = totalInView > 0 ? Math.round((count / totalInView) * 100) : 0;
                                                 const displayType = type === "learning" ? "Learner" : type;
                                                 return (
                                                     <button
@@ -1300,7 +1191,7 @@ export default function ClaimsPage() {
                                                                 : cfg.border} 
                                                     rounded-2xl p-6 flex flex-col gap-4 overflow-hidden 
                                                     group hover:shadow-xl hover:-translate-y-0.5 
-                                                    transition-all duration-200 cursor-pointer w-full`}
+                                                    transition-all duration-200 cursor-pointer w-full text-left`}
                                                     >
                                                         <div className="flex items-center justify-between">
                                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cfg.iconBg}`}>
@@ -1329,7 +1220,6 @@ export default function ClaimsPage() {
                                     </div>
                                 </div>
 
-                                {/* Invoice Summary — 1/3 */}
                                 <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-5 shadow-sm flex flex-col">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
@@ -1338,7 +1228,10 @@ export default function ClaimsPage() {
                                         <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
                                     </div>
                                     <div className="flex-1 flex flex-col gap-3">
-                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/70 rounded-xl">
+                                        <button
+                                            onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
+                                            className={`w-full text-left flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 rounded-xl transition-all ${selectedStage === "hire end" ? "border-amber-400 shadow-md ring-2 ring-amber-200" : "border-amber-200/70 hover:border-amber-400"}`}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
                                                     <Clock size={15} className="text-amber-600" strokeWidth={2.2} />
@@ -1349,23 +1242,26 @@ export default function ClaimsPage() {
                                                 </div>
                                             </div>
                                             <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/70 rounded-xl">
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedStage(selectedStage === "invoice sent" ? "" : "invoice sent")}
+                                            className={`w-full text-left flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border-2 rounded-xl transition-all ${selectedStage === "invoice sent" ? "border-emerald-400 shadow-md ring-2 ring-emerald-200" : "border-emerald-200/70 hover:border-emerald-400"}`}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
                                                     <CheckCircle2 size={15} className="text-emerald-600" strokeWidth={2.2} />
                                                 </div>
                                                 <div>
                                                     <p className="text-xs font-semibold text-emerald-800">Sent</p>
-                                                    <p className="text-[10px] text-emerald-400 font-medium">Invoice sent / Closed</p>
+                                                    <p className="text-[10px] text-emerald-400 font-medium">Invoice sent</p>
                                                 </div>
                                             </div>
-                                            <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
-                                        </div>
+                                            <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSentTotal}</span>
+                                        </button>
                                         <div className="mt-auto pt-1">
                                             {(() => {
-                                                const total = summary.invoicePending + summary.invoiceSent;
-                                                const ratio = total > 0 ? Math.round((summary.invoiceSent / total) * 100) : 0;
+                                                const total = summary.invoicePending + summary.invoiceSentTotal;
+                                                const ratio = total > 0 ? Math.round((summary.invoiceSentTotal / total) * 100) : 0;
                                                 return (
                                                     <>
                                                         <div className="flex justify-between items-center mb-1.5">
@@ -1387,9 +1283,6 @@ export default function ClaimsPage() {
                             </div>
                         </div>
 
-                        {/* ══════════════════════════════════════════════════════════
-                    CREATE CLAIM MODAL
-                ══════════════════════════════════════════════════════════ */}
                         {showCreateModal && (
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
@@ -1482,9 +1375,6 @@ export default function ClaimsPage() {
                             </div>
                         )}
 
-                        {/* ══════════════════════════════════════════════════════════
-                    ADD UPDATE MODAL
-                ══════════════════════════════════════════════════════════ */}
                         {updateModalState.type === 'add' && (
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
@@ -1542,9 +1432,6 @@ export default function ClaimsPage() {
                             </div>
                         )}
 
-                        {/* ══════════════════════════════════════════════════════════
-                    VIEW UPDATES MODAL
-                ══════════════════════════════════════════════════════════ */}
                         {updateModalState.type === 'view' && (
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 flex flex-col max-h-[80vh]">
@@ -1594,12 +1481,9 @@ export default function ClaimsPage() {
                             </div>
                         )}
 
-                        {/* ══════════════════════════════════════════════════════════
-                    FILTERS
-                ══════════════════════════════════════════════════════════ */}
                         <div className="space-y-6">
                             <div className="bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-5">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                                         <input
@@ -1654,20 +1538,7 @@ export default function ClaimsPage() {
                                                 ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                                        <select
-                                            value={statusFilter}
-                                            onChange={(e) => setStatusFilter(e.target.value as any)}
-                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
-                                        >
-                                            <option value="all">All Status</option>
-                                            <option value="Active">Active</option>
-                                            <option value="Non Active">Non Active</option>
-                                            <option value="Closed">Closed</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+                                    <div className="flex flex-col sm:flex-row sm:items-end gap-2 xl:col-span-2">
                                         <div className="flex-1">
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
                                             <div className="flex gap-2">
@@ -1685,9 +1556,11 @@ export default function ClaimsPage() {
                                                 />
                                             </div>
                                         </div>
+                                    </div>
+                                    <div className="flex items-end">
                                         <button
                                             onClick={clearFilters}
-                                            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full sm:w-auto"
+                                            className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition border border-gray-300 w-full"
                                         >
                                             Clear
                                         </button>
@@ -1698,16 +1571,27 @@ export default function ClaimsPage() {
 
                         <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
-                            <span className="font-bold text-green-800">{allClaims.length}</span> claims
+                            <span className="font-bold text-green-800">
+                                {isActivePage ? allClaims.filter(c => !isClaimClosed(c)).length : allClaims.filter(c => isClaimClosed(c)).length}
+                            </span> claims
                         </div>
 
-                        {/* ══════════════════════════════════════════════════════════
-                    TABLE
-                ══════════════════════════════════════════════════════════ */}
                         {renderedTableContent}
                     </>
                 )}
             </main>
         </div>
+    );
+}
+
+export default function ClaimsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center py-20 min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
+                <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+            </div>
+        }>
+            <ClaimsContent />
+        </Suspense>
     );
 }
