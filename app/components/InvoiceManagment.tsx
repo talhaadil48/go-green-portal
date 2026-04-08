@@ -49,6 +49,7 @@ function formatShortDate(d: string | null) {
 }
 
 function formatCurrency(value: number | null | undefined) {
+  value = Number(value);
   if (value == null) value = 0;
   return value.toLocaleString("en-GB", {
     style: "currency",
@@ -522,7 +523,7 @@ export default function InvoiceManagementPage() {
                                 />
                               ) : (
                                 <span className={inv.payment_amount ? "text-green-700 font-medium" : "text-slate-400"}>
-                                  {inv.payment_amount || "—"}
+                                  {formatCurrency(inv.payment_amount) || "—"}
                                 </span>
                               )}
                             </td>
