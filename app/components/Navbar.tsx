@@ -62,7 +62,7 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
+      <div className="max-w-[1500px] mx-auto px-5 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-18">
           <Link
             href="/claim"

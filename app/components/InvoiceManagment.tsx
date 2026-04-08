@@ -2,7 +2,17 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, RefreshCw, Edit2, X, Check } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  RefreshCw,
+  Edit2,
+  X,
+  Check,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
+} from "lucide-react";
 import api from "@/lib/axios";
 
 interface ClaimInvoice {
@@ -28,6 +38,11 @@ interface LongHireInvoice {
   user_name: string | null;
 }
 
+type SortConfig = {
+  key: string;
+  direction: "asc" | "desc";
+} | null;
+
 function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
@@ -48,10 +63,14 @@ function formatShortDate(d: string | null) {
   });
 }
 
-function formatCurrency(value: number | null | undefined) {
-  value = Number(value);
-  if (value == null) value = 0;
-  return value.toLocaleString("en-GB", {
+function formatCurrency(value: number | null | undefined | string) {
+  let numValue = Number(value);
+  if (isNaN(numValue) && typeof value === "string") {
+    // Attempt to extract numeric value from string if needed
+    numValue = parseFloat(value.replace(/[^0-9.-]+/g, "")) || 0;
+  }
+  if (value == null || isNaN(numValue)) numValue = 0;
+  return numValue.toLocaleString("en-GB", {
     style: "currency",
     currency: "GBP",
     minimumFractionDigits: 0,
@@ -112,6 +131,9 @@ export default function InvoiceManagementPage() {
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   const fetchClaimInvoices = async () => {
     setLoadingClaim(true);
@@ -216,6 +238,54 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  const handleSort = (key: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortData = <T extends Record<string, any>>(data: T[]): T[] => {
+    if (!sortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      let valA = a[sortConfig.key];
+      let valB = b[sortConfig.key];
+
+      // Special handling for derived fields
+      if (sortConfig.key === "total") {
+        valA = (a.storage_bill || 0) + (a.rent_bill || 0);
+        valB = (b.storage_bill || 0) + (b.rent_bill || 0);
+      }
+
+      // Special handling for money strings
+      if (sortConfig.key === "payment_amount") {
+        valA = typeof valA === "string" ? parseFloat(valA.replace(/[^0-9.-]+/g, "")) || 0 : valA || 0;
+        valB = typeof valB === "string" ? parseFloat(valB.replace(/[^0-9.-]+/g, "")) || 0 : valB || 0;
+      }
+
+      if (valA === valB) return 0;
+
+      // Handle nulls
+      if (valA === null || valA === undefined) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valB === null || valB === undefined) return sortConfig.direction === "asc" ? 1 : -1;
+
+      // String vs Number sorting
+      if (typeof valA === "string" && typeof valB === "string") {
+        return sortConfig.direction === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
+      }
+
+      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+
+      return 0;
+    });
+  };
+
+  // 1. Filter
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
     const matchesSearch =
       !search ||
@@ -243,11 +313,36 @@ export default function InvoiceManagementPage() {
     return matchesSearch && matchesClaimId && matchesHirer && matchesSentBy;
   });
 
+  // 2. Sort
+  const sortedClaimInvoices = sortData(filteredClaimInvoices);
+  const sortedLongHireInvoices = sortData(filteredLongHireInvoices);
+
   const isClaimTab = activeTab === "claim";
   const isLoading = isClaimTab ? loadingClaim : loadingLongHire;
   const error = isClaimTab ? errorClaim : errorLongHire;
-  const filteredCount = isClaimTab ? filteredClaimInvoices.length : filteredLongHireInvoices.length;
+  const filteredCount = isClaimTab ? sortedClaimInvoices.length : sortedLongHireInvoices.length;
   const totalCount = isClaimTab ? claimInvoices.length : longHireInvoices.length;
+
+  const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {
+    const isActive = sortConfig?.key === sortKey;
+    return (
+      <th
+        className={`px-3 py-2 text-${align} font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 transition-colors select-none group`}
+        onClick={() => handleSort(sortKey)}
+      >
+        <div className={`flex items-center gap-1 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+          {label}
+          <span className="text-green-600">
+            {isActive ? (
+              sortConfig.direction === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+            ) : (
+              <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
@@ -285,7 +380,10 @@ export default function InvoiceManagementPage() {
             {(["claim", "longhire"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setSortConfig(null); // Reset sort when changing tabs
+                }}
                 className={`pb-3 px-1 text-lg font-medium transition-colors ${
                   activeTab === tab
                     ? "text-green-700 border-b-4 border-green-600"
@@ -402,7 +500,7 @@ export default function InvoiceManagementPage() {
           <div className="flex justify-center py-16">
             <Loader2 className="w-12 h-12 text-green-600 animate-spin" />
           </div>
-        ) : (isClaimTab ? filteredClaimInvoices : filteredLongHireInvoices).length === 0 ? (
+        ) : (isClaimTab ? sortedClaimInvoices : sortedLongHireInvoices).length === 0 ? (
           <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
             {search || filterClaimId || filterSentBy || (isClaimTab ? filterClaimant || filterInfo : filterHirer)
               ? "No matching invoices"
@@ -414,33 +512,33 @@ export default function InvoiceManagementPage() {
               <table className="min-w-full divide-y divide-gray-300 text-xs">
                 <thead className="bg-green-50/70">
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claim ID</th>
+                    <SortHeader label="Claim ID" sortKey="claim_id" />
                     {isClaimTab ? (
                       <>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Claimant</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date / Time</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Info</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th>
-                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Storage</th>
-                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Hire</th>
-                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Total</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Payment Amt</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Payment Date</th>
+                        <SortHeader label="Claimant" sortKey="claimant_name" />
+                        <SortHeader label="Date / Time" sortKey="invoice_datetime" />
+                        <SortHeader label="Info" sortKey="info" align="center" />
+                        <SortHeader label="Sent By" sortKey="user_name" />
+                        <SortHeader label="Storage" sortKey="storage_bill" align="right" />
+                        <SortHeader label="Hire" sortKey="rent_bill" align="right" />
+                        <SortHeader label="Total" sortKey="total" align="right" />
+                        <SortHeader label="Payment Amt" sortKey="payment_amount" />
+                        <SortHeader label="Payment Date" sortKey="payment_date" />
                         <th className="px-3 py-2 text-center font-semibold text-green-800">Actions</th>
                       </>
                     ) : (
                       <>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Hirer</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Date Sent</th>
-                        <th className="px-3 py-2 text-left font-semibold text-green-800 border-r border-gray-400">Sent By</th>
-                        <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Amount</th>
+                        <SortHeader label="Hirer" sortKey="hirer_name" />
+                        <SortHeader label="Date Sent" sortKey="date_sent" />
+                        <SortHeader label="Sent By" sortKey="user_name" />
+                        <SortHeader label="Amount" sortKey="amount" align="right" />
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isClaimTab
-                    ? filteredClaimInvoices.map((inv) => {
+                    ? sortedClaimInvoices.map((inv) => {
                         const isEditing = editingId === inv.id;
                         return (
                           <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
@@ -476,7 +574,7 @@ export default function InvoiceManagementPage() {
                                   placeholder="Name"
                                 />
                               ) : (
-                                <span className="truncate block max-w-[140px]">{inv.user_name || "—"}</span>
+                                <span className="truncate block max-w-[140px]">{inv.user_name?.toUpperCase() || "—"}</span>
                               )}
                             </td>
 
@@ -569,7 +667,7 @@ export default function InvoiceManagementPage() {
                           </tr>
                         );
                       })
-                    : filteredLongHireInvoices.map((inv) => (
+                    : sortedLongHireInvoices.map((inv) => (
                         <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
                           <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
                           <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">{inv.hirer_name || "—"}</td>

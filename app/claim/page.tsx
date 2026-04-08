@@ -62,7 +62,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire start": { color: "text-gray-900", number: 2, label: "Active Hire", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "client paid": { color: "text-gray-900", number: 3, label: "Settled in Hire", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
-    "hire end": { color: "text-[#FA6020]", number: 4, label: "Hire End", badgeBg: "border-[#FA6020]", badgeText: "bg-[#FA6020]" },
+    "hire end": { color: "text-orange-300", number: 4, label: "Hire End", badgeBg: "border-orange-300", badgeText: "bg-orange-300" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
     default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-400" },
 };
@@ -516,7 +516,7 @@ function ClaimsContent() {
                 const dateIn = editingField === "hire_end_date"
                     ? editHireEndDate || null
                     : (currentClaim?.hire_end_date ? currentClaim.hire_end_date.slice(0, 10) : null);
-
+                console.log("Updating hire vehicle dates with:", { date_in: dateIn, date_out: dateOut });
                 await api.put(
                     `/api/claims/${claim_id}/hire-vehicle-dates`,
                     { date_in: dateIn, date_out: dateOut },
@@ -543,7 +543,7 @@ function ClaimsContent() {
                 else if (editingField === "claim_start_date") payload.claim_start_date = editClaimStartDate || null;
                 else if (editingField === "pay_date") payload.pay_date = editPayDate || null;
                 else if (editingField === "invoice_date") payload.invoice_date = editInvoiceDate || null;
-
+                console.log("Updating claim with payload:", payload);
                 await api.put(
                     `/api/claims/${claim_id}`,
                     payload,
@@ -702,6 +702,9 @@ function ClaimsContent() {
                             <Loader2 size={16} className="text-green-600 animate-spin" />
                         ) : (
                             <>
+                                <button onClick={() => setEditValue("")} title="Clear Date" disabled={isSaving} className="p-1 text-orange-500 hover:text-orange-700 disabled:opacity-50">
+                                    <Trash2 size={16} />
+                                </button>
                                 <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50">
                                     <Check size={16} />
                                 </button>

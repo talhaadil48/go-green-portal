@@ -30,6 +30,7 @@ interface Vehicle {
   current_holder_claim_id?: string | null;
   service_time?: string | null;
   last_miles_in?: number | null;
+  attributes?: string[];
 }
 
 interface AvailableVehicle {
@@ -51,6 +52,19 @@ type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "mi
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
 
+// UPDATED: All attributes are now explicitly uppercase
+const AVAILABLE_ATTRIBUTES = [
+  "SALOON",
+  "ESTATE",
+  "6 SEATER",
+  "8 SEATER",
+  "HACKNEY",
+  "MANUAL",
+  "AUTOMATIC",
+  "HYBRID",
+  "LUXURY"
+];
+
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [availableLongHireIds, setAvailableLongHireIds] = useState<Set<number>>(
@@ -64,13 +78,13 @@ export default function VehiclesPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
 
-  const [formData, setFormData] = useState({ model: "", name: "", reg_no: "" });
+  const [formData, setFormData] = useState({ model: "", name: "", reg_no: "", attributes: [] as string[] });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState({ model: "", name: "", service_time: "" });
+  const [editData, setEditData] = useState({ model: "", name: "", service_time: "", attributes: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -134,6 +148,13 @@ export default function VehiclesPage() {
     }
   }, [activeTab]);
 
+  const handleAttributeToggle = (currentAttrs: string[], attr: string) => {
+    if (currentAttrs.includes(attr)) {
+      return currentAttrs.filter((a) => a !== attr);
+    }
+    return [...currentAttrs, attr];
+  };
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -143,9 +164,12 @@ export default function VehiclesPage() {
         model: formData.model.trim(),
         name: formData.name.trim(),
         reg_no: formData.reg_no.trim().toUpperCase(),
+        // Force attributes to uppercase for backend
+        attributes: formData.attributes.map(a => a.toUpperCase()),
       };
+      console.log("Creating vehicle with payload:", payload);
       await api.post("/api/car", payload, { headers: { requiresAuth: true } });
-      setFormData({ model: "", name: "", reg_no: "" });
+      setFormData({ model: "", name: "", reg_no: "", attributes: [] });
       setShowForm(false);
       await fetchAllData();
     } catch (err: any) {
@@ -160,21 +184,25 @@ export default function VehiclesPage() {
     let st = "";
     if (vehicle.service_time) {
       try {
-        st = new Date(vehicle.service_time).toISOString().split("T")[0];
+        st = String(vehicle.service_time).includes("T") 
+          ? new Date(vehicle.service_time).toISOString().split("T")[0]
+          : String(vehicle.service_time);
       } catch (e) {
-        // invalid date
+        st = String(vehicle.service_time);
       }
     }
     setEditData({
       model: vehicle.model,
       name: vehicle.name,
       service_time: st,
+      // Map attributes to uppercase for the edit form just in case
+      attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditData({ model: "", name: "", service_time: "" });
+    setEditData({ model: "", name: "", service_time: "", attributes: [] });
   };
 
   const saveEdit = async (id: number) => {
@@ -183,7 +211,11 @@ export default function VehiclesPage() {
       const payload = {
         model: editData.model.trim(),
         name: editData.name.trim(),
-        service_time: editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        service_time: editData.service_time && !isNaN(Number(editData.service_time)) 
+          ? Number(editData.service_time) 
+          : editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        // Force attributes to uppercase for backend
+        attributes: editData.attributes.map(a => a.toUpperCase()),
       };
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
       setVehicles((prev) =>
@@ -250,10 +282,8 @@ export default function VehiclesPage() {
     }
   };
 
-  // Helper function to check if a vehicle is available globally
   const checkIsAvail = (v: Vehicle) => v.is_long_hire ? availableLongHireIds.has(v.id) : (v.is_available ?? false);
 
-  // Vehicle Filters
   const allVehicles = vehicles;
   const normalHire = vehicles.filter((v) => !v.is_long_hire);
   const longHire = vehicles.filter((v) => v.is_long_hire);
@@ -264,14 +294,12 @@ export default function VehiclesPage() {
   else if (activeTab === "normal_avail") displayed = normalHire.filter(v => checkIsAvail(v));
   else if (activeTab === "long_avail") displayed = longHire.filter(v => checkIsAvail(v));
 
-  // Vehicle Search
   displayed = displayed.filter((v) =>
     v.name?.toLowerCase().includes(search.toLowerCase()) ||
     v.reg_no?.toLowerCase().includes(search.toLowerCase()) ||
     v.model?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Vehicle Sorting
   displayed.sort((a, b) => {
     let valA: any, valB: any;
 
@@ -279,8 +307,8 @@ export default function VehiclesPage() {
     else if (sortField === "name") { valA = a.name || ""; valB = b.name || ""; }
     else if (sortField === "model") { valA = a.model || ""; valB = b.model || ""; }
     else if (sortField === "service_time") {
-      valA = a.service_time ? new Date(a.service_time).getTime() : 0;
-      valB = b.service_time ? new Date(b.service_time).getTime() : 0;
+      valA = a.service_time && String(a.service_time).includes("T") ? new Date(a.service_time).getTime() : Number(a.service_time || 0);
+      valB = b.service_time && String(b.service_time).includes("T") ? new Date(b.service_time).getTime() : Number(b.service_time || 0);
     }
     else if (sortField === "last_miles_in") {
       valA = a.last_miles_in || 0;
@@ -296,13 +324,11 @@ export default function VehiclesPage() {
     return 0;
   });
 
-  // History Search & Filtering
   let displayedHistory = fleetHistory.filter((h) =>
     h.car_reg?.toLowerCase().includes(historySearch.toLowerCase()) ||
     h.claim_id?.toLowerCase().includes(historySearch.toLowerCase())
   );
 
-  // History Sorting
   displayedHistory.sort((a, b) => {
     let valA: any, valB: any;
 
@@ -318,7 +344,6 @@ export default function VehiclesPage() {
     return 0;
   });
 
-  // Stats
   const total = vehicles.length;
   const totalNormal = normalHire.length;
   const totalLong = longHire.length;
@@ -360,7 +385,6 @@ export default function VehiclesPage() {
             </div>
           </div>
 
-          {/* Summary Cards - Clickable Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <div 
               onClick={() => setActiveTab("all")}
@@ -429,11 +453,9 @@ export default function VehiclesPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="mb-6 border-b border-gray-200">
           <div className="flex space-x-2">
             {(["all", "normal", "long", "history"] as const).map((tab) => {
-              // Determine if this tab should appear active (e.g. if we are on a sub-filter of this tab)
               const isActive = activeTab === tab || 
                                (tab === "normal" && activeTab === "normal_avail") || 
                                (tab === "long" && activeTab === "long_avail");
@@ -460,7 +482,6 @@ export default function VehiclesPage() {
           </div>
         </div>
 
-        {/* Add New Vehicle Form */}
         {showForm && activeTab !== "history" && (
           <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-xl p-7">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Add New Vehicle</h2>
@@ -498,7 +519,27 @@ export default function VehiclesPage() {
                 />
               </div>
              
-              <div className="flex gap-4 sm:col-span-3">
+              <div className="sm:col-span-3 mt-2">
+                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Vehicle Attributes</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {AVAILABLE_ATTRIBUTES.map((attr) => (
+                    <label key={attr} className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.attributes.includes(attr)}
+                        onChange={() => setFormData((prev) => ({
+                          ...prev,
+                          attributes: handleAttributeToggle(prev.attributes, attr)
+                        }))}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>{attr}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4 sm:col-span-3 mt-4">
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
@@ -530,7 +571,6 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* Dynamic Search Bar based on Tab */}
         <div className="mb-6">
           <input
             type="text"
@@ -547,9 +587,7 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* Main Content */}
         {activeTab !== "history" ? (
-          // Vehicles Table
           loading ? (
             <div className="flex items-center justify-center py-32">
               <Loader2 className="animate-spin text-emerald-600" size={40} />
@@ -596,6 +634,11 @@ export default function VehiclesPage() {
                       </div>
                     </th>
                     <th
+                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs select-none"
+                    >
+                      Attributes
+                    </th>
+                    <th
                       onClick={() => handleSort("service_time")}
                       className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
                     >
@@ -639,38 +682,57 @@ export default function VehiclesPage() {
                       <tr key={v.id} className="hover:bg-gray-50/60 transition">
                         {editingId === v.id ? (
                           <>
-                            <td className="px-5 py-2">
+                            <td className="px-5 py-2 align-top">
                               <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-500 font-mono text-base font-semibold tracking-wider rounded cursor-not-allowed">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-5 py-2">
+                            <td className="px-5 py-2 align-top">
                               <input
                                 value={editData.name}
                                 onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
                                 className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2">
+                            <td className="px-5 py-2 align-top">
                               <input
                                 value={editData.model}
                                 onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
                                 className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2">
+                            <td className="px-5 py-2 align-top">
+                              <div className="flex flex-wrap gap-2 max-w-[200px]">
+                                {AVAILABLE_ATTRIBUTES.map((attr) => (
+                                  <label key={attr} className="flex items-center space-x-1 text-xs text-gray-700 cursor-pointer whitespace-nowrap">
+                                    <input
+                                      type="checkbox"
+                                      checked={editData.attributes.includes(attr)}
+                                      onChange={() => setEditData((prev) => ({
+                                        ...prev,
+                                        attributes: handleAttributeToggle(prev.attributes, attr)
+                                      }))}
+                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3 w-3"
+                                    />
+                                    <span>{attr}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-5 py-2 align-top">
                               <input
-                                type="date"
+                                type="text"
+                                placeholder="Service time"
                                 value={editData.service_time}
                                 onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
                                 className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2 text-gray-500">
+                            <td className="px-5 py-2 text-gray-500 align-top">
                               {v.last_miles_in ?? "—"}
                             </td>
-                            <td className="px-5 py-2 text-center">-</td>
-                            <td className="px-5 py-2 text-right">
+                            <td className="px-5 py-2 text-center align-top">-</td>
+                            <td className="px-5 py-2 text-right align-top">
                               <div className="flex justify-end gap-1.5">
                                 <button
                                   onClick={() => saveEdit(v.id)}
@@ -690,19 +752,55 @@ export default function VehiclesPage() {
                           </>
                         ) : (
                           <>
-                            <td className="px-5 py-2.5">
+                            <td className="px-5 py-2.5 align-middle">
                               <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-5 py-2.5 font-medium text-gray-900">{v.name || "—"}</td>
-                            <td className="px-5 py-2.5 text-gray-700">{v.model || "—"}</td>
-                            <td className="px-5 py-2.5 text-gray-700">
-                              {v.service_time ? new Date(v.service_time).toLocaleDateString("en-GB") : "—"}
+                            <td className="px-5 py-2.5 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
+                            <td className="px-5 py-2.5 text-gray-700 align-middle">{v.model || "—"}</td>
+                            <td className="px-5 py-2.5 text-gray-700 align-middle cursor-pointer">
+                              {v.attributes && v.attributes.length > 0 ? (
+                                <div className="relative group flex flex-wrap gap-1.5 items-center">
+                                  {v.attributes.slice(0, 2).map((attr) => (
+                                    <span key={attr} className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100/50 whitespace-nowrap">
+                                      {attr.toUpperCase()}
+                                    </span>
+                                  ))}
+                                  {v.attributes.length > 2 && (
+                                    <span className="inline-flex items-center px-1.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200 cursor-help">
+                                      +{v.attributes.length - 2}
+                                    </span>
+                                  )}
+                                  
+                                  {/* Custom Tooltip */}
+                                  <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
+                                    <div className="bg-gray-800 text-white text-xs rounded-xl shadow-2xl p-3 border border-gray-700">
+                                      <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wider">All Attributes</p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {v.attributes.map(a => (
+                                          <span key={a} className="bg-gray-700/80 border border-gray-600/50 px-2 py-1 rounded-md font-medium text-gray-100">
+                                            {a.toUpperCase()}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    {/* Tooltip Arrow pointing down */}
+                                    <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                "—"
+                              )}
                             </td>
-                            <td className="px-5 py-2.5 text-gray-700">{v.last_miles_in ?? "—"}</td>
+                            <td className="px-5 py-2.5 text-gray-700 align-middle">
+                              {v.service_time 
+                                ? (String(v.service_time).includes("T") ? new Date(v.service_time).toLocaleDateString("en-GB") : `${v.service_time} months`) 
+                                : "—"}
+                            </td>
+                            <td className="px-5 py-2.5 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
 
-                            <td className="px-5 py-2.5 text-center">
+                            <td className="px-5 py-2.5 text-center align-middle">
                               <span
                                 className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
                                   ? "bg-emerald-100 text-emerald-700"
@@ -713,7 +811,7 @@ export default function VehiclesPage() {
                               </span>
                             </td>
 
-                            <td className="px-5 py-2.5 text-right">
+                            <td className="px-5 py-2.5 text-right align-middle">
                               <div className="flex justify-end items-center gap-1.5">
                                 <button
                                   onClick={() => startEdit(v)}
@@ -775,7 +873,6 @@ export default function VehiclesPage() {
             </div>
           )
         ) : (
-          // Fleet History Table
           <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-hidden">
             {historyLoading ? (
               <div className="flex items-center justify-center py-32">
