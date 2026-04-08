@@ -29,6 +29,7 @@ interface Claim {
     hire_end_date: string | null;
     reason: string | null;
     is_disputed: boolean;
+    updates?: any[];
 }
 
 type SortColumn =
@@ -139,7 +140,6 @@ export default function ClaimsPage() {
     const [updateMessage, setUpdateMessage] = useState("");
     const [updateDate, setUpdateDate] = useState(new Date().toISOString().slice(0, 10));
     const [updatesList, setUpdatesList] = useState<any[]>([]);
-    const [loadingUpdates, setLoadingUpdates] = useState(false);
     const [addingUpdate, setAddingUpdate] = useState(false);
 
     // Editing
@@ -162,9 +162,6 @@ export default function ClaimsPage() {
     const typeRef = useRef<HTMLSelectElement>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
-
-    const [closeReasonFor, setCloseReasonFor] = useState<string | null>(null);
-    const [selectedReason, setSelectedReason] = useState<string>("");
 
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
@@ -396,19 +393,14 @@ export default function ClaimsPage() {
         setUpdateDate(new Date().toISOString().slice(0, 10));
     };
 
-    const openViewUpdates = async (claim_id: string) => {
-        setUpdateModalState({ type: 'view', claim_id });
-        setLoadingUpdates(true);
-        try {
-            const res = await api.get(`/api/claims/${claim_id}/updates`, { headers: { requiresAuth: true } });
-            const sorted = (res.data.data || []).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            setUpdatesList(sorted);
-        } catch (err) {
-            console.error("Failed to fetch updates", err);
-            setUpdatesList([]);
-        } finally {
-            setLoadingUpdates(false);
-        }
+    const openViewUpdates = (claim: Claim) => {
+        setUpdateModalState({ type: 'view', claim_id: claim.claim_id });
+        const sorted = [...(claim.updates || [])].sort((a: any, b: any) => {
+            const dateA = new Date(a.date || 0).getTime();
+            const dateB = new Date(b.date || 0).getTime();
+            return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+        });
+        setUpdatesList(sorted);
     };
 
     const submitAddUpdate = async (e: FormEvent) => {
@@ -418,21 +410,25 @@ export default function ClaimsPage() {
         
         setAddingUpdate(true);
         try {
-            // Get existing to find next id
-            const res = await api.get(`/api/claims/${claimId}/updates`, { headers: { requiresAuth: true } });
-            const existing = res.data.data || [];
+            const currentClaim = allClaims.find(c => c.claim_id === claimId);
+            const existing = currentClaim?.updates || [];
             const nextId = existing.length > 0 ? Math.max(...existing.map((u: any) => u.id || 0)) + 1 : 1;
+
+            const now = new Date();
+            const [year, month, day] = updateDate.split('-');
+            const finalDate = new Date(Number(year), Number(month) - 1, Number(day), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
 
             await api.post(`/api/claims/${claimId}/updates`, {
                 update: {
                     id: nextId,
                     message: updateMessage.trim(),
-                    date: updateDate,
+                    date: finalDate.toISOString(),
                     user: userName || "Unknown User"
                 }
             }, { headers: { requiresAuth: true } });
 
             setUpdateModalState({ type: null, claim_id: null });
+            await fetchClaims();
         } catch (err: any) {
             console.error(err);
             alert("Failed to add update. Please try again.");
@@ -621,6 +617,18 @@ export default function ClaimsPage() {
         try {
             return new Date(dateStr).toLocaleDateString("en-GB", {
                 day: "2-digit", month: "short", year: "numeric",
+            });
+        } catch { return dateStr; }
+    };
+
+    const formatDateTime = (dateStr: string | null) => {
+        if (!dateStr) return "—";
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleString("en-GB", {
+                day: "2-digit", month: "short", year: "numeric",
+                hour: "2-digit", minute: "2-digit"
             });
         } catch { return dateStr; }
     };
@@ -1029,9 +1037,11 @@ export default function ClaimsPage() {
                                                 <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
                                                     <Plus size={16} />
                                                 </button>
-                                                <button onClick={() => openViewUpdates(claim.claim_id)} title="View Updates" className="text-blue-600 hover:text-blue-800">
-                                                    <Eye size={16} />
-                                                </button>
+                                                {claim.updates && claim.updates.length > 0 && (
+                                                    <button onClick={() => openViewUpdates(claim)} title="View Updates" className="text-blue-600 hover:text-blue-800">
+                                                        <FileText size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
 
@@ -1551,11 +1561,7 @@ export default function ClaimsPage() {
                                     </div>
                                     
                                     <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                                        {loadingUpdates ? (
-                                            <div className="flex justify-center py-10">
-                                                <Loader2 size={32} className="text-green-600 animate-spin" />
-                                            </div>
-                                        ) : updatesList.length === 0 ? (
+                                        {updatesList.length === 0 ? (
                                             <div className="text-center py-10 text-gray-500">
                                                 No updates available for this claim.
                                             </div>
@@ -1564,7 +1570,7 @@ export default function ClaimsPage() {
                                                 <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30">
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
-                                                            {formatDate(update.date)}
+                                                            {formatDateTime(update.date)}
                                                         </span>
                                                         <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
                                                             <User size={12} /> {update.user}
