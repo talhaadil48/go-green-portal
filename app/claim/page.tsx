@@ -64,7 +64,7 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
     "client paid": { color: "text-gray-900", number: 3, label: "Settled in Hire", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
     "hire end": { color: "text-[#FA6020]", number: 4, label: "Hire End", badgeBg: "border-[#FA6020]", badgeText: "bg-[#FA6020]" },
     "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
-    default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
+    default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-400" },
 };
 
 const CLAIM_TYPES = ["taxi", "personal", "learning", "vehicle damage", "sovereign"];
@@ -107,7 +107,8 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; gradient: string; b
 function ClaimsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const param = searchParams.get("view") || "closed";
+    // Defaulting to "active" if there is no search param
+    const param = searchParams.get("view") || "active";
     const isActivePage = param === "active";
 
     const [claims, setClaims] = useState<Claim[]>([]);
@@ -683,9 +684,9 @@ function ClaimsContent() {
             );
         }
         return (
-            <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+            <td className="px-3 py-1 text-center text-gray-700 whitespace-nowrap border-r border-gray-300">
                 {isEditing ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1.5">
                         <input
                             ref={dateInputRef}
                             type="date"
@@ -711,7 +712,7 @@ function ClaimsContent() {
                         )}
                     </div>
                 ) : (
-                    <div className="group flex items-center gap-2">
+                    <div className="group flex items-center justify-center gap-2">
                         <span className={isSaving ? "opacity-50" : ""}>{formatDate(claim[field])}</span>
                         {!isSaving && (
                             <button
@@ -755,23 +756,29 @@ function ClaimsContent() {
                     <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
                         <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                             <tr className="border-0 bg-transparent">
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                {/* <th className="border-0 bg-transparent p-0" colSpan={1} /> Status */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Claim ID */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Claimant Name */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Type */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Council */}
                                 <th
                                     colSpan={5}
                                     className="px-2 py-1 text-center bg-green-800"
                                     style={{ borderRadius: "8px 8px 0 0" }}
                                 >
-                                    <span className="text-xs font-bold text-white uppercase tracking-widest">
-                                        — Claim Progress —
-                                    </span>
+                                    <div className="flex justify-center items-center w-full">
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">
+                                            — Claim Progress —
+                                        </span>
+                                    </div>
                                 </th>
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Updates */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Stages */}
                             </tr>
                             <tr className="border-b border-gray-500">
+                                {/* <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    Status {getSortArrow("status")}
+                                </th> */}
                                 <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Claim ID {getSortArrow("claim_id")}
                                 </th>
@@ -784,33 +791,33 @@ function ClaimsContent() {
                                 <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Council {getSortArrow("council")}
                                 </th>
-                                <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">1</span>
+                                <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">1</span>
                                         <span>Start Date {getSortArrow("claim_start_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">2</span>
-                                        <span>Hire Start {getSortArrow("hire_start_date")}</span>
+                                <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">2</span>
+                                        <span>Active Hire {getSortArrow("hire_start_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">3</span>
-                                        <span>Client Paid {getSortArrow("pay_date")}</span>
+                                <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">3</span>
+                                        <span>Settled Date {getSortArrow("pay_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">4</span>
+                                <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">4</span>
                                         <span>Hire End {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">5</span>
+                                <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">5</span>
                                         <span>Invoice Sent {getSortArrow("invoice_date")}</span>
                                     </div>
                                 </th>
@@ -834,7 +841,12 @@ function ClaimsContent() {
 
                                 return (
                                     <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
-                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-center" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                        {/* <td className="px-1.5 py-1 border-r border-gray-300 text-center whitespace-nowrap">
+                                            <span className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wide text-white shadow-sm ${statusData.badgeText}`}>
+                                                {statusData.label}
+                                            </span>
+                                        </td> */}
+                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-left" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                             {claim.claim_id.toUpperCase()}
                                         </td>
                                         <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
@@ -1100,16 +1112,15 @@ function ClaimsContent() {
                                         <p className="text-4xl font-black tracking-tighter">{summary.vehicles}</p>
                                     </div>
                                 </button>
-
                                 <button
                                     onClick={() => setSelectedStage(selectedStage === "hire start" ? "" : "hire start")}
-                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-blue-500 to-blue-700 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-green-500 to-emerald-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Activity size={16} className="text-blue-100" />
-                                            <p className="text-[10px] font-semibold text-blue-100 uppercase tracking-widest">Active Hire</p>
+                                            <Activity size={16} className="text-green-100" />
+                                            <p className="text-[10px] font-semibold text-green-100 uppercase tracking-widest">Active Hire</p>
                                         </div>
                                         <p className="text-4xl font-black tracking-tighter">{summary.activeHire}</p>
                                     </div>
@@ -1117,13 +1128,13 @@ function ClaimsContent() {
 
                                 <button
                                     onClick={() => setSelectedStage(selectedStage === "client paid" ? "" : "client paid")}
-                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-blue-500 to-blue-700 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <CheckCircle2 size={16} className="text-indigo-100" />
-                                            <p className="text-[10px] font-semibold text-indigo-100 uppercase tracking-widest">Settled in Hire</p>
+                                            <CheckCircle2 size={16} className="text-blue-100" />
+                                            <p className="text-[10px] font-semibold text-blue-100 uppercase tracking-widest">Settled in Hire</p>
                                         </div>
                                         <p className="text-4xl font-black tracking-tighter">{summary.settledInHire}</p>
                                     </div>
@@ -1131,13 +1142,13 @@ function ClaimsContent() {
 
                                 <button
                                     onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
-                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-orange-500 to-amber-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-orange-400 to-orange-300 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Clock size={16} className="text-amber-100" />
-                                            <p className="text-[10px] font-semibold text-amber-100 uppercase tracking-widest">Hire End</p>
+                                            <Clock size={16} className="text-orange-100" />
+                                            <p className="text-[10px] font-semibold text-orange-100 uppercase tracking-widest">Hire End</p>
                                         </div>
                                         <p className="text-4xl font-black tracking-tighter">{summary.hireEnd}</p>
                                     </div>
@@ -1145,13 +1156,13 @@ function ClaimsContent() {
 
                                 <button
                                     onClick={() => setSelectedStage(selectedStage === "invoice sent" ? "" : "invoice sent")}
-                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-green-500 to-emerald-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "invoice sent" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
+                                    className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "invoice sent" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Receipt size={16} className="text-emerald-100" />
-                                            <p className="text-[10px] font-semibold text-emerald-100 uppercase tracking-widest">Invoice Sent</p>
+                                            <Receipt size={16} className="text-purple-100" />
+                                            <p className="text-[10px] font-semibold text-purple-100 uppercase tracking-widest">Invoice Sent</p>
                                         </div>
                                         <p className="text-4xl font-black tracking-tighter">{summary.invoiceSent}</p>
                                     </div>
