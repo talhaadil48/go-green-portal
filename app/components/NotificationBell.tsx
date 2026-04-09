@@ -23,7 +23,22 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
-  // 1. Get user ID from cookies and fetch notifications
+  // Fetch all notifications for the user using your axios instance
+  const fetchNotifications = async (uid: number) => {
+    try {
+      const response = await api.get(`/api/notifications/users/${uid}`, {
+        headers: { requiresAuth: true }
+      })
+      
+      if (response.data?.success) {
+        setNotifications(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  }
+
+  // 1. Get user ID from cookies and fetch initial notifications
   useEffect(() => {
     const userData = Cookies.get('user')
     if (userData) {
@@ -39,7 +54,19 @@ export default function NotificationBell() {
     }
   }, [])
 
-  // 2. Close dropdown on outside click
+  // 2. Poll for new notifications every 5 minutes (300,000 ms)
+  useEffect(() => {
+    if (!userId) return
+    console.log("Setting up notification polling for user ID:", userId)
+
+    const intervalId = setInterval(() => {
+      fetchNotifications(userId)
+    }, 5 * 60 * 1000) // 5 minutes
+
+    return () => clearInterval(intervalId)
+  }, [userId])
+
+  // 3. Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -49,21 +76,6 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  // Fetch all notifications for the user using your axios instance
-  const fetchNotifications = async (uid: number) => {
-    try {
-      const response = await api.get(`/api/notifications/users/${uid}`, {
-        headers: { requiresAuth: true }
-      })
-      
-      if (response.data?.success) {
-        setNotifications(response.data.data)
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
-    }
-  }
 
   // Handle Bell Click: Toggle Dropdown & Mark all as read optimistically in the background
   const handleBellClick = async () => {
@@ -84,6 +96,7 @@ export default function NotificationBell() {
         )
       } catch (err) {
         console.error("Failed to mark notifications as read", err)
+        // Optionally revert optimistic update here if the request fails
       }
     }
   }
