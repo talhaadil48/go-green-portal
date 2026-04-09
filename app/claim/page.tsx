@@ -1081,7 +1081,7 @@ export default function ClaimsDashboard() {
                                     </div>
                                 </button>
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "" : "hire start")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire start" ?  "hire start" : "hire start")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-emerald-400 to-green-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1095,7 +1095,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "" : "client paid")}
+                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "client paid" : "client paid")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-cyan-400 to-blue-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1109,7 +1109,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "hire end" : "hire end")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-amber-400 to-orange-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />

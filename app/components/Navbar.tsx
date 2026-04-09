@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState, useRef } from 'react'
 import Cookies from 'js-cookie'
 import { LogOut, User, ChevronDown } from 'lucide-react'
+import NotificationBell from './NotificationBell' // Adjust the import path if needed based on your folder structure
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -23,7 +24,6 @@ export default function Navbar() {
       setIsLoggedIn(!!token)
       setRole(userRole || null)
 
-      // EXACTLY like you showed
       let extractedUsername: string | null = null
       if (userData) {
         try {
@@ -128,11 +128,14 @@ export default function Navbar() {
                   </Link>
                 )}
 
+                {/* Notification Bell (Desktop) */}
+                <NotificationBell />
+
                 {/* Profile Dropdown with username from cookie */}
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                    className="flex items-center gap-2 px-4 py-2 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-xl transition-all duration-300 border border-transparent hover:border-emerald-100"
+                    className="flex items-center gap-2 px-1 py-2 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded-xl transition-all duration-300 border border-transparent hover:border-emerald-100"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
@@ -158,7 +161,6 @@ export default function Navbar() {
                   {/* Dropdown Menu */}
                   {showProfileDropdown && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-emerald-100 py-2 z-50">
-                      
                       <button
                         onClick={() => {
                           handleLogout()
@@ -176,8 +178,10 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Mobile hamburger */}
-          <div className="md:hidden">
+          {/* Mobile hamburger and Notification Bell */}
+          <div className="md:hidden flex items-center gap-4">
+            {isLoggedIn && <NotificationBell />}
+            
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="text-emerald-700 hover:text-emerald-900 focus:outline-none transition-colors"
@@ -198,7 +202,14 @@ export default function Navbar() {
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              claims
+              Active Claims
+            </Link>
+            <Link
+              href="/non-active-claim"
+              className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
+              onClick={() => setMobileOpen(false)}
+            >
+              Closed Claims
             </Link>
             <Link
               href="/long-claims"

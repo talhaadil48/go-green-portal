@@ -688,15 +688,15 @@ export default function ClaimsPage() {
         // Block cell with green thick line for vehicle damage when flagged
         if (isVehicleDamageBlocked && isVehicleDamage) {
             return (
-                <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
-                    <hr className="border-emerald-500 border-[2px]  w-[50%]" />
+                <td className="px-1 py-1 text-center whitespace-nowrap border-r border-gray-300">
+                    <hr className="border-emerald-500 border-[2px] w-[50%] mx-auto" />
                 </td>
             );
         }
         return (
-            <td className="px-3 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
+            <td className="px-1 py-1 text-gray-700 whitespace-nowrap border-r border-gray-300">
                 {isEditing ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                         <input
                             ref={dateInputRef}
                             type="date"
@@ -705,32 +705,32 @@ export default function ClaimsPage() {
                             onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                             disabled={isSaving}
                             autoFocus
-                            className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 min-w-[130px]
+                            className={`flex-1 px-1 py-1 border rounded text-xs focus:outline-none focus:ring-1 min-w-[105px]
                                 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                         />
                         {isSaving ? (
-                            <Loader2 size={16} className="text-green-600 animate-spin" />
+                            <Loader2 size={14} className="text-green-600 animate-spin" />
                         ) : (
                             <>
-                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50">
-                                    <Check size={16} />
+                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50">
+                                    <Check size={14} />
                                 </button>
-                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50">
-                                    <X size={16} />
+                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50">
+                                    <X size={14} />
                                 </button>
                             </>
                         )}
                     </div>
                 ) : (
-                    <div className="group flex items-center gap-2">
+                    <div className="group flex items-center justify-between gap-1">
                         <span className={isSaving ? "opacity-50" : ""}>{formatDate(claim[field])}</span>
                         {!isSaving && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); startEditing(claim, field); }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0"
                                 title={`Edit ${field.replace(/_/g, " ")}`}
                             >
-                                <Pencil size={14} />
+                                <Pencil size={12} />
                             </button>
                         )}
                     </div>
@@ -761,9 +761,9 @@ export default function ClaimsPage() {
         }
 
         return (
-            <div ref={tableRef}>
+            <div ref={tableRef} className="overflow-x-auto border border-gray-200 rounded-md">
                 <div className="overflow-y-auto max-h-[500px]">
-                    <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
+                    <table className="min-w-max w-full divide-y divide-gray-400 text-xs">
                         <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                             <tr className="border-0 bg-transparent">
                                 {/* Invisible filler cells */}
@@ -790,68 +790,68 @@ export default function ClaimsPage() {
                             </tr>
                             {/* ── Main header row ── */}
                             <tr className="border-b border-gray-500">
-                                <th onClick={() => handleSort("closed")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    Status {getSortArrow("closed")}
+                                <th onClick={() => handleSort("closed")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    Stat {getSortArrow("closed")}
                                 </th>
-                                <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    Claim ID {getSortArrow("claim_id")}
+                                <th onClick={() => handleSort("claim_id")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    ID {getSortArrow("claim_id")}
                                 </th>
-                                <th onClick={() => handleSort("claimant_name")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claimant_name")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Claimant {getSortArrow("claimant_name")}
                                 </th>
-                                <th onClick={() => handleSort("claim_type")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claim_type")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Type {getSortArrow("claim_type")}
                                 </th>
-                                <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("council")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Council {getSortArrow("council")}
                                 </th>
 
                                 {/* Stage 1 */}
-                                <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claim_start_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 1</span>
-                                        <span>Start Date {getSortArrow("claim_start_date")}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 1</span>
+                                        <span>Start {getSortArrow("claim_start_date")}</span>
                                     </div>
                                 </th>
 
                                 {/* Stage 2 */}
-                                <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("hire_start_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 2</span>
-                                        <span>Hire Start {getSortArrow("hire_start_date")}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 2</span>
+                                        <span>Hire In {getSortArrow("hire_start_date")}</span>
                                     </div>
                                 </th>
 
                                 {/* Stage 3 */}
-                                <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("pay_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 3</span>
-                                        <span>Client Paid {getSortArrow("pay_date")}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 3</span>
+                                        <span>Paid {getSortArrow("pay_date")}</span>
                                     </div>
                                 </th>
 
                                 {/* Stage 4 */}
-                                <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("hire_end_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 4</span>
-                                        <span>Hire End {getSortArrow("hire_end_date")}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 4</span>
+                                        <span>Hire Out {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
 
                                 {/* Stage 5 */}
-                                <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("invoice_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stage 5</span>
-                                        <span>Invoice Sent {getSortArrow("invoice_date")}</span>
+                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 5</span>
+                                        <span>Invoice {getSortArrow("invoice_date")}</span>
                                     </div>
                                 </th>
 
-                                <th className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
-                                    Updates
+                                <th className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
+                                    Upd.
                                 </th>
 
-                                <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    Stages {getSortArrow("status")}
+                                <th onClick={() => handleSort("status")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    Stage {getSortArrow("status")}
                                 </th>
                             </tr>
                         </thead>
@@ -868,7 +868,7 @@ export default function ClaimsPage() {
                                 return (
                                     <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
                                         {/* Status column */}
-                                        <td className="px-1.5 py-0.5 text-center border-r border-gray-300 whitespace-nowrap">
+                                        <td className="px-1 py-0.5 text-center border-r border-gray-300 whitespace-nowrap">
                                             <div className="relative group inline-block ">
                                                 {(() => {
                                                     let statusText = "Active";
@@ -882,7 +882,7 @@ export default function ClaimsPage() {
                                                     }
                                                     return (
                                                         <>
-                                                            <span className={`inline-flex whitespace-nowrap cursor-pointer px-2 py-0 text-[10px] font-semibold rounded-full ${bgColor}`}>
+                                                            <span className={`inline-flex whitespace-nowrap cursor-pointer px-1 py-0 text-[10px] font-semibold rounded-sm ${bgColor}`}>
                                                                 {statusText}
                                                             </span>
                                                             {isClosed && (
@@ -896,14 +896,14 @@ export default function ClaimsPage() {
                                             </div>
                                         </td>
 
-                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                        <td className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                             {claim.claim_id.toUpperCase()}
                                         </td>
 
-                                        {/* Editable claimant name — no fixed width */}
-                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                        {/* Editable claimant name — allowing wrap */}
+                                        <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 min-w-[120px]">
                                             {isEditing && editingField === "name" ? (
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1">
                                                     <input
                                                         ref={inputRef}
                                                         type="text"
@@ -912,36 +912,36 @@ export default function ClaimsPage() {
                                                         onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                         disabled={isSaving}
                                                         autoFocus
-                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
+                                                        className={`flex-1 px-1 py-1 border rounded text-xs w-full focus:outline-none focus:ring-1 
                                                                     ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                     />
                                                     {isSaving ? (
-                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                        <Loader2 size={14} className="text-green-600 animate-spin" />
                                                     ) : (
                                                         <>
-                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                         </>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2">
-                                                    <span className={`whitespace-nowrap ${isSaving ? "opacity-50" : ""}`}>
+                                                <div className="group flex items-center justify-between gap-1">
+                                                    <span className={`break-words ${isSaving ? "opacity-50" : ""}`}>
                                                         {(claim.claimant_name || "—").toUpperCase()}
                                                     </span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5" title="Edit claimant name">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit claimant name">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
 
-                                        {/* Editable claim type — no fixed width */}
-                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                        {/* Editable claim type — minimal whitespace */}
+                                        <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap">
                                             {isEditing && editingField === "claim_type" ? (
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1">
                                                     <select
                                                         ref={typeRef}
                                                         value={editTypeValue}
@@ -949,7 +949,7 @@ export default function ClaimsPage() {
                                                         onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                         disabled={isSaving}
                                                         autoFocus
-                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                        className={`flex-1 px-1 py-1 border rounded text-xs focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                     >
                                                         {CLAIM_TYPES.map((type) => (
                                                             <option key={type} value={type}>
@@ -958,30 +958,31 @@ export default function ClaimsPage() {
                                                         ))}
                                                     </select>
                                                     {isSaving ? (
-                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                        <Loader2 size={14} className="text-green-600 animate-spin" />
                                                     ) : (
                                                         <>
-                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                         </>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2 whitespace-nowrap">
+                                                <div className="group flex items-center justify-between gap-1">
                                                     <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit claim type">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
 
-                                        <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
+                                        {/* Editable council — allowed to wrap */}
+                                        <td className="px-1 py-0.5 border-r border-gray-300 text-center min-w-[100px]">
                                             {isVehicleDamage ? (
-                                                <hr className="border-emerald-500 border-[2px]  w-[50%] text-center" />
-                                            ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
+                                                <hr className="border-emerald-500 border-[2px] w-[50%] mx-auto text-center" />
+                                            ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1">
                                                 <select
                                                     ref={selectRef}
                                                     value={editCouncilValue}
@@ -989,27 +990,27 @@ export default function ClaimsPage() {
                                                     onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                     disabled={isSaving}
                                                     autoFocus
-                                                    className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                    className={`flex-1 px-1 py-1 border rounded text-xs w-full focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                 >
                                                     {COUNCIL_OPTIONS.slice(1).map((opt) => (
                                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                     ))}
                                                 </select>
                                                 {isSaving ? (
-                                                    <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                    <Loader2 size={14} className="text-green-600 animate-spin" />
                                                 ) : (
                                                     <>
-                                                        <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                        <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                        <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                        <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                     </>
                                                 )}
                                             </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2 whitespace-nowrap">
-                                                    <span>{(claim.council || "—")}</span>
+                                                <div className="group flex items-center justify-between gap-1 break-words">
+                                                    <span className="text-left w-full">{(claim.council || "—")}</span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit council">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -1032,21 +1033,21 @@ export default function ClaimsPage() {
                                         {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
 
                                         {/* Updates Column */}
-                                        <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
+                                        <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
-                                                    <Plus size={16} />
+                                                    <Plus size={14} />
                                                 </button>
                                                 {claim.updates && claim.updates.length > 0 && (
                                                     <button onClick={() => openViewUpdates(claim)} title="View Updates" className="text-blue-600 hover:text-blue-800">
-                                                        <FileText size={16} />
+                                                        <FileText size={14} />
                                                     </button>
                                                 )}
                                             </div>
                                         </td>
 
                                         {/* Stage badge */}
-                                        <td className="border-r border-gray-300 px-1 py-0.5">
+                                        <td className="border-r border-gray-300 px-1 py-0.5 whitespace-nowrap">
                                             <div className="flex items-center justify-center">
                                                 {isClosed ? (
                                                     <div className="w-3 h-3 bg-gradient-to-br from-rose-500 via-rose-600 to-rose-700 rounded-full" title="Closed"></div>
@@ -1054,7 +1055,7 @@ export default function ClaimsPage() {
                                                     <div className="w-4 h-[2px] bg-green-500" title="Disputed"></div>
                                                 ) : (
                                                     <span
-                                                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
+                                                        className={`px-1.5 py-0.5 rounded-full text-xs font-semibold border-2
                                                                     ${statusData.number >= 4
                                                                 ? `${statusData.badgeText} text-black border-transparent`
                                                                 : `bg-white ${statusData.color} ${statusData.badgeBg}`
