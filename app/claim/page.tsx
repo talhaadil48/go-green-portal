@@ -199,10 +199,12 @@ export default function ClaimsDashboard() {
             setAllClaims(res.data);
 
             try {
-                const vehiclesRes = await api.get("/api/cars/count", { headers: { requiresAuth: true } });
-                if (vehiclesRes.data?.success) {
+                const vehiclesRes = await api.get("/api/cars/free/count", { headers: { requiresAuth: true } });
+                console.log("Fetched vehicles count:", vehiclesRes.data.count);
+
+                
                     setVehiclesCount(vehiclesRes.data.count);
-                }
+                
             } catch (err) {
                 console.error("Failed to fetch vehicles count", err);
             }
@@ -1081,7 +1083,7 @@ export default function ClaimsDashboard() {
                                     </div>
                                 </button>
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire start" ?  "hire start" : "hire start")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "hire start" : "hire start")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-emerald-400 to-green-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1479,7 +1481,7 @@ export default function ClaimsDashboard() {
                         <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                             <span className="font-bold text-green-800">
-                                 {allClaims.filter(c => !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent").length}
+                                {allClaims.filter(c => !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent").length}
                             </span> active claims
                         </div>
 
