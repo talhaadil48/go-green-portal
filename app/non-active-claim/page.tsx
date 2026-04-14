@@ -386,6 +386,27 @@ export default function ClaimsPage() {
         }
     };
 
+    // ── Close Claim Logic ──────────────────────────────────────────────
+    const handleCloseClaim = async (claimId: string) => {
+        if (!userName) {
+            alert("User session not found. Please log in again.");
+            return;
+        }
+        const confirmClose = window.confirm(`Are you sure you want to close claim ${claimId}?`);
+        if (!confirmClose) return;
+
+        try {
+            await api.put(`/api/claims/${claimId}/close`, {
+                closed_by: userName,
+                reason: "claim ended"
+            }, { headers: { requiresAuth: true } });
+            await fetchClaims();
+        } catch (err: any) {
+            console.error(err);
+            alert(err.response?.data?.detail || "Failed to close claim.");
+        }
+    };
+
     // ── Update Logic ──────────────────────────────────────────────────
     const openAddUpdate = (claim_id: string) => {
         setUpdateModalState({ type: 'add', claim_id });
@@ -724,7 +745,7 @@ export default function ClaimsPage() {
                 ) : (
                     <div className="group flex items-center justify-between gap-1">
                         <span className={isSaving ? "opacity-50" : ""}>{formatDate(claim[field])}</span>
-                        {!isSaving && (
+                        {!isSaving && !claim.closed_date && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); startEditing(claim, field); }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0"
@@ -784,7 +805,8 @@ export default function ClaimsPage() {
                                     </span>
                                 </th>
 
-                                {/* Invisible trailing cells for Updates and Status */}
+                                {/* Invisible trailing cells for Updates, Close Action and Status */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                             </tr>
@@ -848,6 +870,10 @@ export default function ClaimsPage() {
 
                                 <th className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
                                     Upd.
+                                </th>
+
+                                <th className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
+                                    Close
                                 </th>
 
                                 <th onClick={() => handleSort("status")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
@@ -929,7 +955,7 @@ export default function ClaimsPage() {
                                                     <span className={`break-words ${isSaving ? "opacity-50" : ""}`}>
                                                         {(claim.claimant_name || "—").toUpperCase()}
                                                     </span>
-                                                    {!isSaving && (
+                                                    {!isSaving && !isClosed && (
                                                         <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit claimant name">
                                                             <Pencil size={12} />
                                                         </button>
@@ -969,7 +995,7 @@ export default function ClaimsPage() {
                                             ) : (
                                                 <div className="group flex items-center justify-between gap-1">
                                                     <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
-                                                    {!isSaving && (
+                                                    {!isSaving && !isClosed && (
                                                         <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit claim type">
                                                             <Pencil size={12} />
                                                         </button>
@@ -1008,7 +1034,7 @@ export default function ClaimsPage() {
                                             ) : (
                                                 <div className="group flex items-center justify-between gap-1 break-words">
                                                     <span className="text-left w-full">{(claim.council || "—")}</span>
-                                                    {!isSaving && (
+                                                    {!isSaving && !isClosed && (
                                                         <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit council">
                                                             <Pencil size={12} />
                                                         </button>
@@ -1035,15 +1061,28 @@ export default function ClaimsPage() {
                                         {/* Updates Column */}
                                         <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
-                                                    <Plus size={14} />
-                                                </button>
+                                                {!isClosed && (
+                                                    <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
+                                                        <Plus size={14} />
+                                                    </button>
+                                                )}
                                                 {claim.updates && claim.updates.length > 0 && (
                                                     <button onClick={() => openViewUpdates(claim)} title="View Updates" className="text-blue-600 hover:text-blue-800">
                                                         <FileText size={14} />
                                                     </button>
                                                 )}
                                             </div>
+                                        </td>
+
+                                        {/* Close Action Column */}
+                                        <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
+                                            {!isClosed ? (
+                                                <button onClick={() => handleCloseClaim(claim.claim_id)} title="Close Claim" className="text-red-500 hover:text-red-700 mx-auto flex">
+                                                    <Lock size={14} />
+                                                </button>
+                                            ) : (
+                                                <Lock size={14} className="text-gray-400 mx-auto flex" />
+                                            )}
                                         </td>
 
                                         {/* Stage badge */}
