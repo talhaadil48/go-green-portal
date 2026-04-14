@@ -86,7 +86,7 @@ export default function Navbar() {
                   href="/non-active-claim"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  Closed Claims
+                  All Claims
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link
@@ -209,7 +209,7 @@ export default function Navbar() {
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              Closed Claims
+              All Claims
             </Link>
             <Link
               href="/long-claims"
