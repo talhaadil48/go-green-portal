@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState, useRef } from 'react'
 import Cookies from 'js-cookie'
 import { LogOut, User, ChevronDown } from 'lucide-react'
-import NotificationBell from './NotificationBell' // Adjust the import path if needed based on your folder structure
+import NotificationBell from './NotificationBell'
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -180,7 +180,7 @@ export default function Navbar() {
 
           {/* Mobile hamburger and Notification Bell */}
           <div className="md:hidden flex items-center gap-4">
-            {isLoggedIn && <NotificationBell />}
+            {/* {isLoggedIn && <NotificationBell />} */}
             
             <button
               onClick={() => setMobileOpen(!mobileOpen)}

@@ -62,7 +62,8 @@ const AVAILABLE_ATTRIBUTES = [
   "MANUAL",
   "AUTOMATIC",
   "HYBRID",
-  "LUXURY"
+  "LUXURY",
+  "HATCHBACK"
 ];
 
 export default function VehiclesPage() {
