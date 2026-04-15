@@ -12,7 +12,8 @@ import { RentalAgreement } from "@/app/components/RentalAgreement";
 import DocumentManager from "@/app/components/Document";
 import InvoiceManager from "@/app/components/InnvoiceManager";
 import SummaryPage from "@/app/components/Summary";
-import { CheckCircle, AlertCircle, Loader2, Unlock, Lock } from "lucide-react";
+import UnsavedChangesDialog from "@/app/components/UnsavedChangesDialog";
+import { CheckCircle, AlertCircle, Loader2, Unlock, Lock, Eye } from "lucide-react";
 import { use } from "react";
 
 // Password for unlock
@@ -68,11 +69,11 @@ interface ClaimData {
   closed_by?: string | null;
   closed_date?: string | null;
   reason?: string;
-  ref_no?: string | null;        
+  ref_no?: string | null;
   is_disputed?: boolean;
   dispute_reason?: string | null;
-  locked?: boolean;              
-  locked_by?: string | null;     
+  locked?: boolean;
+  locked_by?: string | null;
   [key: string]: any;
 }
 
@@ -94,13 +95,20 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // NEW STATE: View Only mode
+  const [isViewOnly, setIsViewOnly] = useState(false);
+
+  // ADD THESE TWO NEW STATES:
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingTab, setPendingTab] = useState<TabKey | null>(null);
 
   // Form states for the combined single-line update
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [refNo, setRefNo] = useState<string>("");
   const [isDisputed, setIsDisputed] = useState<boolean>(false);
   const [disputeReason, setDisputeReason] = useState<string>("");
-  
+
   const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -114,6 +122,8 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   // Check if claim is closed
   const isClosed = !!(claimData?.closed_by && claimData?.closed_date);
+  // Disabled state should apply if claim is closed OR in View Only mode
+  const isEffectivelyDisabled = isClosed || isViewOnly;
 
   // Get current username
   useEffect(() => {
@@ -130,7 +140,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   // ====================== AUTO UNLOCK LOGIC ======================
   const unlockClaim = useCallback(async () => {
-    if (!claimId || !username || !claimData?.locked) return;
+    // Prevent unlock API call if in view-only mode or if locked by someone else
+    if (!claimId || !username || !claimData?.locked || isViewOnly) return;
+    if (claimData.locked_by && claimData.locked_by.toLowerCase() !== username.toLowerCase()) return;
 
     try {
       const formData = new FormData();
@@ -142,24 +154,24 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         `/api/claims/${claimId}/lock`,
         { locked: false },
         { headers: { requiresAuth: true } }
-      ).catch(() => {});
+      ).catch(() => { });
     } catch (err) {
       console.warn("Failed to unlock claim on exit:", err);
     }
-  }, [claimId, username, claimData?.locked]);
+  }, [claimId, username, claimData?.locked, claimData?.locked_by, isViewOnly]);
 
   useEffect(() => {
     if (!claimId || !username) return;
 
-    const handleBeforeUnload = () => unlockClaim();
+    const handleBeforeUnloadUnlock = () => unlockClaim();
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnloadUnlock);
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnloadUnlock);
       unlockClaim();
     };
-  }, [unlockClaim]);
+  }, [unlockClaim, claimId, username]);
 
   // Lock claim after fetching data
   const lockClaimAfterFetch = useCallback(async (claimInfo: ClaimData) => {
@@ -245,7 +257,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       setClaimData(prev => prev ? { ...prev, locked: false, locked_by: null } : null);
       setShowPasswordModal(false);
       setUnlockPassword("");
-      
+
       // Refresh the page or re-check lock status
       window.location.reload();
     } catch (err: any) {
@@ -262,9 +274,29 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   };
 
   const handleTabChange = (tabKey: TabKey) => {
-    setActiveTab(tabKey);
+    if (hasUnsavedChanges) {
+      // Store the tab they want to go to and show the dialog
+      setPendingTab(tabKey);
+      setShowUnsavedDialog(true);
+    } else {
+      // No unsaved changes, change tab immediately
+      setActiveTab(tabKey);
+    }
   };
 
+  const handleConfirmDiscard = () => {
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setHasUnsavedChanges(false);
+    }
+    setShowUnsavedDialog(false);
+    setPendingTab(null);
+  };
+
+  const handleCancelDialog = () => {
+    setShowUnsavedDialog(false);
+    setPendingTab(null);
+  };
   const refreshPage = () => window.location.reload();
 
   const isSovereign = claimData?.claim_type?.toLowerCase() === "sovereign";
@@ -337,7 +369,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
 
   // Locked by other user screen with password unlock option
-  if (error && claimData?.locked) {
+  if (error && claimData?.locked && !isViewOnly) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
         {/* Same lock screen UI... */}
@@ -350,6 +382,13 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           <p className="text-gray-700 text-lg mb-8">{error}</p>
 
           <div className="space-y-3">
+            <button
+              onClick={() => setIsViewOnly(true)}
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition text-lg flex items-center justify-center gap-2"
+            >
+              <Eye size={20} />
+              View Only
+            </button>
             <button
               onClick={() => setShowPasswordModal(true)}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition text-lg flex items-center justify-center gap-2"
@@ -430,9 +469,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-12 ${isClosed ? "disabled-all" : ""}`}>
-      {/* Disable all inputs globally when claim is closed */}
-      {isClosed && (
+    <div className={`min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 pb-12 ${isEffectivelyDisabled ? "disabled-all" : ""}`}>
+      {/* Disable all inputs globally when claim is closed OR in View Only mode */}
+      {isEffectivelyDisabled && (
         <style jsx global>{`
           .disabled-all input,
           .disabled-all textarea,
@@ -450,8 +489,25 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         `}</style>
       )}
 
+      {/* View Only Banner */}
+      {isViewOnly && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+          <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4 mb-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <Eye className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-900">View-Only Mode</p>
+                <p className="text-sm text-blue-800 mt-1">
+                  This claim is locked by {claimData?.locked_by}. You are viewing it in read-only mode.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Closed Claim Banner */}
-      {isClosed && (
+      {isClosed && !isViewOnly && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-18">
           <div className="bg-amber-50 border-l-4 border-amber-600 rounded-lg p-4 mb-4">
             <div className="flex items-start gap-3">
@@ -481,7 +537,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 Refresh
               </button>
 
-              {claimData?.locked && (
+              {claimData?.locked && !isViewOnly && (
                 <button
                   onClick={handleManualUnlock}
                   className="unlock-btn action-btn flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition"
@@ -498,7 +554,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
               <span className="ml-3 text-gray-600">Loading claim...</span>
             </div>
-          ) : error ? (
+          ) : error && !isViewOnly ? (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">{error}</div>
           ) : claimData ? (
             <div className="space-y-6">
@@ -529,14 +585,14 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
               {/* Single Line Update Section */}
               <div className="flex flex-col xl:flex-row xl:items-end gap-4">
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-3 xl:flex gap-4 items-start xl:items-center">
-                  
+
                   {/* Status Dropdown */}
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-xs text-gray-500 mb-1">Hire Stage</label>
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value)}
-                      disabled={isUpdatingDetails || isClosed}
+                      disabled={isUpdatingDetails || isEffectivelyDisabled}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {STATUS_OPTIONS.map((opt) => (
@@ -553,7 +609,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                     <select
                       value={isDisputed ? "yes" : "no"}
                       onChange={(e) => setIsDisputed(e.target.value === "yes")}
-                      disabled={isUpdatingDetails || isClosed}
+                      disabled={isUpdatingDetails || isEffectivelyDisabled}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <option value="no">No</option>
@@ -570,7 +626,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                         value={disputeReason}
                         onChange={(e) => setDisputeReason(e.target.value)}
                         placeholder="Enter reason..."
-                        disabled={isUpdatingDetails || isClosed}
+                        disabled={isUpdatingDetails || isEffectivelyDisabled}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
                       />
                     </div>
@@ -585,7 +641,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                         value={refNo}
                         onChange={(e) => setRefNo(e.target.value)}
                         placeholder="Reference no."
-                        disabled={isUpdatingDetails || isClosed}
+                        disabled={isUpdatingDetails || isEffectivelyDisabled}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
                       />
                     </div>
@@ -597,16 +653,15 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   <button
                     onClick={handleUpdateDetails}
                     disabled={
-                      isUpdatingDetails || 
-                      isClosed ||
+                      isUpdatingDetails ||
+                      isEffectivelyDisabled ||
                       (selectedStatus === claimData.status &&
-                       isDisputed === (claimData.is_disputed || false) &&
-                       (isDisputed ? disputeReason === (claimData.dispute_reason || "") : true) &&
-                       (!isSovereign || refNo === (claimData.ref_no || "")))
+                        isDisputed === (claimData.is_disputed || false) &&
+                        (isDisputed ? disputeReason === (claimData.dispute_reason || "") : true) &&
+                        (!isSovereign || refNo === (claimData.ref_no || "")))
                     }
-                    className={`px-6 py-2 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition w-full xl:w-auto mt-auto mb-[2px] ${
-                      isUpdatingDetails || isClosed ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                    }`}
+                    className={`px-6 py-2 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition w-full xl:w-auto mt-auto mb-[2px] ${isUpdatingDetails || isEffectivelyDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                      }`}
                   >
                     {isUpdatingDetails ? (
                       <>
@@ -634,7 +689,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         </div>
       </section>
 
-      {!error && claimData && (
+      {(!error || isViewOnly) && claimData && (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-wrap gap-1.5 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6 scrollbar-hide">
             {visibleTabs.map((tab) => (
@@ -652,7 +707,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
-            <UnsavedChangesContext.Provider value={{ hasUnsavedChanges, setHasUnsavedChanges, isClosed }}>
+            <UnsavedChangesContext.Provider value={{ hasUnsavedChanges, setHasUnsavedChanges, isClosed: isEffectivelyDisabled }}>
               {activeTab === "summary" && <SummaryPage claimId={claimId} />}
               {activeTab === "pre-inspection" && <PreInspectionChecklist claimId={claimId} />}
               {activeTab === "cancellation" && <CancellationNotice claimId={claimId} />}
@@ -665,6 +720,11 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           </div>
         </main>
       )}
+       <UnsavedChangesDialog
+        isOpen={showUnsavedDialog}
+        onDiscard={handleConfirmDiscard}
+        onCancel={handleCancelDialog}
+      />
     </div>
   );
 }
