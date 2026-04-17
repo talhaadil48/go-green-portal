@@ -64,14 +64,22 @@ function formatDate(d: string | null) {
 
 function calculateDays(start: string | null, end: string | null): number {
     if (!start || !end) return 0;
-    const startDate = new Date(start);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(end);
-    endDate.setHours(0, 0, 0, 0);
-    const diff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    return Math.floor(diff) + 1;
-}
 
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    const diff = (Date.UTC(
+        endDate.getFullYear(),
+        endDate.getMonth(),
+        endDate.getDate()
+    ) - Date.UTC(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate()
+    )) / (1000 * 60 * 60 * 24);
+
+    return diff + 1;
+}
 function Badge({ children, color = "slate" }: { children: React.ReactNode; color?: string }) {
     const colors: Record<string, string> = {
         emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
