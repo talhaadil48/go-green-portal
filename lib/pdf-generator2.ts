@@ -89,8 +89,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   doc.setTextColor(...colors.primaryDark);
   doc.text("INVOICE", pageWidth / 2, 19, { align: "center" });
 
-  // ─── Bill To (Sovereign only) ─────────────────────────────────────────────────
-  // ─── Bill To (Sovereign only) + Total Duration ────────────────────────────────────
+  // ─── Bill To (Sovereign only) + Total Duration ────────────────────────────────
   if (hirer_name && hirer_name.toLowerCase() === "sovereign") {
     doc.setFontSize(8);
     doc.setTextColor(...colors.darkText);
@@ -129,7 +128,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   }
   // ─── Period, Generated, Invoice Number ────────────────────────────────────────
   const infoX = pageWidth - 65;
-  const days = calculateDays(data.period.starting_date, data.period.ending_date); // you can keep or remove this duplicate calculation
+  const days = calculateDays(data.period.starting_date, data.period.ending_date); 
 
   doc.setFontSize(8);
   doc.setTextColor(...colors.gray);
@@ -169,12 +168,12 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     if (claimants.length === 0) {
       body.push([
         formatSlt(sltCounter++),         // ID
-        "—",                             // Ref No (empty for no claimants)
+        "—",                             // Ref No
+        "No claimants",                  // Claimant
         car.reg_no || "—",               // Reg
         car.name || "—",                 // Vehicle
         car.model || "—",                // Model
         `£${dailyRate.toFixed(2)}`,      // Daily Rate
-        "No claimants",                  // Claimant
         "—",                             // Dates
         "—",                             // Location
         "—",                             // Delivery
@@ -184,16 +183,16 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
       claimants.forEach((cl: any, idx: number) => {
         body.push([
           cl.claimant_id || "—",                                         // ID
-          cl.ref_no || "—",                                       // Ref No
-          idx === 0 ? (car.reg_no || "—") : "",                   // Reg
-          idx === 0 ? (car.name || "—") : "",                     // Vehicle
-          idx === 0 ? (car.model || "—") : "",                    // Model
-          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",           // Daily Rate
-          cl.name || "—",                                         // Claimant
-          `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`, // Dates
-          cl.location || "—",                                     // Location
-          `£${(cl.delivery_charges || 0).toFixed(2)}`,           // Delivery
-          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",          // Hire Total
+          cl.ref_no || "—",                                              // Ref No
+          cl.name || "—",                                                // Claimant
+          idx === 0 ? (car.reg_no || "—") : "",                          // Reg
+          idx === 0 ? (car.name || "—") : "",                            // Vehicle
+          idx === 0 ? (car.model || "—") : "",                           // Model
+          idx === 0 ? `£${dailyRate.toFixed(2)}` : "",                   // Daily Rate
+          `${formatDate(cl.start_date)} – ${formatDate(cl.end_date)}`,   // Dates
+          cl.location || "—",                                            // Location
+          `£${(cl.delivery_charges || 0).toFixed(2)}`,                   // Delivery
+          idx === 0 ? `£${hireAmount.toFixed(2)}` : "",                  // Hire Total
         ]);
       });
     }
@@ -202,12 +201,12 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   autoTable(doc, {
     startY: tableStartY,
     head: [
-      ["ID", "Your Ref No", "Reg", "Vehicle", "Model", "Daily Rate", "Claimant", "Dates", "Location", "Delivery £", "Hire Total £"]
+      ["ID", "Your Ref No", "Claimant", "Reg", "Vehicle", "Model", "Daily Rate", "Dates", "Location", "Delivery £", "Hire Total £"]
     ],
     body,
     theme: "grid",
     styles: {
-      fontSize: 6.2,
+      fontSize: 5.5, // Smaller font size to prevent multi-line rows
       cellPadding: 1.2,
       lineColor: [215, 215, 215],
       lineWidth: 0.2,
@@ -216,26 +215,26 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     headStyles: {
       fillColor: colors.primary,
       textColor: colors.white,
-      fontSize: 6.8,
+      fontSize: 6.0, // Reduced header font size
       fontStyle: "bold",
       cellPadding: 1.6,
     },
     alternateRowStyles: { fillColor: colors.lightBg },
     columnStyles: {
-      0: { cellWidth: 14, halign: "center" }, // ID
+      0: { cellWidth: 11, halign: "center" }, // ID
       1: { cellWidth: 18 },                   // Ref No
-      2: { cellWidth: 13 },                   // Reg
-      3: { cellWidth: 16 },                   // Vehicle
-      4: { cellWidth: 14 },                   // Model
-      5: { cellWidth: 15, halign: "right" },  // Daily Rate
-      6: { cellWidth: 24 },                   // Claimant
-      7: { cellWidth: 28 },                   // Dates
-      8: { cellWidth: 24 },                   // Location
-      9: { cellWidth: 16, halign: "right" },  // Delivery £
-      10: { cellWidth: 17, halign: "right" }, // Hire Total
+      2: { cellWidth: 23 },                   // Claimant
+      3: { cellWidth: 13 },                   // Reg
+      4: { cellWidth: 15 },                   // Vehicle
+      5: { cellWidth: 13 },                   // Model
+      6: { cellWidth: 12, halign: "right" },  // Daily Rate
+      7: { cellWidth: 38 },                   // Dates (Expanded to fit single line)
+      8: { cellWidth: 23 },                   // Location
+      9: { cellWidth: 12, halign: "right" },  // Delivery £
+      10: { cellWidth: 14, halign: "right" }, // Hire Total
     },
     didParseCell(hookData) {
-      if ([5, 9, 10].includes(hookData.column.index)) {
+      if ([6, 9, 10].includes(hookData.column.index)) {
         hookData.cell.styles.halign = "right";
       }
       if (hookData.column.index === 0) {
@@ -245,8 +244,10 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     margin: { left: margin, right: margin },
     rowPageBreak: "avoid",
   });
-  // ─── Billing Summary (SECOND TABLE COMPLETELY REMOVED + simplified billing) ───
+
+  // ─── Billing Summary ──────────────────────────────────────────────────────────
   const tableEndY = (doc as any).lastAutoTable.finalY || 100;
+  
   // Add this explanation note
   doc.setFontSize(7);
   doc.setFont("helvetica", "italic");
@@ -257,7 +258,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
     tableEndY + 6
   );
 
-  // Calculate totals (same as before)
+  // Calculate totals 
   const totalHire = data.claimCars.reduce((sum, car) => {
     const rate = data.dailyRates[car.id] || 0;
     return sum + rate * days;
@@ -272,8 +273,7 @@ export async function generateLongClaimInvoicePDF(data: LongClaimPDFData): Promi
   const labelX = pageWidth - 68;
   const rowSpacing = 4.5;
 
-  // NO individual car lines any more → directly Total Hire (sum of ALL hires)
-  const carRowsHeight = 0; // removed per-car listing as requested
+  const carRowsHeight = 0; 
   const summaryStartY = billY + carRowsHeight + 2;
 
   doc.setFont("helvetica", "bold");
