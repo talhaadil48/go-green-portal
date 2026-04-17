@@ -70,7 +70,7 @@ export default function LoginPage() {
         path: '/',
       })
 
-      router.push('/claim') // or '/' or your dashboard route
+      window.location.href='/claim' // or '/' or your dashboard route
     } catch (err: any) {
       console.log(err)
       alert(err)

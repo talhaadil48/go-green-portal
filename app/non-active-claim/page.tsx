@@ -104,6 +104,11 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; gradient: string; b
     },
 };
 
+// Helper function to check if a claim is fully closed
+const isClaimClosed = (claim: Claim) => {
+    return claim.status?.toLowerCase() === "close claim" || !!(claim.closed_date && claim.closed_by);
+};
+
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
@@ -234,19 +239,17 @@ export default function ClaimsPage() {
 
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
+                !isClaimClosed(claim) &&
                 !claim.is_disputed &&
-                !claim.closed_date &&
-                !claim.closed_by &&
                 ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
-                claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())
+                !isClaimClosed(claim) &&
+                (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase()))
             );
         } else if (statusFilter === "Closed") {
-            filtered = filtered.filter((claim) =>
-                claim.status?.toLowerCase() === "close claim" || (claim.closed_date && claim.closed_by)
-            );
+            filtered = filtered.filter((claim) => isClaimClosed(claim));
         }
 
         if (startDate || endDate) {
@@ -301,8 +304,8 @@ export default function ClaimsPage() {
                 }
 
                 if (sortColumn === "closed") {
-                    const aClosed = !!(a.closed_date && a.closed_by);
-                    const bClosed = !!(b.closed_date && b.closed_by);
+                    const aClosed = isClaimClosed(a);
+                    const bClosed = isClaimClosed(b);
                     const comparison = aClosed === bClosed ? 0 : aClosed ? 1 : -1;
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
@@ -670,27 +673,28 @@ export default function ClaimsPage() {
     const summary = useMemo(() => {
         const total = allClaims.length;
         const activeClaims = allClaims.filter(c =>
+            !isClaimClosed(c) &&
             !c.is_disputed &&
-            !c.closed_date &&
-            !c.closed_by &&
             ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
-            c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase())
+            !isClaimClosed(c) &&
+            (c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase()))
         ).length;
-        const closedClaims = allClaims.filter(c =>
-            c.status?.toLowerCase() === "close claim" || (c.closed_date && c.closed_by)
-        ).length;
+        const closedClaims = allClaims.filter(c => isClaimClosed(c)).length;
         const typeBreakdown = CLAIM_TYPES.map(type => ({
             type,
             count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
+        
+        // Exclude closed claims from invoice pending and sent summaries
         const invoicePending = allClaims.filter(c =>
-            c.status?.toLowerCase() === "hire end"
+            !isClaimClosed(c) && c.status?.toLowerCase() === "hire end"
         ).length;
         const invoiceSent = allClaims.filter(c =>
-            c.status?.toLowerCase() === "invoice sent"
+            !isClaimClosed(c) && c.status?.toLowerCase() === "invoice sent"
         ).length;
+        
         return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
     }, [allClaims]);
 
@@ -885,7 +889,7 @@ export default function ClaimsPage() {
                             {claims.map((claim) => {
                                 const isEditing = editingClaimId === claim.claim_id;
                                 const isSaving = savingClaimId === claim.claim_id;
-                                const isClosed = !!(claim.closed_date && claim.closed_by);
+                                const isClosed = isClaimClosed(claim);
                                 const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
                                 const isVehicleDamage = claim.claim_type === "vehicle damage";
                                 const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
@@ -913,7 +917,7 @@ export default function ClaimsPage() {
                                                             </span>
                                                             {isClosed && (
                                                                 <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-lg z-100">
-                                                                    Closed by {claim.closed_by} on {formatDate(claim.closed_date)} | Reason: {claim.reason}
+                                                                    Closed by {claim.closed_by || "System"} on {formatDate(claim.closed_date)} | Reason: {claim.reason || "N/A"}
                                                                 </div>
                                                             )}
                                                         </>
@@ -1397,7 +1401,7 @@ export default function ClaimsPage() {
                                                 </div>
                                                 <div>
                                                     <p className="text-xs font-semibold text-emerald-800">Sent</p>
-                                                    <p className="text-[10px] text-emerald-400 font-medium">Invoice sent / Closed</p>
+                                                    <p className="text-[10px] text-emerald-400 font-medium">Invoice sent status</p>
                                                 </div>
                                             </div>
                                             <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
