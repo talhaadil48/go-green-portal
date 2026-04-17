@@ -27,13 +27,12 @@ function calculateDays(start: string | null, end: string | null): number {
   const s = new Date(start);
   const e = new Date(end);
   
-  s.setHours(0, 0, 0, 0);
-  e.setHours(0, 0, 0, 0);
+  // Get the exact UTC timestamp for midnight on both dates
+  const utcStart = Date.UTC(s.getFullYear(), s.getMonth(), s.getDate());
+  const utcEnd = Date.UTC(e.getFullYear(), e.getMonth(), e.getDate());
   
-  const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
-  
-  // Use Math.round() to fix the Daylight Saving Time fractional issue
-  return Math.round(diff) + 1;
+  const diff = (utcEnd - utcStart) / (1000 * 60 * 60 * 24);
+  return Math.floor(diff) + 1;
 }
 
 function formatDate(d: string | null) {
