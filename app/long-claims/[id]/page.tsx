@@ -63,22 +63,18 @@ function formatDate(d: string | null) {
 }
 
 function calculateDays(start: string | null, end: string | null): number {
-    if (!start || !end) return 0;
-
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-
-    const diff = (Date.UTC(
-        endDate.getFullYear(),
-        endDate.getMonth(),
-        endDate.getDate()
-    ) - Date.UTC(
-        startDate.getFullYear(),
-        startDate.getMonth(),
-        startDate.getDate()
-    )) / (1000 * 60 * 60 * 24);
-
-    return diff + 1;
+  if (!start || !end) return 0;
+  
+  const s = new Date(start);
+  const e = new Date(end);
+  
+  s.setHours(0, 0, 0, 0);
+  e.setHours(0, 0, 0, 0);
+  
+  const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
+  
+  // Use Math.round() to fix the Daylight Saving Time fractional issue
+  return Math.round(diff) + 1;
 }
 function Badge({ children, color = "slate" }: { children: React.ReactNode; color?: string }) {
     const colors: Record<string, string> = {

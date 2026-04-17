@@ -23,12 +23,17 @@ const colors = {
 
 function calculateDays(start: string | null, end: string | null): number {
   if (!start || !end) return 0;
+  
   const s = new Date(start);
   const e = new Date(end);
+  
   s.setHours(0, 0, 0, 0);
   e.setHours(0, 0, 0, 0);
+  
   const diff = (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24);
-  return Math.floor(diff) + 1;
+  
+  // Use Math.round() to fix the Daylight Saving Time fractional issue
+  return Math.round(diff) + 1;
 }
 
 function formatDate(d: string | null) {
