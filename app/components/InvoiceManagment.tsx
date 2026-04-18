@@ -18,6 +18,7 @@ import api from "@/lib/axios";
 interface ClaimInvoice {
   id: number;
   claim_id: string | null;
+  claim_type: string | null; // Added claim_type
   claimant_name: string | null;
   invoice_datetime: string | null;
   info: string | null;
@@ -286,6 +287,12 @@ export default function InvoiceManagementPage() {
 
   // 1. Filter
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
+    // Exclude invoices if claim_type is "vehicle damage" or "sovereign"
+    const type = inv.claim_type?.toLowerCase();
+    if (type === "vehicle damage" || type === "sovereign") {
+      return false;
+    }
+
     const matchesSearch =
       !search ||
       String(inv.id).includes(search) ||
@@ -320,7 +327,11 @@ export default function InvoiceManagementPage() {
   const isLoading = isClaimTab ? loadingClaim : loadingLongHire;
   const error = isClaimTab ? errorClaim : errorLongHire;
   const filteredCount = isClaimTab ? sortedClaimInvoices.length : sortedLongHireInvoices.length;
-  const totalCount = isClaimTab ? claimInvoices.length : longHireInvoices.length;
+  // Using the original list length for total count before filtering, you can change this if you want total count without hidden types
+  const totalCount = isClaimTab ? claimInvoices.filter(i => {
+    const t = i.claim_type?.toLowerCase();
+    return t !== "vehicle damage" && t !== "sovereign";
+  }).length : longHireInvoices.length;
 
   const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {
     const isActive = sortConfig?.key === sortKey;

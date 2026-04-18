@@ -7,6 +7,7 @@ import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
+import Cookies from "js-cookie";  
 import api from "@/lib/axios";
 interface ClaimProps {
   claimId: string;
@@ -14,6 +15,7 @@ interface ClaimProps {
 
 export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
+  const [username, setUsername] = useState<string | null>(null);
   const unsavedChangesContext = useContext(UnsavedChangesContext);
 
   // Storage location mapping
@@ -84,6 +86,22 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
       return "";
     }
   };
+  
+      useEffect(() => {
+          const getCurrentUsername = (): string | null => {
+              try {
+                  const userData = Cookies.get("user");
+                  if (!userData) return null;
+                  const parsed = JSON.parse(userData);
+                  return parsed?.username || null;
+              } catch {
+                  return null;
+              }
+          };
+          const currentUser = getCurrentUsername();
+          setUsername(currentUser);
+      }, []);
+  
   useEffect(() => {
     // ──────────────── Number of Days ────────────────
     const days = calculateDays(
@@ -232,6 +250,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
       client_signature: signatures.client_signature || null,
       owner_signature: signatures.owner_signature || null,
       claim_id: currentClaimId,
+      user_name: username,
     };
 
     try {

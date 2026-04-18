@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useContext } from "react";
+import React, { use, useContext } from "react";
 
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
@@ -9,7 +9,7 @@ import Signature from "./Signature";
 import DrawingCanvas from "./DrawingCanvas";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
-
+import Cookies from "js-cookie";
 interface ClaimProps {
   claimId: string;
 }
@@ -17,6 +17,7 @@ interface ClaimProps {
 export function AccidentClaimForm({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
+  const [username, setUsername] = useState<string | null>(null);
 
 
   const checklistItems = [
@@ -128,6 +129,21 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
   const [isWitnessFromApi, setIsWitnessFromApi] = useState(false);
 
   const sigRef = useRef<{ clear: () => void } | null>(null);
+
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []);
 
   useEffect(() => {
     setCurrentClaimId(claimId);
@@ -278,6 +294,7 @@ export function AccidentClaimForm({ claimId }: ClaimProps) {
       direction_before_drawing: beforeDrawing || null,
       direction_after_drawing: afterDrawing || null,
       claim_id: currentClaimId,
+      user_name: username,
     };
 
     try {

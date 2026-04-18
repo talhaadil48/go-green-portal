@@ -9,6 +9,7 @@ import ImageDrawEditor, { ImageDrawEditorRef } from "./ImageEditor";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
 import api from "@/lib/axios";
+import Cookies from "js-cookie";
 
 interface PreInspectionChecklistProps {
   claimId: string;
@@ -94,6 +95,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
   const [isDetailerSigFromApi, setIsDetailerSigFromApi] = useState(false);
   const [isImageFromApi, setIsImageFromApi] = useState(false);
   const [apiAnnotatedImage, setApiAnnotatedImage] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -103,6 +105,24 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
   const editorRef = useRef<ImageDrawEditorRef>(null);
   const customerSigRef = useRef(null);
   const detailerSigRef = useRef(null);
+
+
+  
+      useEffect(() => {
+          const getCurrentUsername = (): string | null => {
+              try {
+                  const userData = Cookies.get("user");
+                  if (!userData) return null;
+                  const parsed = JSON.parse(userData);
+                  return parsed?.username || null;
+              } catch {
+                  return null;
+              }
+          };
+          const currentUser = getCurrentUsername();
+          setUsername(currentUser);
+      }, []);
+  
 
   useEffect(() => {
     setCurrentClaimId(claimId);
@@ -248,6 +268,7 @@ export default function PreInspectionChecklist({ claimId }: PreInspectionCheckli
       annotated_vehicle_image: finalAnnotatedImage,
       claim_id: currentClaimId,
       inspection_id: selectedInspectionId || undefined, // Include inspection_id if updating existing
+      user_name: username,
     };
 
     try {

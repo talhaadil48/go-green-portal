@@ -8,6 +8,7 @@ import api from "@/lib/axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import { UnsavedChangesContext } from "../claim/[id]/page";
+import Cookies from "js-cookie";
 
 interface ClaimProps {
     claimId: string;
@@ -32,56 +33,74 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     const [error, setError] = useState<string | null>(null);
     const [isFetching, setIsFetching] = useState(true);
     const [isSignatureFromApi, setIsSignatureFromApi] = useState(false);
+    const [username, setUsername] = useState<string | null>(null);
     const [initialData, setInitialData] = useState<Record<string, string>>(initialFormData);
 
-  useEffect(() => {
-    setCurrentClaimId(claimId);
-}, [claimId]);
 
-const fetchCancellationData = async () => {
-    setIsFetching(true);
-    setError(null);
 
-    try {
-        const response = await api.get(`/api/cancellation-forms/${claimId}`, {
-            headers: { requiresAuth: true },
-        });
-
-        const data = response.data;
-        const updatedFormData = { ...initialFormData };
-
-        Object.keys(data).forEach((key) => {
-            const value = data[key];
-            if (value !== null && value !== "" && key in updatedFormData) {
-                updatedFormData[key] = value;
+    useEffect(() => {
+        const getCurrentUsername = (): string | null => {
+            try {
+                const userData = Cookies.get("user");
+                if (!userData) return null;
+                const parsed = JSON.parse(userData);
+                return parsed?.username || null;
+            } catch {
+                return null;
             }
-        });
+        };
+        const currentUser = getCurrentUsername();
+        setUsername(currentUser);
+    }, []);
 
-        setFormData(updatedFormData);
-        setInitialData(updatedFormData);
+    useEffect(() => {
+        setCurrentClaimId(claimId);
+    }, [claimId]);
 
-        if (unsavedChangesContext) {
-            unsavedChangesContext.setHasUnsavedChanges(false);
-        }
+    const fetchCancellationData = async () => {
+        setIsFetching(true);
+        setError(null);
 
-        if (data.cancellation_signature) {
-            setSignature(data.cancellation_signature);
-            setIsSignatureFromApi(true); // mark as locked/external
-        } else {
-            setSignature(null);
-            setIsSignatureFromApi(false);
+        try {
+            const response = await api.get(`/api/cancellation-forms/${claimId}`, {
+                headers: { requiresAuth: true },
+            });
+
+            const data = response.data;
+            const updatedFormData = { ...initialFormData };
+
+            Object.keys(data).forEach((key) => {
+                const value = data[key];
+                if (value !== null && value !== "" && key in updatedFormData) {
+                    updatedFormData[key] = value;
+                }
+            });
+
+            setFormData(updatedFormData);
+            setInitialData(updatedFormData);
+
+            if (unsavedChangesContext) {
+                unsavedChangesContext.setHasUnsavedChanges(false);
+            }
+
+            if (data.cancellation_signature) {
+                setSignature(data.cancellation_signature);
+                setIsSignatureFromApi(true); // mark as locked/external
+            } else {
+                setSignature(null);
+                setIsSignatureFromApi(false);
+            }
+        } catch (err: any) {
+            if (err.response?.status === 404) {
+                console.log("Cancellation form not found (404) → showing blank form");
+            } else {
+                console.error("Fetch error:", err);
+                setError(err.message || "Failed to load cancellation data");
+            }
+        } finally {
+            setIsFetching(false);
         }
-    } catch (err: any) {
-        if (err.response?.status === 404) {
-            console.log("Cancellation form not found (404) → showing blank form");
-        } else {
-            console.error("Fetch error:", err);
-            setError(err.message || "Failed to load cancellation data");
-        }
-    } finally {
-        setIsFetching(false);
-    }
-};
+    };
     useEffect(() => {
         if (claimId) {
             fetchCancellationData();
@@ -93,7 +112,7 @@ const fetchCancellationData = async () => {
     ) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-        
+
         // Mark as changed when user modifies form
         if (unsavedChangesContext) {
             unsavedChangesContext.setHasUnsavedChanges(true);
@@ -111,7 +130,7 @@ const fetchCancellationData = async () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
 
-      
+
 
         setLoading(true);
         setError(null);
@@ -120,6 +139,7 @@ const fetchCancellationData = async () => {
             ...formData,
             cancellation_signature: signature,
             claim_id: currentClaimId,
+            user_name: username,
         };
 
         try {
@@ -155,12 +175,12 @@ const fetchCancellationData = async () => {
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
             <main className="flex-1 max-w-6xl mx-auto px-6 py-12 w-full">
                 <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-8 md:p-10 border border-green-100">
-<div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
                         <h2 className="text-2xl font-bold text-green-800 text-center sm:text-left tracking-tight">
                             Cancellation Notice
                         </h2>
                         <PDFShareButton
-                            formData={{ 
+                            formData={{
                                 title: "Cancellation Notice",
                                 formType: "cancellation",
                                 claimId: currentClaimId,
@@ -310,7 +330,7 @@ const fetchCancellationData = async () => {
 
                         </div>
 
-                     
+
 
                         {/* Submit button */}
                         <div className="text-center pt-8">

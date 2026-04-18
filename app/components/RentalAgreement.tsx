@@ -6,9 +6,10 @@ import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
 import Signature from "./Signature";
 import PDFShareButton from "./PDFShareButton";
+import Cookies from "js-cookie";
 import { UnsavedChangesContext } from "../claim/[id]/page";
 import api from "@/lib/axios";
-import { Pencil} from "lucide-react";
+import { Pencil } from "lucide-react";
 interface ClaimProps {
   claimId: string;
 }
@@ -24,6 +25,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [currentClaimId, setCurrentClaimId] = useState<string>("");
   const unsavedChangesContext = useContext(UnsavedChangesContext);
   const [refNo, setRefNo] = useState<string>("");
+  const [username, setUsername] = useState<string | null>(null);
 
   interface ChangeVehicleRecord {
     vehicle_reg: string;
@@ -179,16 +181,33 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   };
 
 
-  useEffect(() => { 
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []);
+
+
+
+  useEffect(() => {
     // Auto-calculate total_days when hire_vehicle_date_out or hire_vehicle_date_in changes
     // days_in and days_out are kept separate for the API
     const dateOut = String(formData.hire_vehicle_date_out || "");
     const dateIn = String(formData.days_in || "");
-    
+
     const totalDays = calculateInclusiveDays(dateOut, dateIn);
-    
+
     setFormData(prev => ({ ...prev, total_days: totalDays }));
-     
+
   }, [formData.hire_vehicle_date_out, formData.days_in]);
 
 
@@ -635,6 +654,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       declaration_signature: signatures.declaration_signature || null,
       liability_signature: signatures.liability_signature || null,
       claim_id: currentClaimId,
+      user_name : username,
     };
 
     try {
@@ -776,7 +796,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                               onClick={clearHireVehicle}
                               className="px-2 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition"
                             >
-                              <Pencil className="h-4 w-4" /> 
+                              <Pencil className="h-4 w-4" />
                             </button>
                           )}
                         </div>
@@ -1000,11 +1020,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                 }}
                                 disabled={vehicle.fromApi}
                                 className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
-                                    ? "bg-green-400 cursor-not-allowed"
-                                    : "bg-green-500 hover:bg-green-600"
+                                  ? "bg-green-400 cursor-not-allowed"
+                                  : "bg-green-500 hover:bg-green-600"
                                   }`}
                               >
-                                <Pencil className="h-4 w-4" /> 
+                                <Pencil className="h-4 w-4" />
                               </button>
                             </div>
                           ) : (
