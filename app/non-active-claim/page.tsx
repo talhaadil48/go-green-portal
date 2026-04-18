@@ -844,7 +844,7 @@ export default function ClaimsPage() {
                                 <th onClick={() => handleSort("hire_start_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 2</span>
-                                        <span>Hire In {getSortArrow("hire_start_date")}</span>
+                                        <span>Hire Out {getSortArrow("hire_start_date")}</span>
                                     </div>
                                 </th>
 
@@ -860,7 +860,7 @@ export default function ClaimsPage() {
                                 <th onClick={() => handleSort("hire_end_date")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Stg 4</span>
-                                        <span>Hire Out {getSortArrow("hire_end_date")}</span>
+                                        <span>Hire In {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
 
