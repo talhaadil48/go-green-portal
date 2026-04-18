@@ -43,10 +43,7 @@ export default function InvoicePage() {
               Refresh
             </button>
 
-            <button className="flex items-center gap-2 bg-green-700 hover:bg-green-800 text-white px-5 py-2.5 rounded-xl font-medium transition-colors">
-              <Plus className="w-5 h-5" />
-              New Entry
-            </button>
+            
           </div>
         </div>
 

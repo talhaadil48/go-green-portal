@@ -361,15 +361,7 @@ export default function InvoiceManagementPage() {
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
               Refresh All
             </button>
-            {isClaimTab && (
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2.5 px-5 rounded-full shadow-lg flex items-center gap-2 text-sm"
-              >
-                <Plus size={16} />
-                New Claim Invoice
-              </button>
-            )}
+           
           </div>
         </div>
 
