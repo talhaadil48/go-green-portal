@@ -5,6 +5,7 @@ import { generatePDF, PDFFormData } from "@/lib/pdf-generator";
 import { JSX } from "react/jsx-runtime";
 import api from "@/lib/axios";
 import Cookies from "js-cookie";
+
 interface Invoice {
   id: number;
   invoice_number: string;
@@ -15,9 +16,11 @@ interface Invoice {
   rent_bill: number;
   user_name: string;
 }
+
 interface InvoiceManagerProps {
   claimId: string;
 }
+
 interface DocumentOption {
   id: string;
   name: string;
@@ -25,7 +28,9 @@ interface DocumentOption {
   description: string;
   icon: JSX.Element;
   available: boolean;
+  userName?: string;
 }
+
 export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [refNo, setRefNo] = useState<string>("");
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
@@ -47,6 +52,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
       try {
@@ -62,7 +68,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     const currentUser = getCurrentUsername();
     setUsername(currentUser);
   }, []); // empty dependency array → runs once on mount
-
 
   // Fetch all form data – allow missing forms (treat as empty)
   useEffect(() => {
@@ -126,6 +131,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       fetchAllData();
     }
   }, [claimId]);
+
   // Fetch invoices for this claim
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -145,7 +151,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             docs: row[4] || "",
             storage_bill: row[5] || 0,
             rent_bill: row[6] || 0,
-            user_name: row[7] || "Unknown",
+            user_name: row[7] || "-",
           }));
           setInvoices(formattedInvoices);
         }
@@ -159,12 +165,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       fetchInvoices();
     }
   }, [claimId]);
+
   const documents: DocumentOption[] = [
     {
       id: "claim",
       name: "RTA Form",
       formType: "claim",
       description: "Complete accident claim with vehicle and party details",
+      userName: documentsData["claim"]?.user_name,
       icon: (
         <svg
           className="w-6 h-6"
@@ -187,6 +195,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       name: "Rental Agreement",
       formType: "rental-agreement",
       description: "Vehicle rental terms and conditions",
+      userName: documentsData["rental-agreement"]?.user_name,
       icon: (
         <svg
           className="w-6 h-6"
@@ -209,6 +218,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       name: "Cancellation Notice",
       formType: "cancellation",
       description: "Contract cancellation request form",
+      userName: documentsData["cancellation"]?.user_name,
       icon: (
         <svg
           className="w-6 h-6"
@@ -231,6 +241,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       name: "Storage & Recovery Invoice",
       formType: "storage-recovery",
       description: "Storage and recovery charges agreement",
+      userName: documentsData["storage-recovery"]?.user_name,
       icon: (
         <svg
           className="w-6 h-6"
@@ -249,6 +260,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       available: true,
     },
   ];
+
   // Add dynamic pre-inspection forms from array
   const preInspectionForms: DocumentOption[] = [];
   if (
@@ -261,6 +273,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         name: `Hire Vehicle Checklist ${index + 1}`,
         formType: "pre-inspection",
         description: `Vehicle inspection `,
+        userName: form.user_name,
         icon: (
           <svg
             className="w-6 h-6"
@@ -280,14 +293,24 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       });
     });
   }
+
   const uploadedDocuments: DocumentOption[] = [];
   if (documentsData["documents"]) {
     for (const id in documentsData["documents"]) {
+      const docVal = documentsData["documents"][id];
+      let userName = undefined;
+      
+      // Check if docVal is the new object format { url, user_name }
+      if (typeof docVal === "object" && docVal !== null) {
+        userName = docVal.user_name;
+      }
+
       uploadedDocuments.push({
         id,
         name: id,
         formType: "document",
         description: `Uploaded document: ${id}`,
+        userName: userName,
         icon: (
           <svg
             className="w-6 h-6"
@@ -307,11 +330,13 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       });
     }
   }
+
   const allDocuments = [
     ...documents,
     ...preInspectionForms,
     ...uploadedDocuments,
   ];
+
   const toggleDocument = (docId: string) => {
     setSelectedDocs((prev) =>
       prev.includes(docId)
@@ -319,12 +344,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         : [...prev, docId],
     );
   };
+
   const selectAll = () => {
     const availableDocs = allDocuments
       .filter((d) => d.available)
       .map((d) => d.id);
     setSelectedDocs(availableDocs);
   };
+
   const deselectAll = () => {
     setSelectedDocs([]);
   };
@@ -336,7 +363,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
       // For uploaded documents, download directly
       if (doc.formType === "document") {
-        const existingUrl = documentsData["documents"]?.[docId];
+        const docVal = documentsData["documents"]?.[docId];
+        const existingUrl = typeof docVal === "object" && docVal !== null ? docVal.url : docVal;
+        
         if (existingUrl) {
           const a = document.createElement("a");
           a.href = existingUrl;
@@ -348,6 +377,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
         return;
       }
+      
       // For generated documents, generate PDF and download
       let blob: Blob;
       let filename: string;
@@ -403,6 +433,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       setStatus({ type: "error", text: "Failed to download document" });
     }
   };
+
   const extractSignatures = (
     docId: string,
     data: any,
@@ -435,6 +466,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     }
     return signatures;
   };
+
   const extractImages = (
     docId: string,
     data: any,
@@ -455,6 +487,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     }
     return images;
   };
+
   const handleSendDocuments = async () => {
     if (selectedDocs.length === 0) {
       setStatus({
@@ -493,7 +526,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         // no fetching or re-uploading needed.
         // ─────────────────────────────────────────────────────────────
         if (doc.formType === "document") {
-          const existingUrl = documentsData["documents"]?.[docId];
+          const docVal = documentsData["documents"]?.[docId];
+          const existingUrl = typeof docVal === "object" && docVal !== null ? docVal.url : docVal;
+          
           if (!existingUrl) {
             uploadErrors.push(doc.name || docId);
             setStatus({
@@ -639,7 +674,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 docs: docsArray,
                 storage_bill: storage,
                 rent_bill: rental,
-                user_name: username || "Unknown", // or fetch actual user name if available
+                user_name: username || "-", // or fetch actual user name if available
               },
               {
                 headers: { requiresAuth: true },
@@ -664,7 +699,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                   docs: row[4] || "",
                   storage_bill: row[5] || 0,
                   rent_bill: row[6] || 0,
-                  user_name: row[7] || "Unknown",
+                  user_name: row[7] || "-",
                 }));
                 setInvoices(formattedInvoices);
               }
@@ -711,6 +746,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       setCurrentProgress(null);
     }
   };
+
   if (isLoading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
@@ -721,8 +757,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       </div>
     );
   }
+
   const availableCount = allDocuments.filter((d) => d.available).length;
   const selectedCount = selectedDocs.length;
+
   return (
     <div className="space-y-8">
       <style jsx>{`
@@ -935,6 +973,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 <th className="px-4 py-3 text-left font-semibold text-gray-700 hidden md:table-cell">
                   Description
                 </th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 hidden md:table-cell">
+                  Created
+                </th>
                 <th className="w-32 px-4 py-3 text-center font-semibold text-gray-700">
                   Status
                 </th>
@@ -1004,6 +1045,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell line-clamp-2 max-w-md">
                       {doc.description}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-600 hidden md:table-cell">
+                      {doc.userName && doc.userName.trim() !== "" ? doc.userName.toUpperCase() : "__"}
                     </td>
                     <td className="px-4 py-4 text-center text-sm">
                       {isAvailable ? (

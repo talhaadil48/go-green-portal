@@ -2,14 +2,20 @@
 
 import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import api from "@/lib/axios";
-import { uploadToS3 } from "@/lib/s3";
+import Cookies from "js-cookie";
 
 interface DocumentManagerProps {
   claimId: string;
 }
 
+// Update the map to support both legacy string URLs and the new object format with user_name
+interface DocumentData {
+  url: string;
+  user_name?: string;
+}
+
 interface DocumentsMap {
-  [key: string]: string;
+  [key: string]: string | DocumentData;
 }
 
 export default function DocumentManager({ claimId }: DocumentManagerProps) {
@@ -19,10 +25,26 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [fileNames, setFileNames] = useState<string[]>([]); // one name per file
-  const [singleDocName, setSingleDocName] = useState(""); // only for 1 file mode
+  const [fileNames, setFileNames] = useState<string[]>([]);
+  const [singleDocName, setSingleDocName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [sourceType, setSourceType] = useState<"file" | "camera" | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -55,7 +77,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
       setFileNames((prev) => [...prev, ...newFiles.map((f) => f.name)]);
       setSourceType(from);
       setSingleDocName("");
-      // Reset input so the same file can be re-added if needed
       e.target.value = "";
     }
   };
@@ -84,17 +105,20 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     setSuccessMsg(null);
 
     try {
-      // Build names array
       let names: string[];
+      let isExplicitReplacement = false;
+      
       if (selectedFiles.length === 1) {
         names = [singleDocName.trim() || selectedFiles[0].name];
+        if (singleDocName.trim() !== "") {
+          isExplicitReplacement = true; // User explicitly typed a name to replace
+        }
       } else {
         names = fileNames.map((n, i) =>
           n.trim() ? n.trim() : selectedFiles[i].name
         );
       }
 
-      // Step 1: Get presigned URLs from our API route
       const presignRes = await fetch("/api/presign-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +134,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         results: { presignedUrl: string; fileUrl: string; key: string }[];
       };
 
-      // Step 2: Upload each file directly to S3 using presigned URLs
       await Promise.all(
         selectedFiles.map((file, i) =>
           fetch(results[i].presignedUrl, {
@@ -123,8 +146,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         )
       );
 
-      // Step 3: Fetch existing docs from backend
-      let currentDocs: Record<string, string> = {};
+      let currentDocs: Record<string, any> = {};
       try {
         const getRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`
@@ -137,7 +159,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         currentDocs = {};
       }
 
-      // Step 4: Merge with dedup logic using display names → S3 URLs
+      // Step 4: Merge logic preserving user_name if it exists
       for (let i = 0; i < results.length; i++) {
         let desiredName = names[i].trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
 
@@ -149,22 +171,42 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           : [desiredName, ""];
 
         let finalKey = desiredName;
-        let counter = 1;
-        while (currentDocs[finalKey]) {
-          finalKey = `${base}-${counter}${ext}`;
-          counter++;
+        
+        // Only dedup if it's not an explicit single file replacement
+        if (!isExplicitReplacement) {
+          let counter = 1;
+          while (currentDocs[finalKey]) {
+            finalKey = `${base}-${counter}${ext}`;
+            counter++;
+          }
         }
 
-        currentDocs[finalKey] = results[i].fileUrl;
+        // Check if the document already exists to preserve the original uploader's name
+        const existingDoc = currentDocs[finalKey];
+        let originalUserName = username;
+
+        if (existingDoc) {
+          // If it was previously saved as an object, grab the old user_name
+          if (typeof existingDoc === 'object' && existingDoc.user_name) {
+            originalUserName = existingDoc.user_name;
+          }
+        }
+
+        currentDocs[finalKey] = {
+          url: results[i].fileUrl,
+          user_name: originalUserName // Retains old username if replacing, otherwise uses current username
+        };
       }
 
-      // Step 5: PUT updated docs to backend
       const putRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ documents: currentDocs }),
+          body: JSON.stringify({ 
+            documents: currentDocs,
+            user_name: username 
+          }),
         }
       );
 
@@ -179,7 +221,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           : `${count} files uploaded successfully`
       );
 
-      // Reset
       setSelectedFiles([]);
       setFileNames([]);
       setSingleDocName("");
@@ -191,7 +232,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
       setUploading(false);
     }
   };
-
 
   const handleDelete = async (docKey: string) => {
     if (!confirm(`Delete "${docKey}" permanently? This cannot be undone.`)) return;
@@ -229,7 +269,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
   return (
     <div className="space-y-10">
-      {/* Upload form */}
       <div className="bg-white border border-green-100 rounded-2xl shadow-lg p-6 md:p-8">
         <h2 className="text-2xl font-bold text-green-800 mb-6">
           Upload Documents (Photos, Videos, PDFs)
@@ -286,7 +325,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
                   </div>
                 )}
 
-                {/* Single file remove button */}
                 {!isMultiple && selectedFiles.length === 1 && (
                   <button
                     type="button"
@@ -376,7 +414,6 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         {successMsg && <p className="mt-6 text-green-600 text-center font-medium">{successMsg}</p>}
       </div>
 
-      {/* Documents List – unchanged */}
       <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6 md:p-8">
         <h2 className="text-2xl font-bold text-green-800 mb-6">
           Current Documents ({Object.keys(documents).length})
@@ -394,33 +431,40 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {Object.entries(documents).map(([name, url]) => (
-              <div
-                key={name}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition group"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-green-900 truncate">{name}</p>
-                </div>
+            {Object.entries(documents).map(([name, docData]) => {
+              // Handle backwards compatibility for legacy strings vs new objects
+              const url = typeof docData === 'string' ? docData : docData.url;
+              const uploader = typeof docData === 'object' && docData.user_name ? docData.user_name.toUpperCase() : "__";
 
-                <div className="flex gap-3 flex-shrink-0">
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
-                  >
-                    Open
-                  </a>
-                  <button
-                    onClick={() => handleDelete(name)}
-                    className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition"
-                  >
-                    Delete
-                  </button>
+              return (
+                <div
+                  key={name}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-green-900 truncate">{name}</p>
+                    <p className="text-xs text-gray-500 mt-1">Uploaded by: {uploader}</p>
+                  </div>
+
+                  <div className="flex gap-3 flex-shrink-0">
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
+                    >
+                      Open
+                    </a>
+                    <button
+                      onClick={() => handleDelete(name)}
+                      className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

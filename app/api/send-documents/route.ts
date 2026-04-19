@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
     const mailOptions = {
       from: `"Go Green" <${EMAIL_USER}>`,
-      to: [recipientEmail], // add more recipients as needed
+      to: [recipientEmail,"info@gogreenhire.co.uk"], // add more recipients as needed
       subject: subject,
       text: `
 New documents uploaded

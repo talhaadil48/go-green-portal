@@ -15,6 +15,7 @@ const getUser = () => {
     refresh_token
   };
 };
+
 // Add request interceptor to attach access token if needed
 api.interceptors.request.use(
   (config) => {
@@ -50,7 +51,7 @@ api.interceptors.response.use(
           null,
           {
             params: {
-              refresh_token:refreshToken,
+              refresh_token: refreshToken,
             },
             headers: {
               Accept: "application/json",
@@ -58,16 +59,32 @@ api.interceptors.response.use(
           },
         );
 
-        const newAccessToken = res.data.access_token;
-        Cookies.set("access_token", newAccessToken);
+        // Extract all the new values from the refresh response
+        const { access_token, refresh_token, user: userData } = res.data;
 
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        // Update all cookies with the new values
+        Cookies.set("access_token", access_token);
+        Cookies.set("refresh_token", refresh_token);
+        
+        // Store the user object as a JSON string
+        Cookies.set("user", JSON.stringify(userData));
+        
+        
+
+        // Update the authorization header and retry the original request
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);
+        
       } catch (refreshError) {
+        // If refresh fails (e.g., token expired or invalid), clear everything out
         Cookies.remove("access_token");
         Cookies.remove("refresh_token");
         Cookies.remove("user_role");
         Cookies.remove("user");
+        
+        // Optional: Redirect to login page here if you are in a browser environment
+        // window.location.href = "/login";
+        
         return Promise.reject(refreshError);
       }
     }

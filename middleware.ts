@@ -7,10 +7,12 @@ export function middleware(request: NextRequest) {
 
   const hasAuth = refreshToken && user;
 
+
   const { pathname } = request.nextUrl;
 
   // 1. If user is NOT authenticated AND they are NOT already on the login page ("/")
   if (!hasAuth && pathname !== '/') {
+    console.log('User not authenticated, redirecting to login page');
     const loginUrl = new URL('/', request.url);
     return NextResponse.redirect(loginUrl);
   }

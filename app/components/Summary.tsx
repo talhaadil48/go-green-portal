@@ -16,7 +16,11 @@ import {
   AlertCircle,
   FileText,
   Gauge,
-  Trash2
+  Trash2,
+  History,
+  X,
+  Clock,
+  Edit3
 } from 'lucide-react';
 
 interface SummaryData {
@@ -73,6 +77,14 @@ interface SummaryData {
   }>;
 }
 
+interface ClaimChange {
+  id: number;
+  claim_id: string;
+  user_name: string;
+  date: string;
+  form: string;
+  fields: string[];
+}
 
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
   "claim created": { color: "text-gray-900", number: 1, label: "Claim Created", badgeBg: "border-gray-900", badgeText: "bg-gray-900" },
@@ -82,6 +94,12 @@ const STATUS_COLORS: Record<string, { color: string; number: number; label: stri
   "invoice sent": { color: "text-green-600", number: 5, label: "Invoice Sent", badgeBg: "border-green-600", badgeText: "bg-green-600" },
   default: { color: "text-gray-500", number: 0, label: "Unknown", badgeBg: "border-gray-100", badgeText: "bg-gray-100" },
 };
+
+function prettyField(field: string): string {
+  return field
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 const storageLocations: Record<string, { name: string; city: string; postcode: string }> = {
   addr1: {
@@ -104,92 +122,6 @@ const STATUS_STAGES = [
   { key: "hire end", number: 4, label: "Hire End" },
   { key: "invoice sent", number: 5, label: "Invoice Sent" },
 ];
-
-// Returns styling config for a given stage index (0-based) relative to the active stage
-function getStageStyle(stageIndex: number, activeIndex: number): {
-  circleStyle: React.CSSProperties;
-  labelStyle: React.CSSProperties;
-  connectorStyle: React.CSSProperties;
-} {
-  const stage = STATUS_STAGES[stageIndex];
-  const isPast = stageIndex < activeIndex;
-  const isActive = stageIndex === activeIndex;
-  const isFuture = stageIndex > activeIndex;
-
-  const stageColors: Record<number, { fill: string; border: string; text: string }> = {
-    3: { fill: '#fb923c', border: '#fb923c', text: '#fff' },
-    4: { fill: '#16a34a', border: '#16a34a', text: '#fff' },
-  };
-
-  const isOutlineStage = stageIndex <= 2;
-
-  let circleStyle: React.CSSProperties = {};
-  let labelStyle: React.CSSProperties = {};
-
-  if (isFuture) {
-    circleStyle = {
-      width: 36,
-      height: 36,
-      borderRadius: '50%',
-      border: '2px solid #d1d5db',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 13,
-      fontWeight: 700,
-      color: '#9ca3af',
-      background: 'transparent',
-      flexShrink: 0,
-    };
-    labelStyle = { color: '#9ca3af', fontSize: 12, fontWeight: 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
-  } else if (isOutlineStage) {
-    circleStyle = {
-      width: 36,
-      height: 36,
-      borderRadius: '50%',
-      border: '2.5px solid #111827',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 13,
-      fontWeight: 700,
-      color: '#111827',
-      background: 'transparent',
-      flexShrink: 0,
-      boxShadow: isActive ? '0 0 0 3px rgba(17,24,39,0.15)' : 'none',
-    };
-    labelStyle = { color: '#111827', fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
-  } else {
-    const colorCfg = stageColors[stageIndex] ?? { fill: '#374151', border: '#374151', text: '#fff' };
-    circleStyle = {
-      width: 36,
-      height: 36,
-      borderRadius: '50%',
-      border: `2.5px solid ${colorCfg.border}`,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 13,
-      fontWeight: 700,
-      color: colorCfg.text,
-      background: colorCfg.fill,
-      flexShrink: 0,
-      boxShadow: isActive ? `0 0 0 3px ${colorCfg.fill}33` : 'none',
-    };
-    labelStyle = { color: colorCfg.border, fontSize: 12, fontWeight: isActive ? 700 : 500, marginTop: 6, textAlign: 'center', whiteSpace: 'nowrap' };
-  }
-
-  const connectorStyle: React.CSSProperties = {
-    flex: 1,
-    height: 2,
-    background: stageIndex < activeIndex ? '#111827' : '#e5e7eb',
-    marginBottom: 22,
-    minWidth: 20,
-    transition: 'background 0.3s',
-  };
-
-  return { circleStyle, labelStyle, connectorStyle };
-}
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500;600&display=swap');
@@ -476,6 +408,25 @@ const styles = `
     text-transform: uppercase;
   }
 
+  .sr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--sr-white);
+    color: var(--sr-text-head);
+    padding: 8px 14px;
+    border-radius: var(--sr-r-sm);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sr-btn:hover {
+    background: var(--sr-bg);
+    border-color: var(--sr-text-faint);
+  }
+
   .sr-delete-btn {
     display: inline-flex;
     align-items: center;
@@ -493,42 +444,273 @@ const styles = `
     background: #a12c22;
   }
 
-  /* ── Stage tracker ── */
-  .sr-stage-bar {
-    background: var(--sr-white);
-    border: 1px solid #e0e6e3;
-    border-radius: var(--sr-r);
-    padding: 20px 32px 18px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    margin-bottom: 32px;
-  }
-
-  .sr-stage-inner {
+  /* ── Modal Styles ── */
+  .sr-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
     display: flex;
-    align-items: flex-start;
-    width: 100%;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
   }
 
-  .sr-stage-step {
+  .sr-modal-content {
+    background: var(--sr-white);
+    border-radius: var(--sr-r);
+    width: 100%;
+    max-width: 1200px; 
+    height: 90vh; 
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    flex-shrink: 0;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    overflow: hidden;
   }
 
-  .sr-stage-connector {
-    flex: 1;
+  .sr-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e0e6e3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--sr-bg);
+  }
+
+  .sr-modal-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--sr-text-head);
     display: flex;
     align-items: center;
-    padding-bottom: 22px;
+    gap: 12px;
+  }
+
+  .sr-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    display: grid;
+    /* Updated to 3 columns per row */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px; 
+    align-content: start;
+  }
+  
+  @media (max-width: 1024px) {
+    .sr-modal-body {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .sr-modal-body {
+      grid-template-columns: 1fr; 
+    }
+  }
+
+  .sr-history-item {
+    background: var(--sr-white);
+    border: 1px solid #e0e6e3;
+    border-radius: 6px;
+    padding: 8px 12px; 
+    display: flex;
+    flex-direction: column;
+    gap: 6px; 
+  }
+
+  .sr-history-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px; 
+    color: var(--sr-text-faint);
+  }
+  
+  .sr-history-user {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: var(--sr-text-head);
+  }
+
+  .sr-history-form {
+    display: inline-block;
+    background: var(--sr-em-pale);
+    color: var(--sr-em);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px; 
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .sr-history-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .sr-field-tag {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+    font-size: 9px; 
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: 'Roboto Mono', monospace;
   }
 `;
+
+// Format dates nicely
+const fmt = (d: string | null | undefined): string => {
+  if (!d) return "—";
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date(d));
+  } catch {
+    return "—";
+  }
+};
+
+/** 
+ * Claim History Modal 
+ */
+function ClaimHistoryModal({ claimId, onClose }: { claimId: string; onClose: () => void }) {
+  const [history, setHistory] = useState<ClaimChange[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await api.get(`/api/claims/${claimId}/history`, {
+          headers: { requiresAuth: true }
+        });
+        setHistory(res.data);
+      } catch (err) {
+        console.error("Failed to load history", err);
+        setError("Could not load change history.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [claimId]);
+
+  // Extract all numbers from all form names, sort them, and map to 1, 2, 3, etc.
+  const formNumbers = Array.from(new Set(
+    history
+      .map(h => {
+        const match = h.form.match(/\b(\d+)\b/);
+        return match ? parseInt(match[1], 10) : null;
+      })
+      .filter((n): n is number => n !== null)
+  )).sort((a, b) => a - b);
+
+  const numberMap = new Map(formNumbers.map((num, i) => [num, i + 1]));
+
+  const formatFormName = (formName: string) => {
+    const match = formName.match(/\b(\d+)\b/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      const newNum = numberMap.get(num);
+      if (newNum !== undefined) {
+        return formName.replace(/\b\d+\b/, newNum.toString());
+      }
+    }
+    return formName;
+  };
+
+  return (
+    <div className="sr-modal-overlay" onClick={onClose}>
+      <div className="sr-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="sr-modal-header">
+          <div className="sr-modal-title">
+            <History size={24} color="var(--sr-em)" />
+            Claim History
+          </div>
+          <button onClick={onClose} className='action-btn' style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sr-text-faint)' }}>
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="sr-modal-body">
+          {loading && (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <Loader2 className="animate-spin" size={24} color="var(--sr-em)" />
+            </div>
+          )}
+
+          {error && (
+            <div style={{ gridColumn: '1 / -1', color: 'var(--sr-danger)', textAlign: 'center', fontSize: '14px', padding: '20px' }}>
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && history.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--sr-text-faint)', fontSize: '13px', padding: '20px' }}>
+              No history found for this claim.
+            </div>
+          )}
+
+          {!loading && !error && history.map((item, index) => (
+            <div key={item.id} className="sr-history-item">
+              <div className="sr-history-meta">
+                <div className="sr-history-user">
+                  <span style={{ 
+                    color: 'var(--sr-text-faint)', 
+                    background: 'var(--sr-bg)', 
+                    padding: '2px 4px', 
+                    borderRadius: '4px',
+                    marginRight: '4px'
+                  }}>
+                    #{index + 1}
+                  </span>
+                  <User size={10} />
+                  {item.user_name}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Clock size={10} />
+                  {fmt(item.date)}
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Edit3 size={10} color="var(--sr-text-faint)" />
+                <span className="sr-history-form">{formatFormName(item.form)}</span>
+              </div>
+
+              {item.fields && item.fields.length > 0 && (
+                <div className="sr-history-fields">
+                  {item.fields.map(field => (
+                    <span key={field} className="sr-field-tag">
+                      {prettyField(field)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SummaryPage({ claimId }: { claimId: string }) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUsername] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
   
   useEffect(() => {
@@ -561,19 +743,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     };
     fetchData();
   }, [claimId]);
-
-  const fmt = (d: string | null | undefined): string => {
-    if (!d) return "—";
-    try {
-      return new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }).format(new Date(d));
-    } catch {
-      return "—";
-    }
-  };
 
   const handleSoftDelete = async () => {
     if (!userName) {
@@ -623,7 +792,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
     return (
       <>
         <style>{styles}</style>
-        <div className="sr-center" style={{ height: '100vh', justifyContent: 'center', color: 'var(--sr-danger)' }}>
+        <div className="flex justify-center items-center" style={{ height: '100vh', flexDirection: 'column', color: 'var(--sr-danger)' }}>
           <AlertCircle size={40} />
           <p style={{ marginTop: '20px' }}>{error || "Unable to load summary"}</p>
         </div>
@@ -641,8 +810,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
 
   const statusLower = (claim.status || "").toLowerCase().trim();
   const statusData = STATUS_COLORS[statusLower] || STATUS_COLORS.default;
-  const activeStageIndex = STATUS_STAGES.findIndex(s => s.key === statusLower);
-  const resolvedActiveIndex = activeStageIndex >= 0 ? activeStageIndex : -1;
 
   return (
     <>
@@ -679,8 +846,14 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                 {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
               </div>
 
+              {/* History Button */}
+              <button onClick={() => setShowHistory(true)} className="sr-btn action-btn">
+                <History size={14} />
+                Claim Changes
+              </button>
+
               {!claim.recently_deleted && (
-                <button onClick={handleSoftDelete} className="sr-delete-btn">
+                <button onClick={handleSoftDelete} className="sr-delete-btn action-btn">
                   <Trash2 size={14} />
                   Delete
                 </button>
@@ -876,7 +1049,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                 </div>
               </div>
             </div>
-
 
             {rental && (
               <div>
@@ -1082,7 +1254,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                                   <Gauge size={12} />
                                   <div>
                                     <span className="sr-compact-label">Miles Out</span>
-                                    <div className="sr-compact-value">{change.miles_out.toLocaleString()}</div>
+                                    <div className="sr-compact-value">{Number(change.miles_out).toLocaleString()}</div>
                                   </div>
                                 </div>
                               )}
@@ -1091,7 +1263,7 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                                   <Gauge size={12} />
                                   <div>
                                     <span className="sr-compact-label">Miles In</span>
-                                    <div className="sr-compact-value">{change.miles_in.toLocaleString()}</div>
+                                    <div className="sr-compact-value">{Number(change.miles_in).toLocaleString()}</div>
                                   </div>
                                 </div>
                               )}
@@ -1108,7 +1280,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
                 )}
               </div>
             )}
-
 
             {/* INVOICES */}
             <div>
@@ -1153,6 +1324,11 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Render the History Modal if active */}
+      {showHistory && (
+        <ClaimHistoryModal claimId={claimId} onClose={() => setShowHistory(false)} />
+      )}
     </>
   );
 }
