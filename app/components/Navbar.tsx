@@ -79,14 +79,14 @@ export default function Navbar() {
                   href="/claim?view=active"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  Active Claims
+                  Active Hires
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link
                   href="/non-active-claim"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  All Claims
+                  All Hires
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
                 <Link
@@ -114,7 +114,7 @@ export default function Navbar() {
                   href="/recently-deleted-claims"
                   className="text-emerald-700 hover:text-emerald-900 transition-colors duration-300 relative group"
                 >
-                  Deleted Claims
+                  Deleted Hires
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-emerald-600 group-hover:w-full transition-all duration-300"></span>
                 </Link>
 
@@ -202,14 +202,14 @@ export default function Navbar() {
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              Active Claims
+              Active Hires
             </Link>
             <Link
               href="/non-active-claim"
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              All Claims
+              All Hires
             </Link>
             <Link
               href="/long-claims"
@@ -237,7 +237,7 @@ export default function Navbar() {
               className="block text-emerald-700 hover:text-emerald-900 transition-colors duration-300"
               onClick={() => setMobileOpen(false)}
             >
-              Deleted Claims
+              Deleted Hires
             </Link>
 
             {role === 'admin' && (

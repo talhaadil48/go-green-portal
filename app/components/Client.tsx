@@ -311,7 +311,7 @@ export default function ClientsPage() {
               </div>
             ) : sortedClaims.length === 0 ? (
               <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
-                {search || filterClaimId || filterClaimant || filterHireStart || filterHireEnd ? "No matching claims" : "No claims yet"}
+                {search || filterClaimId || filterClaimant || filterHireStart || filterHireEnd ? "No matching hires" : "No hires yet"}
               </div>
             ) : (
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">

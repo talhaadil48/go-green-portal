@@ -203,7 +203,7 @@ export default function ClaimsPage() {
             setClaims(res.data);
         } catch (err: any) {
             console.error(err);
-            setError("Failed to load claims. Please try again.");
+            setError("Failed to load hires. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -778,8 +778,8 @@ export default function ClaimsPage() {
                 <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                     <p className="text-xl text-green-700/80">
                         {searchTerm || selectedType || selectedCouncil || selectedStage || statusFilter !== "all" || startDate || endDate
-                            ? "No matching claims found"
-                            : "No claims yet — create one above!"}
+                            ? "No matching hires found"
+                            : "No hires yet — create one above!"}
                     </p>
                 </div>
             );
@@ -1150,10 +1150,10 @@ export default function ClaimsPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
                     <div>
                         <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
-                            All Claims Dashboard
+                            All Hires Dashboard
                         </h1>
                         <p className="mt-2 text-lg text-green-700/80">
-                            Manage all your claims in one place
+                            Manage all your hires in one place
                         </p>
                     </div>
                     <div className="flex gap-3 mt-4 md:mt-0">
@@ -1169,7 +1169,7 @@ export default function ClaimsPage() {
                             className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center gap-2"
                         >
                             <Plus size={20} />
-                            New Claim
+                            New Hire
                         </button>
                     </div>
                 </div>
@@ -1185,7 +1185,7 @@ export default function ClaimsPage() {
                     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
                         <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
                             <Loader2 size={48} className="text-green-600 animate-spin" />
-                            <p className="text-lg font-semibold text-gray-800">Loading claims...</p>
+                            <p className="text-lg font-semibold text-gray-800">Loading hires...</p>
                             <p className="text-sm text-gray-600">Please wait while we fetch your data</p>
                         </div>
                     </div>
@@ -1235,7 +1235,7 @@ export default function ClaimsPage() {
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-4">
                                             <BarChart3 size={18} className="text-slate-300" />
-                                            <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Claims</p>
+                                            <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest">Total Hires</p>
                                         </div>
                                         <p className="text-5xl font-black tracking-tighter">{summary.total}</p>
                                     </div>
@@ -1318,7 +1318,7 @@ export default function ClaimsPage() {
                                         <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
                                             <FileText size={14} className="text-green-600" />
                                         </div>
-                                        <h3 className="text-sm font-semibold text-green-900 tracking-tight">Claims by Type</h3>
+                                        <h3 className="text-sm font-semibold text-green-900 tracking-tight">Hires by Type</h3>
                                     </div>
                                     <div className="w-full">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -1438,7 +1438,7 @@ export default function ClaimsPage() {
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-bold text-green-800">Create New Claim</h2>
+                                        <h2 className="text-2xl font-bold text-green-800">Create New Hire</h2>
                                         <button
                                             onClick={() => { setShowCreateModal(false); setCreateError(null); }}
                                             className="text-gray-500 hover:text-gray-700"
@@ -1518,7 +1518,7 @@ export default function ClaimsPage() {
                                                         <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                         Creating...
                                                     </>
-                                                ) : "Create Claim"}
+                                                ) : "Create Hire"}
                                             </button>
                                         </div>
                                     </form>
@@ -1742,7 +1742,7 @@ export default function ClaimsPage() {
 
                         <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
-                            <span className="font-bold text-green-800">{allClaims.length}</span> claims
+                            <span className="font-bold text-green-800">{allClaims.length}</span> hires
                         </div>
 
                         {/* ══════════════════════════════════════════════════════════

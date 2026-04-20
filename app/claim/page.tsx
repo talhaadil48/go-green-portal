@@ -40,6 +40,7 @@ type SortColumn =
     | "hire_start_date"
     | "pay_date"
     | "hire_end_date"
+    | "count"
     | "invoice_date"
     | "council"
     | "status";
@@ -165,6 +166,20 @@ export default function ClaimsDashboard() {
 
     const isClaimClosed = (claim: Claim) => !!(claim.closed_date && claim.closed_by) || claim.status?.toLowerCase() === "close claim";
 
+    // Helper for count
+    const getHireCount = (start: string | null, end: string | null) => {
+        if (!start) return null;
+        const startDate = new Date(start);
+        startDate.setHours(0, 0, 0, 0);
+
+        const endDate = end ? new Date(end) : new Date();
+        endDate.setHours(0, 0, 0, 0);
+
+        const diffTime = endDate.getTime() - startDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        return diffDays;
+    };
+
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
             try {
@@ -200,11 +215,7 @@ export default function ClaimsDashboard() {
 
             try {
                 const vehiclesRes = await api.get("/api/cars/free/count", { headers: { requiresAuth: true } });
-                console.log("Fetched vehicles count:", vehiclesRes.data.count);
-
-                
-                    setVehiclesCount(vehiclesRes.data.count);
-                
+                setVehiclesCount(vehiclesRes.data.count);
             } catch (err) {
                 console.error("Failed to fetch vehicles count", err);
             }
@@ -221,7 +232,6 @@ export default function ClaimsDashboard() {
     }, []);
 
     useEffect(() => {
-        // ALWAYS FILTER OUT CLOSED CLAIMS
         let filtered = allClaims.filter(claim => !isClaimClosed(claim));
 
         if (searchTerm.trim()) {
@@ -282,6 +292,13 @@ export default function ClaimsDashboard() {
                     const aNum = STATUS_COLORS[a.status?.toLowerCase()]?.number ?? 0;
                     const bNum = STATUS_COLORS[b.status?.toLowerCase()]?.number ?? 0;
                     const comparison = aNum - bNum;
+                    return sortDirection === "asc" ? comparison : -comparison;
+                }
+
+                if (sortColumn === "count") {
+                    const aCount = getHireCount(a.hire_start_date, a.hire_end_date) ?? -Infinity;
+                    const bCount = getHireCount(b.hire_start_date, b.hire_end_date) ?? -Infinity;
+                    const comparison = aCount - bCount;
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
 
@@ -374,7 +391,6 @@ export default function ClaimsDashboard() {
         }
     };
 
-    // ── Update Logic ──────────────────────────────────────────────────
     const openAddUpdate = (claim_id: string) => {
         setUpdateModalState({ type: 'add', claim_id });
         setUpdateMessage("");
@@ -601,7 +617,6 @@ export default function ClaimsDashboard() {
         setSortDirection(null);
     };
 
-    // ── Summary calculations (Memoized) ──────────────────────────────────────────────────
     const summary = useMemo(() => {
         const activeClaims = allClaims.filter(c =>
             !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent"
@@ -642,7 +657,6 @@ export default function ClaimsDashboard() {
         };
     }, [allClaims, vehiclesCount, selectedStage]);
 
-    // ── Reusable date cell renderer ───────────────────────────────────────────
     const renderDateCell = (
         claim: Claim,
         field: "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date",
@@ -656,15 +670,15 @@ export default function ClaimsDashboard() {
 
         if (isVehicleDamageBlocked && isVehicleDamage) {
             return (
-                <td className="px-1.5 py-1 text-center whitespace-nowrap border-r border-gray-300">
+                <td className="px-1 py-1 text-center whitespace-nowrap border-r border-gray-300">
                     <hr className="border-emerald-500 border-[2px] w-[50%] mx-auto" />
                 </td>
             );
         }
         return (
-            <td className="px-3 py-1 text-center text-gray-700 whitespace-nowrap border-r border-gray-300">
+            <td className="px-2 py-1 text-center text-gray-700 whitespace-nowrap border-r border-gray-300">
                 {isEditing ? (
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1">
                         <input
                             ref={dateInputRef}
                             type="date"
@@ -673,35 +687,35 @@ export default function ClaimsDashboard() {
                             onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                             disabled={isSaving}
                             autoFocus
-                            className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 min-w-[130px]
+                            className={`flex-1 px-1 py-0.5 border rounded focus:outline-none focus:ring-1 min-w-[110px] text-[11px]
                                 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                         />
                         {isSaving ? (
-                            <Loader2 size={16} className="text-green-600 animate-spin" />
+                            <Loader2 size={14} className="text-green-600 animate-spin" />
                         ) : (
                             <>
-                                <button onClick={() => setEditValue("")} title="Clear Date" disabled={isSaving} className="p-1 text-orange-500 hover:text-orange-700 disabled:opacity-50">
-                                    <Trash2 size={16} />
+                                <button onClick={() => setEditValue("")} title="Clear Date" disabled={isSaving} className="p-0.5 text-orange-500 hover:text-orange-700 disabled:opacity-50">
+                                    <Trash2 size={14} />
                                 </button>
-                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50">
-                                    <Check size={16} />
+                                <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50">
+                                    <Check size={14} />
                                 </button>
-                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50">
-                                    <X size={16} />
+                                <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50">
+                                    <X size={14} />
                                 </button>
                             </>
                         )}
                     </div>
                 ) : (
-                    <div className="group flex items-center justify-center gap-2">
+                    <div className="group flex items-center justify-center gap-1.5">
                         <span className={isSaving ? "opacity-50" : ""}>{formatDate(claim[field])}</span>
                         {!isSaving && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); startEditing(claim, field); }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0"
                                 title={`Edit ${field.replace(/_/g, " ")}`}
                             >
-                                <Pencil size={14} />
+                                <Pencil size={12} />
                             </button>
                         )}
                     </div>
@@ -710,7 +724,6 @@ export default function ClaimsDashboard() {
         );
     };
 
-    // ── Table Content (Memoized) ───────────────────────────────────────────
     const renderedTableContent = useMemo(() => {
         if (loading) {
             return (
@@ -724,8 +737,8 @@ export default function ClaimsDashboard() {
                 <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
                     <p className="text-xl text-green-700/80">
                         {searchTerm || selectedType || selectedCouncil || selectedStage || startDate || endDate
-                            ? "No matching claims found"
-                            : "No claims yet — create one above!"}
+                            ? "No matching hire found"
+                            : "No hire yet — create one above!"}
                     </p>
                 </div>
             );
@@ -733,75 +746,81 @@ export default function ClaimsDashboard() {
 
         return (
             <div ref={tableRef}>
-                <div className="overflow-y-auto max-h-[500px]">
-                    <table className="w-full divide-y divide-gray-400 text-xs rounded-md">
+                <div className="overflow-x-auto overflow-y-auto max-h-[500px]">
+                    <table className="w-full divide-y divide-gray-400 text-[11px] rounded-md min-w-max">
                         <thead className="sticky top-0 bg-green-50/95 backdrop-blur-sm z-20">
                             <tr className="border-0 bg-transparent">
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Claim ID */}
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Claimant Name */}
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Type */}
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Council */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="px-2 py-1 text-center bg-green-800"
                                     style={{ borderRadius: "8px 8px 0 0" }}
                                 >
                                     <div className="flex justify-center items-center w-full">
-                                        <span className="text-xs font-bold text-white uppercase tracking-widest">
+                                        <span className="text-[11px] font-bold text-white uppercase tracking-widest">
                                             — Claim Progress —
                                         </span>
                                     </div>
                                 </th>
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Updates */}
-                                <th className="border-0 bg-transparent p-0" colSpan={1} /> {/* Stages */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
                             </tr>
                             <tr className="border-b border-gray-500">
-                                <th onClick={() => handleSort("claim_id")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claim_id")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Claim ID {getSortArrow("claim_id")}
                                 </th>
-                                <th onClick={() => handleSort("claimant_name")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claimant_name")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Claimant {getSortArrow("claimant_name")}
                                 </th>
-                                <th onClick={() => handleSort("claim_type")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claim_type")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Type {getSortArrow("claim_type")}
                                 </th>
-                                <th onClick={() => handleSort("council")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("council")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Council {getSortArrow("council")}
                                 </th>
-                                <th onClick={() => handleSort("claim_start_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("claim_start_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">1</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">1</span>
                                         <span>Start Date {getSortArrow("claim_start_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("hire_start_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("hire_start_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">2</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">2</span>
                                         <span>Active Hire {getSortArrow("hire_start_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("pay_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("pay_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">3</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">3</span>
                                         <span>Settled Date {getSortArrow("pay_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("hire_end_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("hire_end_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">4</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">4</span>
                                         <span>Hire End {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("invoice_date")} className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("invoice_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[12px] font-bold text-gray-600 uppercase tracking-widest">5</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">5</span>
                                         <span>Invoice Sent {getSortArrow("invoice_date")}</span>
                                     </div>
                                 </th>
-                                <th className="px-1.5 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
+                                <th onClick={() => handleSort("count")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    <div className="flex flex-col items-center justify-center gap-0.5">
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">#</span>
+                                        <span>Count {getSortArrow("count")}</span>
+                                    </div>
+                                </th>
+                                <th className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
                                     Updates
                                 </th>
-                                <th onClick={() => handleSort("status")} className="px-1.5 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                <th onClick={() => handleSort("status")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Stages {getSortArrow("status")}
                                 </th>
                             </tr>
@@ -815,13 +834,14 @@ export default function ClaimsDashboard() {
                                 const isVehicleDamage = claim.claim_type === "vehicle damage";
                                 const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
                                 const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
+                                const hireCount = getHireCount(claim.hire_start_date, claim.hire_end_date);
 
                                 return (
                                     <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
-                                        <td className="px-1.5 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-left" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                        <td className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-left" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
                                             {claim.claim_id.toUpperCase()}
                                         </td>
-                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                        <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap">
                                             {isEditing && editingField === "name" ? (
                                                 <div className="flex items-center gap-1.5">
                                                     <input
@@ -832,32 +852,32 @@ export default function ClaimsDashboard() {
                                                         onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                         disabled={isSaving}
                                                         autoFocus
-                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 
+                                                        className={`flex-1 px-1 py-0.5 border rounded text-[11px] focus:outline-none focus:ring-1 
                                                                     ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                     />
                                                     {isSaving ? (
-                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                        <Loader2 size={14} className="text-green-600 animate-spin" />
                                                     ) : (
                                                         <>
-                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                         </>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2">
+                                                <div className="group flex items-center gap-1.5">
                                                     <span className={`whitespace-nowrap ${isSaving ? "opacity-50" : ""}`}>
                                                         {(claim.claimant_name || "—").toUpperCase()}
                                                     </span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700 flex-shrink-0 mt-0.5" title="Edit claimant name">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "name"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700 flex-shrink-0" title="Edit claimant name">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-1.5 py-0.5 text-gray-700 border-r border-gray-300">
+                                        <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap">
                                             {isEditing && editingField === "claim_type" ? (
                                                 <div className="flex items-center gap-1.5">
                                                     <select
@@ -867,7 +887,7 @@ export default function ClaimsDashboard() {
                                                         onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                         disabled={isSaving}
                                                         autoFocus
-                                                        className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                        className={`flex-1 px-1 py-0.5 border rounded text-[11px] focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                     >
                                                         {CLAIM_TYPES.map((type) => (
                                                             <option key={type} value={type}>
@@ -876,26 +896,26 @@ export default function ClaimsDashboard() {
                                                         ))}
                                                     </select>
                                                     {isSaving ? (
-                                                        <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                        <Loader2 size={14} className="text-green-600 animate-spin" />
                                                     ) : (
                                                         <>
-                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                            <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                            <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                         </>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2 whitespace-nowrap">
+                                                <div className="group flex items-center gap-1.5 whitespace-nowrap">
                                                     <span>{claim.claim_type ? (claim.claim_type === "learning" ? "Learner" : claim.claim_type.charAt(0).toUpperCase() + claim.claim_type.slice(1)) : "—"}</span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit claim type">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "claim_type"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700" title="Edit claim type">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
+                                        <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
                                             {isVehicleDamage ? (
                                                 <hr className="border-emerald-500 border-[2px]  w-[50%] text-center mx-auto" />
                                             ) : isEditing && editingField === "council" ? (<div className="flex items-center gap-1.5">
@@ -906,27 +926,27 @@ export default function ClaimsDashboard() {
                                                     onKeyDown={(e) => handleEditKeyDown(e, claim.claim_id)}
                                                     disabled={isSaving}
                                                     autoFocus
-                                                    className={`flex-1 px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
+                                                    className={`flex-1 px-1 py-0.5 border rounded text-[11px] focus:outline-none focus:ring-1 ${isSaving ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-400 focus:ring-green-500 bg-white"}`}
                                                 >
                                                     {COUNCIL_OPTIONS.slice(1).map((opt) => (
                                                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                                                     ))}
                                                 </select>
                                                 {isSaving ? (
-                                                    <Loader2 size={16} className="text-green-600 animate-spin" />
+                                                    <Loader2 size={14} className="text-green-600 animate-spin" />
                                                 ) : (
                                                     <>
-                                                        <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={16} /></button>
-                                                        <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-1 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={16} /></button>
+                                                        <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50"><Check size={14} /></button>
+                                                        <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50"><X size={14} /></button>
                                                     </>
                                                 )}
                                             </div>
                                             ) : (
-                                                <div className="group flex items-center gap-2 whitespace-nowrap">
+                                                <div className="group flex items-center gap-1.5 whitespace-nowrap">
                                                     <span>{(claim.council || "—")}</span>
                                                     {!isSaving && (
-                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 hover:text-green-700" title="Edit council">
-                                                            <Pencil size={14} />
+                                                        <button onClick={(e) => { e.stopPropagation(); startEditing(claim, "council"); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-gray-500 hover:text-green-700" title="Edit council">
+                                                            <Pencil size={12} />
                                                         </button>
                                                     )}
                                                 </div>
@@ -936,20 +956,24 @@ export default function ClaimsDashboard() {
                                         {renderDateCell(claim, "hire_start_date", editHireStartDate, setEditHireStartDate, true)}
                                         {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
                                         {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
+
                                         {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
-                                        <td className="px-1.5 py-0.5 border-r border-gray-300 text-center">
-                                            <div className="flex items-center justify-center gap-2">
+                                        <td className="px-1 py-0.5 text-center text-gray-800 font-semibold border-r border-gray-300 whitespace-nowrap">
+                                            {hireCount !== null ? hireCount : "—"}
+                                        </td>
+                                        <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
+                                            <div className="flex items-center justify-center gap-1.5">
                                                 <button onClick={() => openAddUpdate(claim.claim_id)} title="Add Update" className="text-green-600 hover:text-green-800">
-                                                    <Plus size={16} />
+                                                    <Plus size={14} />
                                                 </button>
                                                 {claim.updates && claim.updates.length > 0 && (
                                                     <button onClick={() => openViewUpdates(claim)} title="View Updates" className="text-blue-600 hover:text-blue-800">
-                                                        <FileText size={16} />
+                                                        <FileText size={14} />
                                                     </button>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="border-r border-gray-300 px-1 py-0.5">
+                                        <td className="border-r border-gray-300 px-1 py-0.5 whitespace-nowrap">
                                             <div className="flex items-center justify-center">
                                                 {isClosed ? (
                                                     <div className="w-3 h-3 bg-gradient-to-br from-rose-500 via-rose-600 to-rose-700 rounded-full" title="Closed"></div>
@@ -957,7 +981,7 @@ export default function ClaimsDashboard() {
                                                     <div className="w-4 h-[2px] bg-green-500" title="Disputed"></div>
                                                 ) : (
                                                     <span
-                                                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border-2
+                                                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border-2
                                                                     ${statusData.number >= 4
                                                                 ? `${statusData.badgeText} text-black border-transparent`
                                                                 : `bg-white ${statusData.color} ${statusData.badgeBg}`
@@ -1010,7 +1034,7 @@ export default function ClaimsDashboard() {
                             Hire Dashboard
                         </h1>
                         <p className="mt-2 text-lg text-green-700/80">
-                            Active Claims Overview
+                            Active Hires Overview
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
@@ -1027,7 +1051,7 @@ export default function ClaimsDashboard() {
                             className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg transition flex items-center gap-2"
                         >
                             <Plus size={20} />
-                            New Claim
+                            New Hire
                         </button>
                     </div>
                 </div>
@@ -1057,7 +1081,7 @@ export default function ClaimsDashboard() {
                         <OverviewSkeleton />
                         <div className="flex items-center gap-3 mt-10">
                             <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-                            <h2 className="text-xl font-bold text-green-800 tracking-tight">Active Claims</h2>
+                            <h2 className="text-xl font-bold text-green-800 tracking-tight">Active Hire</h2>
                         </div>
                         <ClaimsTableSkeleton />
                     </div>
@@ -1196,7 +1220,7 @@ export default function ClaimsDashboard() {
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-bold text-green-800">Create New Claim</h2>
+                                        <h2 className="text-2xl font-bold text-green-800">Create New Hire</h2>
                                         <button
                                             onClick={() => { setShowCreateModal(false); setCreateError(null); }}
                                             className="text-gray-500 hover:text-gray-700"
@@ -1276,7 +1300,7 @@ export default function ClaimsDashboard() {
                                                         <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                         Creating...
                                                     </>
-                                                ) : "Create Claim"}
+                                                ) : "Create Hire"}
                                             </button>
                                         </div>
                                     </form>
@@ -1482,7 +1506,7 @@ export default function ClaimsDashboard() {
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                             <span className="font-bold text-green-800">
                                 {allClaims.filter(c => !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent").length}
-                            </span> active claims
+                            </span> active hires
                         </div>
 
                         {renderedTableContent}

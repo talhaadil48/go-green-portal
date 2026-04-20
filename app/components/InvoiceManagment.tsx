@@ -401,7 +401,7 @@ export default function InvoiceManagementPage() {
         {/* Create Form */}
         {isClaimTab && showCreateForm && (
           <div className="mb-10 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-green-100/60 p-6">
-            <h2 className="text-xl font-bold text-green-800 mb-5">Create New Claim Invoice</h2>
+            <h2 className="text-xl font-bold text-green-800 mb-5">Create New Hire Invoice</h2>
             <form onSubmit={handleCreateClaimInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {[
                 { label: "Claim ID", key: "claim_id", placeholder: "TC123", type: "text" },

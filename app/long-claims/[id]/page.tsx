@@ -186,7 +186,7 @@ export default function LongClaimDetailPage() {
                 setRefLongClaims(res.data.data);
             }
         } catch (error) {
-            console.error("Failed to fetch ref long claims", error);
+            console.error("Failed to fetch ref long hires", error);
         }
     };
 
@@ -519,8 +519,8 @@ export default function LongClaimDetailPage() {
     if (error || !claim) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-                <p className="text-red-600 text-sm">{error || "Claim not found"}</p>
-                <Link href="/long-claims" className="text-emerald-600 hover:underline text-sm">← Back to Long Claims</Link>
+                <p className="text-red-600 text-sm">{error || "Hire not found"}</p>
+                <Link href="/long-claims" className="text-emerald-600 hover:underline text-sm">← Back to Long Hires</Link>
             </div>
         );
     }
@@ -943,7 +943,7 @@ export default function LongClaimDetailPage() {
                                                                                                 {/* Tooltip for multiple claims */}
                                                                                                 {hasMultipleClaims && (
                                                                                                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block z-50 w-max bg-white border border-slate-200 shadow-xl rounded-lg p-3 text-xs">
-                                                                                                        <p className="font-semibold text-slate-800 mb-1.5 border-b border-slate-100 pb-1.5">Also in claims:</p>
+                                                                                                        <p className="font-semibold text-slate-800 mb-1.5 border-b border-slate-100 pb-1.5">Also in hires:</p>
                                                                                                         <ul className="space-y-1">
                                                                                                             {otherClaimsWithRef.map(id => (
                                                                                                                 <li key={id} className="flex items-center gap-1.5">

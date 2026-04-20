@@ -237,7 +237,7 @@ export default function RecentlyDeletedClaimsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-10">
           <div>
             <h1 className="text-4xl md:text-5xl font-extrabold text-green-800 tracking-tight">
-              Recently Deleted Claims
+              Recently Deleted Hires
             </h1>
             <p className="mt-2 text-lg text-green-700/80">
               Regular and Sovereign Long term • Auto-removed after 3 days
@@ -268,7 +268,7 @@ export default function RecentlyDeletedClaimsPage() {
 
         {/* ── Regular Claims Section ──────────────────────────────────────── */}
         <section className="mb-16">
-          <h2 className="text-3xl font-bold text-green-800 mb-6">Regular Claims</h2>
+          <h2 className="text-3xl font-bold text-green-800 mb-6">Regular Hires</h2>
 
           {/* Regular Filters */}
           <div className="mb-6 bg-white/70 backdrop-blur-sm border border-green-100 rounded-xl shadow-lg p-4">

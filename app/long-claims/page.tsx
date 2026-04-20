@@ -84,7 +84,7 @@ export default function LongClaimsPage() {
       });
       setClaims(res.data.data || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to load long term claims.");
+      setError(err.response?.data?.message || "Failed to load long term hires.");
     } finally {
       setLoading(false);
     }
@@ -329,7 +329,7 @@ export default function LongClaimsPage() {
           />
           <div className="text-sm font-medium text-green-700 bg-white border border-green-200 rounded-lg px-4 py-2 inline-block">
             Showing <span className="font-bold text-green-800">{filtered.length}</span> of{" "}
-            <span className="font-bold text-green-800">{claims.length}</span> claims
+            <span className="font-bold text-green-800">{claims.length}</span> hires
           </div>
         </div>
 
@@ -347,7 +347,7 @@ export default function LongClaimsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 bg-white/60 rounded-3xl border border-green-100 shadow-lg">
             <p className="text-xl text-green-700/80">
-              {search ? "No matching long term claims found" : "No long term claims yet"}
+              {search ? "No matching long term hires found" : "No long term hires yet"}
             </p>
           </div>
         ) : (

@@ -118,7 +118,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-2xl">✓</div>
-                  <span>Full claim management</span>
+                  <span>Full hire management</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-2xl">✓</div>
@@ -154,7 +154,7 @@ export default function LoginPage() {
           >
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">Welcome back</h1>
             <p className="text-green-400/80 text-lg mb-10">
-              Sign in to manage your claims & replacements
+              Sign in to manage your hire & replacements
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">

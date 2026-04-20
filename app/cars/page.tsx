@@ -52,19 +52,23 @@ type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "mi
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
 
-// UPDATED: All attributes are now explicitly uppercase
-const AVAILABLE_ATTRIBUTES = [
-  "SALOON",
-  "ESTATE",
-  "6 SEATER",
-  "8 SEATER",
-  "HACKNEY",
-  "MANUAL",
-  "AUTOMATIC",
-  "HYBRID",
-  "LUXURY",
-  "HATCHBACK"
-];
+// UPDATED: Standardized sizes and colors. Hybrid/Electric use pure CSS circles to perfectly match the size of the letter circles.
+const ATTRIBUTE_MAPPING: Record<string, { label: string; symbol: string; type: "circle" | "filled-circle" | "star"; colorClass?: string }> = {
+  "SMALL CAR": { label: "Small Car", symbol: "SS", type: "circle" },
+  "SALOON": { label: "Saloon", symbol: "S", type: "circle" },
+  "ESTATE": { label: "Estate", symbol: "E", type: "circle" },
+  "6 SEATER": { label: "6 Seater", symbol: "6", type: "circle" },
+  "8 SEATER": { label: "8 Seater", symbol: "8", type: "circle" },
+  "HACKNEY": { label: "Hackney", symbol: "H", type: "circle" },
+  "VAN": { label: "Van", symbol: "V", type: "circle" },
+  "LUXURY": { label: "Luxury", symbol: "★", type: "star" },
+  "HYBRID": { label: "Hybrid", symbol: "🟢", type: "filled-circle", colorClass: "bg-green-400" },
+  "ELECTRIC": { label: "Electric", symbol: "🔵", type: "filled-circle", colorClass: "bg-blue-400" },
+  "MANUAL": { label: "Manual", symbol: "+", type: "circle" },
+  "AUTOMATIC": { label: "Automatic", symbol: "-", type: "circle" },
+};
+
+const AVAILABLE_ATTRIBUTES = Object.keys(ATTRIBUTE_MAPPING);
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -362,7 +366,7 @@ export default function VehiclesPage() {
                 Vehicle Fleet
               </h1>
               <p className="mt-2 text-gray-600">
-                Manage claim vehicles and long-hire fleet
+                Manage hire and long hire fleet
               </p>
             </div>
             <div className="flex gap-4">
@@ -534,7 +538,7 @@ export default function VehiclesPage() {
                         }))}
                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                       />
-                      <span>{attr}</span>
+                      <span>{ATTRIBUTE_MAPPING[attr].label}</span>
                     </label>
                   ))}
                 </div>
@@ -603,7 +607,7 @@ export default function VehiclesPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl shadow">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
@@ -715,7 +719,7 @@ export default function VehiclesPage() {
                                       }))}
                                       className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3 w-3"
                                     />
-                                    <span>{attr}</span>
+                                    <span>{ATTRIBUTE_MAPPING[attr].label}</span>
                                   </label>
                                 ))}
                               </div>
@@ -760,30 +764,81 @@ export default function VehiclesPage() {
                             </td>
                             <td className="px-5 py-2.5 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
                             <td className="px-5 py-2.5 text-gray-700 align-middle">{v.model || "—"}</td>
-                            <td className="px-5 py-2.5 text-gray-700 align-middle cursor-pointer">
+                            <td className="px-5 py-2.5 text-gray-700 align-middle cursor-default">
                               {v.attributes && v.attributes.length > 0 ? (
-                                <div className="relative group flex flex-wrap gap-1.5 items-center">
-                                  {v.attributes.slice(0, 2).map((attr) => (
-                                    <span key={attr} className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100/50 whitespace-nowrap">
-                                      {attr.toUpperCase()}
-                                    </span>
-                                  ))}
-                                  {v.attributes.length > 2 && (
-                                    <span className="inline-flex items-center px-1.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-600 border border-gray-200 cursor-help">
-                                      +{v.attributes.length - 2}
-                                    </span>
-                                  )}
+                                <div className="relative group flex flex-wrap gap-2 items-center">
+                                  {v.attributes.map((attr) => {
+                                    const mapped = ATTRIBUTE_MAPPING[attr];
+                                    const sharedClasses = "inline-flex items-center justify-center w-7 h-7 shrink-0";
+                                    
+                                    if (mapped?.type === "circle") {
+                                      // Render the characters inside a perfectly sized black CSS circle
+                                      return (
+                                        <span 
+                                          key={attr} 
+                                          className={`${sharedClasses} rounded-full border-2 border-black text-black bg-white text-xs font-bold`}
+                                          title={mapped.label}
+                                        >
+                                          {mapped.symbol}
+                                        </span>
+                                      );
+                                    }
+                                    
+                                    if (mapped?.type === "filled-circle") {
+                                      // Render colored dots as matching size CSS circles
+                                      return (
+                                        <span 
+                                          key={attr} 
+                                          className={`${sharedClasses} rounded-full ${mapped.colorClass}`}
+                                          title={mapped.label}
+                                        />
+                                      );
+                                    }
+
+                                    // Render Star exactly matching the 28x28px space
+                                    if (mapped?.type === "star") {
+                                      return (
+                                        <span 
+                                          key={attr} 
+                                          className={`${sharedClasses} text-black text-xl leading-none pb-0.5`}
+                                          title={mapped.label}
+                                        >
+                                          ★
+                                        </span>
+                                      );
+                                    }
+
+                                    return (
+                                      <span key={attr} className={`${sharedClasses} text-black`}>
+                                        {attr}
+                                      </span>
+                                    );
+                                  })}
                                   
                                   {/* Custom Tooltip */}
                                   <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
                                     <div className="bg-gray-800 text-white text-xs rounded-xl shadow-2xl p-3 border border-gray-700">
-                                      <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wider">All Attributes</p>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {v.attributes.map(a => (
-                                          <span key={a} className="bg-gray-700/80 border border-gray-600/50 px-2 py-1 rounded-md font-medium text-gray-100">
-                                            {a.toUpperCase()}
-                                          </span>
-                                        ))}
+                                      <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wider">Attributes</p>
+                                      <div className="flex flex-col gap-1.5">
+                                        {v.attributes.map(a => {
+                                          const mapped = ATTRIBUTE_MAPPING[a];
+                                          return (
+                                            <div key={a} className="flex items-center gap-2 text-gray-100 font-medium">
+                                              {mapped?.type === "circle" ? (
+                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[10px] font-bold shrink-0">
+                                                  {mapped.symbol}
+                                                </span>
+                                              ) : mapped?.type === "filled-circle" ? (
+                                                <span className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`} />
+                                              ) : mapped?.type === "star" ? (
+                                                <span className="inline-flex items-center justify-center w-5 h-5 text-gray-200 text-lg leading-none shrink-0 pb-0.5">★</span>
+                                              ) : (
+                                                <span>{a}</span>
+                                              )}
+                                              <span>{mapped?.label || a}</span>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     </div>
                                     {/* Tooltip Arrow pointing down */}
