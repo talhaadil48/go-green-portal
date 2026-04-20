@@ -64,8 +64,8 @@ const ATTRIBUTE_MAPPING: Record<string, { label: string; symbol: string; type: "
   "LUXURY": { label: "Luxury", symbol: "★", type: "star" },
   "HYBRID": { label: "Hybrid", symbol: "🟢", type: "filled-circle", colorClass: "bg-green-400" },
   "ELECTRIC": { label: "Electric", symbol: "🔵", type: "filled-circle", colorClass: "bg-blue-400" },
-  "MANUAL": { label: "Manual", symbol: "+", type: "circle" },
-  "AUTOMATIC": { label: "Automatic", symbol: "-", type: "circle" },
+  "MANUAL": { label: "Manual", symbol: "✚", type: "circle" },
+  "AUTOMATIC": { label: "Automatic", symbol: "━", type: "circle" },
 };
 
 const AVAILABLE_ATTRIBUTES = Object.keys(ATTRIBUTE_MAPPING);
@@ -769,7 +769,7 @@ export default function VehiclesPage() {
                                 <div className="relative group flex flex-wrap gap-2 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses = "inline-flex items-center justify-center w-7 h-7 shrink-0";
+                                    const sharedClasses = "inline-flex items-center justify-center w-4 h-4 shrink-0";
                                     
                                     if (mapped?.type === "circle") {
                                       // Render the characters inside a perfectly sized black CSS circle
