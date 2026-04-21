@@ -461,37 +461,6 @@ export default function ClaimsPage() {
         }
     };
 
-    const performActionWithUsername = async (
-        claimId: string,
-        apiPath: string,
-        bodyKey: string,
-        actionName: string
-    ) => {
-        if (!userName) {
-            alert("User session not found. Please log in again.");
-            return;
-        }
-        const confirmationPassword = prompt(
-            "Security Confirmation\n\nPlease enter the confirmation password to proceed."
-        );
-        if (!confirmationPassword) return;
-        if (confirmationPassword !== "12345678") {
-            alert("Incorrect confirmation password.");
-            return;
-        }
-        if (!window.confirm(`You want to ${actionName} claim ${claimId}?`)) return;
-        try {
-            await api.put(
-                `/api/claims/${claimId}${apiPath}`,
-                { [bodyKey]: userName },
-                { headers: { requiresAuth: true } }
-            );
-            await fetchClaims();
-        } catch (err: any) {
-            alert(err.response?.data?.detail || `Failed to ${actionName} claim.`);
-        }
-    };
-
     const startEditing = (
         claim: Claim,
         field: "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date"
@@ -559,6 +528,7 @@ export default function ClaimsPage() {
         try {
             if (editingField === "hire_start_date" || editingField === "hire_end_date") {
                 const currentClaim = allClaims.find(c => c.claim_id === claim_id);
+                // Passing null when the value evaluates to false/empty
                 const dateOut = editingField === "hire_start_date"
                     ? editHireStartDate || null
                     : (currentClaim?.hire_start_date ? currentClaim.hire_start_date.slice(0, 10) : null);
@@ -589,6 +559,7 @@ export default function ClaimsPage() {
                 if (editingField === "name") payload.claimant_name = editNameValue.trim();
                 else if (editingField === "council") payload.council = editCouncilValue.trim();
                 else if (editingField === "claim_type") payload.claim_type = editTypeValue.trim();
+                // Passing null explicitly when empty string
                 else if (editingField === "claim_start_date") payload.claim_start_date = editClaimStartDate || null;
                 else if (editingField === "pay_date") payload.pay_date = editPayDate || null;
                 else if (editingField === "invoice_date") payload.invoice_date = editInvoiceDate || null;
@@ -736,10 +707,14 @@ export default function ClaimsPage() {
                         {isSaving ? (
                             <Loader2 size={14} className="text-green-600 animate-spin" />
                         ) : (
-                            <>
+                            <>    <button onClick={() => setEditValue("")} disabled={isSaving} title="Clear to Null" className="p-0.5 text-orange-500 hover:text-orange-700 disabled:opacity-50">
+                                    <Trash2 size={14} />
+                                </button>
                                 <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50">
                                     <Check size={14} />
                                 </button>
+                                {/* NEW: Trash Button sets value to empty string which guarantees null via backend API upon save */}
+                              
                                 <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50">
                                     <X size={14} />
                                 </button>
@@ -1209,7 +1184,7 @@ export default function ClaimsPage() {
                     <>
                         {/* ══════════════════════════════════════════════════════════
                     SUMMARY DASHBOARD
-                ══════════════════════════════════════════════════════════ */}
+                ═══════════���══════════════════════════════════════════════ */}
                         <div className="mb-10 space-y-6">
                             <div className="flex items-center gap-3">
                                 <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
