@@ -641,9 +641,15 @@ export default function ClaimsDashboard() {
             ? activeClaims.filter(c => c.status === selectedStage)
             : activeClaims;
 
-        const typeBreakdown = CLAIM_TYPES.map(type => ({
+        const typeBreakdown = CLAIM_TYPES.filter(t => t !== "vehicle damage").map(type => ({
             type,
             count: filteredForTypes.filter(c => c.claim_type?.toLowerCase() === type).length,
+        }));
+
+        const councilBreakdown = COUNCIL_OPTIONS.slice(1).map(opt => ({
+            council: opt.value,
+            label: opt.label,
+            count: filteredForTypes.filter(c => (c.council || "None") === opt.value).length,
         }));
 
         return {
@@ -653,6 +659,7 @@ export default function ClaimsDashboard() {
             hireEnd,
             invoiceSent,
             typeBreakdown,
+            councilBreakdown,
             totalInViewForTypes: filteredForTypes.length
         };
     }, [allClaims, vehiclesCount, selectedStage]);
@@ -813,8 +820,7 @@ export default function ClaimsDashboard() {
                                 </th>
                                 <th onClick={() => handleSort("count")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">#</span>
-                                        <span>Count {getSortArrow("count")}</span>
+                                        <span>Days {getSortArrow("count")}</span>
                                     </div>
                                 </th>
                                 <th className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
@@ -1107,7 +1113,7 @@ export default function ClaimsDashboard() {
                                     </div>
                                 </button>
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "hire start" : "hire start")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "" : "hire start")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-emerald-400 to-green-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1121,7 +1127,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "client paid" : "client paid")}
+                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "" : "client paid")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-cyan-400 to-blue-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1135,7 +1141,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "hire end" : "hire end")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-amber-400 to-orange-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1147,70 +1153,122 @@ export default function ClaimsDashboard() {
                                         <p className="text-4xl font-black tracking-tighter">{summary.hireEnd}</p>
                                     </div>
                                 </button>
-
                             </div>
-                            <div className="w-full">
-                                <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <div className="w-6 h-6 rounded-lg bg-green-50 flex items-center justify-center">
-                                            <FileText size={14} className="text-green-600" />
+
+                            <div className="flex flex-col xl:flex-row gap-4 w-full">
+                                {/* Claims by Type */}
+                                <div className="xl:w-[35%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-3 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
+                                            <FileText size={12} className="text-green-600" />
                                         </div>
-                                        <h3 className="text-sm font-semibold text-green-900 tracking-tight">
+                                        <h3 className="text-xs font-semibold text-green-900 tracking-tight">
                                             Claims by Type {selectedStage ? `(${selectedStage})` : ''}
                                         </h3>
                                     </div>
-                                    <div className="w-full">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                                            {summary.typeBreakdown.map(({ type, count }) => {
-                                                const cfg = TYPE_CONFIG[type] || {
-                                                    icon: LayoutGrid,
-                                                    gradient: "from-gray-50 to-gray-100",
-                                                    border: "border-gray-200",
-                                                    text: "text-gray-800",
-                                                    iconBg: "bg-gray-100 text-gray-500",
-                                                    bar: "bg-gray-400",
-                                                };
-                                                const Icon = cfg.icon;
-                                                const totalInView = summary.totalInViewForTypes;
-                                                const pct = totalInView > 0 ? Math.round((count / totalInView) * 100) : 0;
-                                                const displayType = type === "learning" ? "Learner" : type;
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {summary.typeBreakdown.map(({ type, count }) => {
+                                            const cfg = TYPE_CONFIG[type] || {
+                                                icon: LayoutGrid,
+                                                gradient: "from-gray-50 to-gray-100",
+                                                border: "border-gray-200",
+                                                text: "text-gray-800",
+                                                iconBg: "bg-gray-100 text-gray-500",
+                                                bar: "bg-gray-400",
+                                            };
+                                            const Icon = cfg.icon;
+                                            const totalInView = summary.totalInViewForTypes;
+                                            const pct = totalInView > 0 ? Math.round((count / totalInView) * 100) : 0;
+                                            const displayType = type === "learning" ? "Learner" : type;
 
-                                                return (
-                                                    <button
-                                                        key={type}
-                                                        onClick={() => setSelectedType(type === selectedType ? "" : type)}
-                                                        className={`relative bg-gradient-to-br ${cfg.gradient} 
-                        border-2 ${selectedType === type
-                                                                ? "border-yellow-300 ring-2 ring-yellow-200 shadow-md"
-                                                                : cfg.border} 
-                        rounded-xl p-3 flex flex-col gap-2 overflow-hidden 
-                        group hover:shadow-lg hover:-translate-y-0.5 
-                        transition-all duration-200 cursor-pointer w-full text-left`}
-                                                    >
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cfg.iconBg}`}>
-                                                                <Icon size={16} strokeWidth={2.5} />
-                                                            </div>
-                                                            <span className={`text-xs font-bold ${cfg.text} opacity-75`}>{pct}%</span>
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => setSelectedType(type === selectedType ? "" : type)}
+                                                    className={`relative bg-gradient-to-br ${cfg.gradient} 
+                                                        border-2 ${selectedType === type
+                                                            ? "border-yellow-300 ring-1 ring-yellow-200 shadow-sm"
+                                                            : cfg.border} 
+                                                        rounded-xl p-1.5 flex flex-col gap-1 overflow-hidden 
+                                                        group hover:shadow-md hover:-translate-y-0.5 
+                                                        transition-all duration-200 cursor-pointer w-full text-left`}
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <div className={`w-5 h-5 rounded flex items-center justify-center ${cfg.iconBg}`}>
+                                                            <Icon size={10} strokeWidth={2.5} />
                                                         </div>
-                                                        <div className="flex-1 mt-1">
-                                                            <p className={`text-2xl font-black leading-none ${cfg.text} tracking-tighter`}>
-                                                                {count}
-                                                            </p>
-                                                            <p className="text-xs font-medium text-gray-600 mt-1 capitalize">
-                                                                {displayType}
-                                                            </p>
-                                                        </div>
-                                                        <div className="h-1 bg-black/10 rounded-full overflow-hidden mt-2 w-full">
-                                                            <div
-                                                                className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
-                                                                style={{ width: `${pct}%` }}
-                                                            />
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
+                                                        <span className={`text-[9px] font-bold ${cfg.text} opacity-75`}>{pct}%</span>
+                                                    </div>
+                                                    <div className="flex-1 mt-0.5">
+                                                        <p className={`text-lg font-black leading-none ${cfg.text} tracking-tighter`}>
+                                                            {count}
+                                                        </p>
+                                                        <p className="text-[9px] font-medium text-gray-600 mt-0.5 capitalize truncate">
+                                                            {displayType}
+                                                        </p>
+                                                    </div>
+                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1 w-full">
+                                                        <div
+                                                            className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Claims by Council */}
+                                <div className="xl:w-[65%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-3 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
+                                            <LayoutGrid size={12} className="text-green-600" />
                                         </div>
+                                        <h3 className="text-xs font-semibold text-green-900 tracking-tight">
+                                            Claims by Council {selectedStage ? `(${selectedStage})` : ''}
+                                        </h3>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
+                                        {summary.councilBreakdown.map(({ council, label, count }) => {
+                                            const totalInView = summary.totalInViewForTypes;
+                                            const pct = totalInView > 0 ? Math.round((count / totalInView) * 100) : 0;
+                                            const isSelected = selectedCouncil === council;
+
+                                            return (
+                                                <button
+                                                    key={council}
+                                                    onClick={() => setSelectedCouncil(isSelected ? "" : council)}
+                                                    className={`relative bg-gradient-to-br from-gray-50 to-gray-100 
+                                                        border-2 ${isSelected ? "border-yellow-300 ring-1 ring-yellow-200 shadow-sm" : "border-gray-200"} 
+                                                        rounded-xl p-1.5 flex flex-col gap-1 overflow-hidden 
+                                                        group hover:shadow-md hover:-translate-y-0.5 
+                                                        transition-all duration-200 cursor-pointer w-full text-left`}
+                                                    title={label}
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <div className="w-5 h-5 rounded flex items-center justify-center bg-gray-200 text-gray-600">
+                                                            <LayoutGrid size={10} strokeWidth={2.5} />
+                                                        </div>
+                                                        <span className="text-[9px] font-bold text-gray-800 opacity-75">{pct}%</span>
+                                                    </div>
+                                                    <div className="flex-1 mt-0.5 min-w-0">
+                                                        <p className="text-lg font-black leading-none text-gray-800 tracking-tighter">
+                                                            {count}
+                                                        </p>
+                                                        <p className="text-[9px] font-medium text-gray-600 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                                                            {label}
+                                                        </p>
+                                                    </div>
+                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1 w-full">
+                                                        <div
+                                                            className="h-full rounded-full bg-gray-400 transition-all duration-700"
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>

@@ -16,6 +16,8 @@ import {
   ExternalLink,
   ArrowUpDown,
   History,
+  Filter,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
@@ -52,7 +54,6 @@ type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "mi
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
 
-// UPDATED: Standardized sizes and colors. Hybrid/Electric use pure CSS circles to perfectly match the size of the letter circles.
 const ATTRIBUTE_MAPPING: Record<string, { label: string; symbol: string; type: "circle" | "filled-circle" | "star"; colorClass?: string }> = {
   "SMALL CAR": { label: "Small Car", symbol: "SS", type: "circle" },
   "SALOON": { label: "Saloon", symbol: "S", type: "circle" },
@@ -99,6 +100,11 @@ export default function VehiclesPage() {
 
   // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
+  
+  // Multi-select attributes
+  const [attributeFilters, setAttributeFilters] = useState<string[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
   const [sortField, setSortField] = useState<SortField>("reg_no");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -169,10 +175,8 @@ export default function VehiclesPage() {
         model: formData.model.trim(),
         name: formData.name.trim(),
         reg_no: formData.reg_no.trim().toUpperCase(),
-        // Force attributes to uppercase for backend
         attributes: formData.attributes.map(a => a.toUpperCase()),
       };
-      console.log("Creating vehicle with payload:", payload);
       await api.post("/api/car", payload, { headers: { requiresAuth: true } });
       setFormData({ model: "", name: "", reg_no: "", attributes: [] });
       setShowForm(false);
@@ -200,7 +204,6 @@ export default function VehiclesPage() {
       model: vehicle.model,
       name: vehicle.name,
       service_time: st,
-      // Map attributes to uppercase for the edit form just in case
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
   };
@@ -219,7 +222,6 @@ export default function VehiclesPage() {
         service_time: editData.service_time && !isNaN(Number(editData.service_time)) 
           ? Number(editData.service_time) 
           : editData.service_time ? new Date(editData.service_time).toISOString() : null,
-        // Force attributes to uppercase for backend
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
@@ -304,6 +306,13 @@ export default function VehiclesPage() {
     v.reg_no?.toLowerCase().includes(search.toLowerCase()) ||
     v.model?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Apply multi-select attribute filter (AND logic: vehicle must have ALL selected attributes)
+  if (attributeFilters.length > 0) {
+    displayed = displayed.filter(v => 
+      attributeFilters.every(attr => v.attributes?.includes(attr))
+    );
+  }
 
   displayed.sort((a, b) => {
     let valA: any, valB: any;
@@ -576,7 +585,7 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        <div className="mb-6">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 relative">
           <input
             type="text"
             value={activeTab === "history" ? historySearch : search}
@@ -584,6 +593,71 @@ export default function VehiclesPage() {
             placeholder={activeTab === "history" ? "Search history by Reg No. or Claim ID..." : "Search by name, model or reg no..."}
             className="w-full max-w-md px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
           />
+          
+          {activeTab !== "history" && (
+            <div className="relative w-full max-w-[250px]">
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="w-full flex items-center justify-between px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
+              >
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Filter size={16} className="text-emerald-600" />
+                  <span className="font-medium">
+                    {attributeFilters.length === 0
+                      ? "Filter Attributes"
+                      : `Filters (${attributeFilters.length})`}
+                  </span>
+                </div>
+                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isFilterOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setIsFilterOpen(false)}
+                  />
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-20 overflow-hidden">
+                    <div className="max-h-60 overflow-y-auto p-2 space-y-1">
+                      {AVAILABLE_ATTRIBUTES.map((attr) => (
+                        <label
+                          key={attr}
+                          className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={attributeFilters.includes(attr)}
+                            onChange={() => {
+                              setAttributeFilters((prev) =>
+                                prev.includes(attr)
+                                  ? prev.filter((a) => a !== attr)
+                                  : [...prev, attr]
+                              );
+                            }}
+                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                          />
+                          <span className="text-sm text-gray-700 font-medium">
+                            {ATTRIBUTE_MAPPING[attr].label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {attributeFilters.length > 0 && (
+                      <div className="p-2 border-t border-gray-100 bg-gray-50">
+                        <button
+                          onClick={() => setAttributeFilters([])}
+                          className="w-full py-1.5 text-sm text-gray-600 hover:text-emerald-700 font-semibold transition"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {error && (
@@ -601,13 +675,13 @@ export default function VehiclesPage() {
             <div className="flex flex-col items-center justify-center py-32 gap-5 text-gray-400">
               <Car size={64} strokeWidth={1.1} />
               <p className="text-xl font-medium">
-                {search
-                  ? "No vehicles match your search"
+                {search || attributeFilters.length > 0
+                  ? "No vehicles match your search and filter criteria"
                   : "No vehicles found in this category"}
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow">
+            <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
@@ -769,14 +843,13 @@ export default function VehiclesPage() {
                                 <div className="relative group flex flex-wrap gap-2 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses = "inline-flex items-center justify-center w-4 h-4 shrink-0";
+                                    const sharedClasses = "inline-flex items-center justify-center w-5 h-5 shrink-0";
                                     
                                     if (mapped?.type === "circle") {
-                                      // Render the characters inside a perfectly sized black CSS circle
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} rounded-full border-2 border-black text-black bg-white text-xs font-bold`}
+                                          className={`${sharedClasses} rounded-full border-2 border-black text-black bg-white text-[10px] font-bold`}
                                           title={mapped.label}
                                         >
                                           {mapped.symbol}
@@ -785,7 +858,6 @@ export default function VehiclesPage() {
                                     }
                                     
                                     if (mapped?.type === "filled-circle") {
-                                      // Render colored dots as matching size CSS circles
                                       return (
                                         <span 
                                           key={attr} 
@@ -795,12 +867,11 @@ export default function VehiclesPage() {
                                       );
                                     }
 
-                                    // Render Star exactly matching the 28x28px space
                                     if (mapped?.type === "star") {
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} text-black text-xl leading-none pb-0.5`}
+                                          className={`${sharedClasses} text-yellow-500 text-xl leading-none pb-0.5`}
                                           title={mapped.label}
                                         >
                                           ★
@@ -831,7 +902,7 @@ export default function VehiclesPage() {
                                               ) : mapped?.type === "filled-circle" ? (
                                                 <span className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`} />
                                               ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 text-gray-200 text-lg leading-none shrink-0 pb-0.5">★</span>
+                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-lg leading-none shrink-0 pb-0.5">★</span>
                                               ) : (
                                                 <span>{a}</span>
                                               )}
@@ -929,7 +1000,7 @@ export default function VehiclesPage() {
             </div>
           )
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-x-auto">
             {historyLoading ? (
               <div className="flex items-center justify-center py-32">
                 <Loader2 className="animate-spin text-emerald-600" size={40} />
