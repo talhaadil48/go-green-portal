@@ -287,9 +287,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     // Set up new heartbeat interval (20 seconds)
     heartbeatIntervalRef.current = setInterval(() => {
       sendHeartbeat();
-    }, 40000);
+    }, 180000); // 180 seconds to be safe
 
-    return () => {
+    return () => {s
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
       }
