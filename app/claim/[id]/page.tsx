@@ -117,6 +117,15 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  
+  // Heartbeat interval ref
+  const heartbeatIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Lock details state
+  const [lockDetails, setLockDetails] = useState<{
+    lockedBy: string | null;
+    lockExpiresAt: string | null;
+  }>({ lockedBy: null, lockExpiresAt: null });
 
   const visibleTabs = getVisibleTabs(claimData?.claim_type);
 
@@ -145,14 +154,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     if (claimData.locked_by && claimData.locked_by.toLowerCase() !== username.toLowerCase()) return;
 
     try {
-      const formData = new FormData();
-      formData.append("locked", "false");
-
-      navigator.sendBeacon(`${process.env.NEXT_PUBLIC_API_URL}/api/claims/${claimId}/lock`, formData);
-
-      await api.put(
+      // Use DELETE endpoint to unlock (admin override)
+      await api.delete(
         `/api/claims/${claimId}/lock`,
-        { locked: false },
         { headers: { requiresAuth: true } }
       ).catch(() => { });
     } catch (err) {
@@ -173,6 +177,32 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     };
   }, [unlockClaim, claimId, username]);
 
+  // Heartbeat to refresh lock
+  const sendHeartbeat = useCallback(async () => {
+    if (!claimId || !username || !claimData?.locked) return;
+
+    try {
+      const res = await api.put(
+        `/api/claims/${claimId}/lock`,
+        { locked_by: username },
+        { headers: { requiresAuth: true } }
+      ).catch(() => { });
+
+      // Check if lock was lost (another user took over)
+      if (res && res.data && res.data.success === false) {
+        console.warn("Lock lost to another user:", res.data.locked_by);
+        setError(res.data.message || `This claim is currently locked by ${res.data.locked_by}.`);
+        setLockDetails({
+          lockedBy: res.data.locked_by || null,
+          lockExpiresAt: res.data.lock_expires_at || null,
+        });
+        setClaimData(prev => prev ? { ...prev, locked: true, locked_by: res.data.locked_by } : null);
+      }
+    } catch (err) {
+      console.warn("Heartbeat failed:", err);
+    }
+  }, [claimId, username, claimData?.locked]);
+
   // Lock claim after fetching data
   const lockClaimAfterFetch = useCallback(async (claimInfo: ClaimData) => {
     if (!username) return;
@@ -187,12 +217,23 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         return;
       }
 
-      // Lock the claim for current user
-      await api.put(
+      // Lock the claim for current user using PUT with locked_by
+      const res = await api.put(
         `/api/claims/${claimId}/lock`,
-        { locked: true, locked_by: username },
+        { locked_by: username },
         { headers: { requiresAuth: true } }
       );
+
+      // Check if API returned success: false
+      if (res.data && res.data.success === false) {
+        setError(res.data.message || `This claim is currently locked by ${res.data.locked_by}.`);
+        setLockDetails({
+          lockedBy: res.data.locked_by || null,
+          lockExpiresAt: res.data.lock_expires_at || null,
+        });
+        setClaimData(prev => prev ? { ...prev, locked: true, locked_by: res.data.locked_by } : null);
+        return;
+      }
 
       // Update local state with locked status
       setClaimData(prev => prev ? { ...prev, locked: true, locked_by: username } : null);
@@ -231,6 +272,30 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     fetchAndLock();
   }, [claimId, username, lockClaimAfterFetch]);
 
+  // Set up heartbeat every 20 seconds to keep lock alive
+  useEffect(() => {
+    if (!claimId || !username || !claimData?.locked) return;
+
+    // Send initial heartbeat
+    sendHeartbeat();
+
+    // Clear any existing interval
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+    }
+
+    // Set up new heartbeat interval (20 seconds)
+    heartbeatIntervalRef.current = setInterval(() => {
+      sendHeartbeat();
+    }, 40000);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [claimId, username, claimData?.locked, sendHeartbeat]);
+
   // Manual unlock with password
   const handlePasswordUnlock = async () => {
     if (!unlockPassword) {
@@ -248,9 +313,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
     setUnlockError(null);
 
     try {
-      await api.put(
+      // Use DELETE endpoint to unlock (admin override)
+      await api.delete(
         `/api/claims/${claimId}/lock`,
-        { locked: false },
         { headers: { requiresAuth: true } }
       );
 
@@ -370,38 +435,83 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
   // Locked by other user screen with password unlock option
   if (error && claimData?.locked && !isViewOnly) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
-        {/* Same lock screen UI... */}
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <Lock className="w-16 h-16 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-800 mb-2">Claim is Locked</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            <span className="font-semibold">Claim ID:</span> {claimData?.claim_id?.toUpperCase() || claimId?.toUpperCase()}
-          </p>
-          <p className="text-gray-700 text-lg mb-8">{error}</p>
+    const formatExpirationTime = (isoString: string | null) => {
+      if (!isoString) return null;
+      try {
+        const date = new Date(isoString);
+        return date.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        });
+      } catch {
+        return isoString;
+      }
+    };
 
-          <div className="space-y-3">
-            <button
-              onClick={() => setIsViewOnly(true)}
-              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition text-lg flex items-center justify-center gap-2"
-            >
-              <Eye size={20} />
-              View Only
-            </button>
-            <button
-              onClick={() => setShowPasswordModal(true)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition text-lg flex items-center justify-center gap-2"
-            >
-              <Unlock size={20} />
-              Unlock with Password
-            </button>
-            <button
-              onClick={() => router.push("/claim")}
-              className="w-full py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold rounded-xl transition text-lg"
-            >
-              Go Back
-            </button>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header with red accent */}
+          <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 text-center text-white">
+            <Lock className="w-16 h-16 mx-auto mb-3" />
+            <h2 className="text-3xl font-bold">Claim is Locked</h2>
+          </div>
+
+          {/* Content */}
+          <div className="p-8">
+            {/* Claim ID */}
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Claim ID</p>
+              <p className="text-lg font-mono font-bold text-gray-900">
+                {claimData?.claim_id?.toUpperCase() || claimId?.toUpperCase()}
+              </p>
+            </div>
+
+            {/* Lock Details */}
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Lock Details</p>
+              <div className="bg-red-50 rounded-lg p-4 space-y-3">
+                {/* Locked By */}
+                <div>
+                  <p className="text-xs text-gray-600 font-medium mb-1">Locked By</p>
+                  <p className="text-lg font-bold text-red-700">
+                    {lockDetails.lockedBy || claimData?.locked_by || "Unknown User"}
+                  </p>
+                </div>
+
+              
+              </div>
+            </div>
+
+          
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setIsViewOnly(true)}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors text-base flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Eye size={20} />
+                View Only Mode
+              </button>
+              <button
+                onClick={() => setShowPasswordModal(true)}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-base flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Unlock size={20} />
+                Unlock with Password
+              </button>
+              <button
+                onClick={() => router.push("/claim")}
+                className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition-colors text-base"
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         </div>
 
