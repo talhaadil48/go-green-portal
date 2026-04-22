@@ -773,14 +773,14 @@ export default function ClaimsPage() {
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
 
-                                {/* Visible "Claim Progress" cell */}
+                                {/* Visible "Hire Progress" cell */}
                                 <th
                                     colSpan={5}
                                     className="px-2 py-1 text-center bg-green-300/80"
                                     style={{ borderRadius: "8px 8px 0 0" }}
                                 >
                                     <span className="text-xs font-bold text-green-800 uppercase tracking-widest">
-                                        — Claim Progress —
+                                        — Hire Progress —
                                     </span>
                                 </th>
 

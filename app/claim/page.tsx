@@ -646,11 +646,15 @@ export default function ClaimsDashboard() {
             count: filteredForTypes.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
 
-        const councilBreakdown = COUNCIL_OPTIONS.slice(1).map(opt => ({
-            council: opt.value,
-            label: opt.label,
-            count: filteredForTypes.filter(c => (c.council || "None") === opt.value).length,
-        }));
+        // Exclude "None" from council breakdown
+        const councilBreakdown = COUNCIL_OPTIONS
+            .slice(1)
+            .filter(opt => opt.value !== "None")
+            .map(opt => ({
+                council: opt.value,
+                label: opt.label,
+                count: filteredForTypes.filter(c => (c.council || "None") === opt.value).length,
+            }));
 
         return {
             vehicles: vehiclesCount,
@@ -762,13 +766,13 @@ export default function ClaimsDashboard() {
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th
-                                    colSpan={6}
+                                    colSpan={4}
                                     className="px-2 py-1 text-center bg-green-800"
                                     style={{ borderRadius: "8px 8px 0 0" }}
                                 >
                                     <div className="flex justify-center items-center w-full">
                                         <span className="text-[11px] font-bold text-white uppercase tracking-widest">
-                                            — Claim Progress —
+                                            — Hire Progress —
                                         </span>
                                     </div>
                                 </th>
@@ -812,12 +816,7 @@ export default function ClaimsDashboard() {
                                         <span>Hire End {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
-                                <th onClick={() => handleSort("invoice_date")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
-                                    <div className="flex flex-col items-center justify-center gap-0.5">
-                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">5</span>
-                                        <span>Invoice Sent {getSortArrow("invoice_date")}</span>
-                                    </div>
-                                </th>
+                                
                                 <th onClick={() => handleSort("count")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
                                         <span>Days {getSortArrow("count")}</span>
@@ -963,7 +962,6 @@ export default function ClaimsDashboard() {
                                         {renderDateCell(claim, "pay_date", editPayDate, setEditPayDate, false)}
                                         {renderDateCell(claim, "hire_end_date", editHireEndDate, setEditHireEndDate, true)}
 
-                                        {renderDateCell(claim, "invoice_date", editInvoiceDate, setEditInvoiceDate, true)}
                                         <td className="px-1 py-0.5 text-center text-gray-800 font-semibold border-r border-gray-300 whitespace-nowrap">
                                             {hireCount !== null ? hireCount : "—"}
                                         </td>
@@ -1155,10 +1153,12 @@ export default function ClaimsDashboard() {
                                 </button>
                             </div>
 
-                            <div className="flex flex-col xl:flex-row gap-4 w-full">
-                                {/* Claims by Type */}
-                                <div className="xl:w-[35%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-3 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
+                            {/* ── TYPE + COUNCIL ROW ── items-start prevents height-matching stretch */}
+                            <div className="flex flex-col xl:flex-row xl:items-start gap-4 w-full">
+
+                                {/* Claims by Type — self-start so it doesn't stretch to council's height */}
+                                <div className="xl:w-[50%] w-full self-start bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-3">
                                         <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
                                             <FileText size={12} className="text-green-600" />
                                         </div>
@@ -1189,25 +1189,25 @@ export default function ClaimsDashboard() {
                                                         border-2 ${selectedType === type
                                                             ? "border-yellow-300 ring-1 ring-yellow-200 shadow-sm"
                                                             : cfg.border} 
-                                                        rounded-xl p-1.5 flex flex-col gap-1 overflow-hidden 
+                                                        rounded-xl p-2.5 flex flex-col gap-1 overflow-hidden 
                                                         group hover:shadow-md hover:-translate-y-0.5 
                                                         transition-all duration-200 cursor-pointer w-full text-left`}
                                                 >
                                                     <div className="flex items-center justify-between w-full">
-                                                        <div className={`w-5 h-5 rounded flex items-center justify-center ${cfg.iconBg}`}>
-                                                            <Icon size={10} strokeWidth={2.5} />
+                                                        <div className={`w-6 h-6 rounded flex items-center justify-center ${cfg.iconBg}`}>
+                                                            <Icon size={12} strokeWidth={2.5} />
                                                         </div>
-                                                        <span className={`text-[9px] font-bold ${cfg.text} opacity-75`}>{pct}%</span>
+                                                        <span className={`text-[10px] font-bold ${cfg.text} opacity-75`}>{pct}%</span>
                                                     </div>
-                                                    <div className="flex-1 mt-0.5">
-                                                        <p className={`text-lg font-black leading-none ${cfg.text} tracking-tighter`}>
+                                                    <div className="flex-1 mt-1">
+                                                        <p className={`text-2xl font-black leading-none ${cfg.text} tracking-tighter`}>
                                                             {count}
                                                         </p>
-                                                        <p className="text-[9px] font-medium text-gray-600 mt-0.5 capitalize truncate">
+                                                        <p className="text-[10px] font-medium text-gray-600 mt-0.5 capitalize truncate">
                                                             {displayType}
                                                         </p>
                                                     </div>
-                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1 w-full">
+                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1.5 w-full">
                                                         <div
                                                             className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
                                                             style={{ width: `${pct}%` }}
@@ -1220,8 +1220,8 @@ export default function ClaimsDashboard() {
                                 </div>
 
                                 {/* Claims by Council */}
-                                <div className="xl:w-[65%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-3 shadow-sm">
-                                    <div className="flex items-center gap-2 mb-2">
+                                <div className="xl:w-[65%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-3">
                                         <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
                                             <LayoutGrid size={12} className="text-green-600" />
                                         </div>
@@ -1229,7 +1229,7 @@ export default function ClaimsDashboard() {
                                             Claims by Council {selectedStage ? `(${selectedStage})` : ''}
                                         </h3>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
+                                    <div className="grid grid-cols-3 gap-2">
                                         {summary.councilBreakdown.map(({ council, label, count }) => {
                                             const totalInView = summary.totalInViewForTypes;
                                             const pct = totalInView > 0 ? Math.round((count / totalInView) * 100) : 0;
@@ -1241,26 +1241,26 @@ export default function ClaimsDashboard() {
                                                     onClick={() => setSelectedCouncil(isSelected ? "" : council)}
                                                     className={`relative bg-gradient-to-br from-gray-50 to-gray-100 
                                                         border-2 ${isSelected ? "border-yellow-300 ring-1 ring-yellow-200 shadow-sm" : "border-gray-200"} 
-                                                        rounded-xl p-1.5 flex flex-col gap-1 overflow-hidden 
+                                                        rounded-xl p-2.5 flex flex-col gap-1 overflow-hidden 
                                                         group hover:shadow-md hover:-translate-y-0.5 
                                                         transition-all duration-200 cursor-pointer w-full text-left`}
                                                     title={label}
                                                 >
                                                     <div className="flex items-center justify-between w-full">
-                                                        <div className="w-5 h-5 rounded flex items-center justify-center bg-gray-200 text-gray-600">
-                                                            <LayoutGrid size={10} strokeWidth={2.5} />
+                                                        <div className="w-6 h-6 rounded flex items-center justify-center bg-gray-200 text-gray-600">
+                                                            <LayoutGrid size={11} strokeWidth={2.5} />
                                                         </div>
-                                                        <span className="text-[9px] font-bold text-gray-800 opacity-75">{pct}%</span>
+                                                        <span className="text-[10px] font-bold text-gray-800 opacity-75">{pct}%</span>
                                                     </div>
-                                                    <div className="flex-1 mt-0.5 min-w-0">
-                                                        <p className="text-lg font-black leading-none text-gray-800 tracking-tighter">
+                                                    <div className="flex-1 mt-1 min-w-0">
+                                                        <p className="text-2xl font-black leading-none text-gray-800 tracking-tighter">
                                                             {count}
                                                         </p>
-                                                        <p className="text-[9px] font-medium text-gray-600 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                                                        <p className="text-[10px] font-medium text-gray-600 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                                                             {label}
                                                         </p>
                                                     </div>
-                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1 w-full">
+                                                    <div className="h-0.5 bg-black/10 rounded-full overflow-hidden mt-1.5 w-full">
                                                         <div
                                                             className="h-full rounded-full bg-gray-400 transition-all duration-700"
                                                             style={{ width: `${pct}%` }}
