@@ -288,10 +288,7 @@ export default function InvoiceManagementPage() {
   // 1. Filter
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
     // Exclude invoices if claim_type is "vehicle damage" or "sovereign"
-    const type = inv.claim_type?.toLowerCase();
-    if (type === "vehicle damage" || type === "sovereign") {
-      return false;
-    }
+    
 
     const matchesSearch =
       !search ||
@@ -330,7 +327,7 @@ export default function InvoiceManagementPage() {
   // Using the original list length for total count before filtering, you can change this if you want total count without hidden types
   const totalCount = isClaimTab ? claimInvoices.filter(i => {
     const t = i.claim_type?.toLowerCase();
-    return t !== "vehicle damage" && t !== "sovereign";
+    return true; // Show all in total count, change to (t !== "vehicle damage" && t !== "sovereign") if you want to exclude them from total count as well
   }).length : longHireInvoices.length;
 
   const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {

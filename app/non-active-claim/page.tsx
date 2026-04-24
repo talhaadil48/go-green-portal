@@ -1357,7 +1357,17 @@ export default function ClaimsPage() {
                                         <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
                                     </div>
                                     <div className="flex-1 flex flex-col gap-3">
-                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/70 rounded-xl">
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedStage(selectedStage === "hire end" ? "" : "hire end");
+                                                setStatusFilter("Non Active");
+                                            }}
+                                            className={`flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 rounded-xl transition-all duration-200 cursor-pointer
+                                                ${selectedStage === "hire end" 
+                                                    ? "border-amber-400 shadow-lg ring-2 ring-amber-200" 
+                                                    : "border-amber-200/70 hover:border-amber-300 hover:shadow-md"
+                                                }`}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
                                                     <Clock size={15} className="text-amber-600" strokeWidth={2.2} />
@@ -1368,8 +1378,18 @@ export default function ClaimsPage() {
                                                 </div>
                                             </div>
                                             <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/70 rounded-xl">
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                setSelectedStage(selectedStage === "invoice sent" ? "" : "invoice sent");
+                                                setStatusFilter("Non Active");
+                                            }}
+                                            className={`flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border-2 rounded-xl transition-all duration-200 cursor-pointer
+                                                ${selectedStage === "invoice sent" 
+                                                    ? "border-emerald-400 shadow-lg ring-2 ring-emerald-200" 
+                                                    : "border-emerald-200/70 hover:border-emerald-300 hover:shadow-md"
+                                                }`}
+                                        >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
                                                     <CheckCircle2 size={15} className="text-emerald-600" strokeWidth={2.2} />
@@ -1380,7 +1400,7 @@ export default function ClaimsPage() {
                                                 </div>
                                             </div>
                                             <span className="text-2xl font-black text-emerald-700 tabular-nums">{summary.invoiceSent}</span>
-                                        </div>
+                                        </button>
                                         <div className="mt-auto pt-1">
                                             {(() => {
                                                 const total = summary.invoicePending + summary.invoiceSent;
