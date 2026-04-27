@@ -29,6 +29,7 @@ interface Claim {
     hire_end_date: string | null;
     reason: string | null;
     is_disputed: boolean;
+    latest_vehicle_reg: string | null;
     updates?: any[];
 }
 
@@ -36,6 +37,7 @@ type SortColumn =
     | "claim_id"
     | "claimant_name"
     | "claim_type"
+    | "latest_vehicle_reg"
     | "claim_start_date"
     | "hire_start_date"
     | "pay_date"
@@ -269,8 +271,8 @@ export default function ClaimsDashboard() {
 
         if (sortColumn && sortDirection) {
             filtered.sort((a, b) => {
-                let aVal: any = a[sortColumn] ?? "";
-                let bVal: any = b[sortColumn] ?? "";
+                let aVal: any = a[sortColumn as keyof Claim] ?? "";
+                let bVal: any = b[sortColumn as keyof Claim] ?? "";
 
                 if (sortColumn === "claim_id") {
                     const getParts = (id: string) => {
@@ -309,8 +311,8 @@ export default function ClaimsDashboard() {
                     if (sortColumn === "hire_end_date") field = "hire_end_date";
                     if (sortColumn === "invoice_date") field = "invoice_date";
                     const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
-                    aVal = a[field] ? new Date(a[field]).getTime() : sentinel;
-                    bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
+                    aVal = a[field] ? new Date(a[field]!).getTime() : sentinel;
+                    bVal = b[field] ? new Date(b[field]!).getTime() : sentinel;
                 }
 
                 if (typeof aVal === "string" && typeof bVal === "string") {
@@ -764,6 +766,8 @@ export default function ClaimsDashboard() {
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
+                                {/* +1 for Reg column */}
+                                <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th
                                     colSpan={4}
@@ -788,6 +792,10 @@ export default function ClaimsDashboard() {
                                 </th>
                                 <th onClick={() => handleSort("claim_type")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Type {getSortArrow("claim_type")}
+                                </th>
+                                {/* ── NEW REG COLUMN ── */}
+                                <th onClick={() => handleSort("latest_vehicle_reg")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
+                                    Reg {getSortArrow("latest_vehicle_reg")}
                                 </th>
                                 <th onClick={() => handleSort("council")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Council {getSortArrow("council")}
@@ -816,7 +824,6 @@ export default function ClaimsDashboard() {
                                         <span>Hire End {getSortArrow("hire_end_date")}</span>
                                     </div>
                                 </th>
-                                
                                 <th onClick={() => handleSort("count")} className="px-1 py-1 text-center font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     <div className="flex flex-col items-center justify-center gap-0.5">
                                         <span>Days {getSortArrow("count")}</span>
@@ -920,6 +927,18 @@ export default function ClaimsDashboard() {
                                                 </div>
                                             )}
                                         </td>
+
+                                        {/* ── NEW REG CELL ── read-only, shows latest_vehicle_reg */}
+                                        <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap text-center">
+                                            {claim.latest_vehicle_reg ? (
+                                                <span className="inline-block px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono font-semibold text-gray-800 tracking-wider uppercase">
+                                                    {claim.latest_vehicle_reg}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400">—</span>
+                                            )}
+                                        </td>
+
                                         <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
                                             {isVehicleDamage ? (
                                                 <hr className="border-emerald-500 border-[2px]  w-[50%] text-center mx-auto" />
@@ -1042,7 +1061,6 @@ export default function ClaimsDashboard() {
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
-
                         <button
                             onClick={fetchClaims}
                             disabled={loading}
@@ -1153,10 +1171,7 @@ export default function ClaimsDashboard() {
                                 </button>
                             </div>
 
-                            {/* ── TYPE + COUNCIL ROW ── items-start prevents height-matching stretch */}
                             <div className="flex flex-col xl:flex-row xl:items-start gap-4 w-full">
-
-                                {/* Claims by Type — self-start so it doesn't stretch to council's height */}
                                 <div className="xl:w-[50%] w-full self-start bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
@@ -1219,7 +1234,6 @@ export default function ClaimsDashboard() {
                                     </div>
                                 </div>
 
-                                {/* Claims by Council */}
                                 <div className="xl:w-[65%] w-full bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center">
