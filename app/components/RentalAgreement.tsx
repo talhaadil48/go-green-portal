@@ -634,13 +634,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
     return true;
   };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Validate numerical fields before sending
     if (!validateNumericFields()) {
       setLoading(false);
       return;
@@ -654,26 +652,56 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       declaration_signature: signatures.declaration_signature || null,
       liability_signature: signatures.liability_signature || null,
       claim_id: currentClaimId,
-      user_name : username,
+      user_name: username,
     };
 
     try {
-      const response = await axios.post("/api/submit-rental-agreement", fullData, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await axios.post(
+        "/api/submit-rental-agreement",
+        fullData,
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
 
-      if (!response.data.success) {
-        throw new Error(response.data.message || "Submission failed");
+      // Only runs for 2xx responses
+      if (response.data?.success === false) {
+        const message =
+          response.data?.message ||
+          "This rental agreement has already been submitted and cannot be modified.";
+
+        if (response.data?.status === 409) {
+          alert(message);
+        }
+
+        throw new Error(message);
       }
 
       setSubmitted(true);
+
       if (unsavedChangesContext) {
         unsavedChangesContext.setHasUnsavedChanges(false);
       }
-      await fetchRentalData(); // refresh → locks signatures
+
+      await fetchRentalData();
     } catch (err: any) {
       console.error("Submission error:", err);
-      setError(err.message || "Something went wrong. Please try again.");
+
+      const status = err?.response?.status;
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Something went wrong. Please try again.";
+
+      if (status === 409) {
+        alert(
+          message ||
+          "This rental agreement has already been submitted and cannot be modified."
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }

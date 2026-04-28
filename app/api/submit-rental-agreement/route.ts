@@ -113,13 +113,26 @@ export async function POST(req: NextRequest) {
     });
 
     if (!externalResponse.ok) {
-      const errorText = await externalResponse.text();
-      console.error("External API error:", externalResponse.status, errorText);
-      throw new Error(
-        `External backend failed: ${externalResponse.status} - ${errorText}`,
+      const errorData = await externalResponse.json().catch(() => null);
+
+      console.error(
+        "External API error:",
+        externalResponse.status,
+        errorData,
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          status: externalResponse.status,
+          message:
+            errorData?.detail ||
+            externalResponse.statusText ||
+            "External API error",
+        },
+        { status: externalResponse.status },
       );
     }
-
     const externalResult = await externalResponse.json();
 
     return NextResponse.json(
