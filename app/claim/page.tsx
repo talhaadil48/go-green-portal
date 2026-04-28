@@ -241,7 +241,8 @@ export default function ClaimsDashboard() {
             filtered = filtered.filter(
                 (claim) =>
                     claim.claimant_name?.toLowerCase().includes(term) ||
-                    claim.claim_id.toLowerCase().includes(term)
+                    claim.claim_id.toLowerCase().includes(term) ||
+                    claim.latest_vehicle_reg?.toLowerCase().includes(term)
             );
         }
 
@@ -1495,7 +1496,7 @@ export default function ClaimsDashboard() {
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            placeholder="Claimant / ID..."
+                                            placeholder="Claimant / ID / REG NO..."
                                             className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                         />
                                     </div>
