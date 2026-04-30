@@ -3,7 +3,6 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus,
   Loader2,
   RefreshCw,
   Edit2,
@@ -12,13 +11,14 @@ import {
   ChevronUp,
   ChevronDown,
   ArrowUpDown,
+  Trash2,
 } from "lucide-react";
 import api from "@/lib/axios";
 
 interface ClaimInvoice {
   id: number;
   claim_id: string | null;
-  claim_type: string | null; // Added claim_type
+  claim_type: string | null;
   claimant_name: string | null;
   invoice_datetime: string | null;
   info: string | null;
@@ -37,6 +37,7 @@ interface LongHireInvoice {
   amount: number | null;
   date_sent: string | null;
   user_name: string | null;
+  payment_date: string | null;
 }
 
 type SortConfig = {
@@ -50,7 +51,6 @@ function formatDate(d: string | null) {
     day: "2-digit",
     month: "short",
     year: "numeric",
-
   });
 }
 
@@ -66,7 +66,6 @@ function formatShortDate(d: string | null) {
 function formatCurrency(value: number | null | undefined | string) {
   let numValue = Number(value);
   if (isNaN(numValue) && typeof value === "string") {
-    // Attempt to extract numeric value from string if needed
     numValue = parseFloat(value.replace(/[^0-9.-]+/g, "")) || 0;
   }
   if (value == null || isNaN(numValue)) numValue = 0;
@@ -100,6 +99,7 @@ export default function InvoiceManagementPage() {
   const [loadingLongHire, setLoadingLongHire] = useState(true);
   const [errorLongHire, setErrorLongHire] = useState<string | null>(null);
 
+  // Claim invoice editing
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState({
     info: "",
@@ -111,6 +111,14 @@ export default function InvoiceManagementPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Long hire editing
+  const [editingLongHireId, setEditingLongHireId] = useState<number | null>(null);
+  const [editLongHireFormData, setEditLongHireFormData] = useState({
+    payment_date: "",
+  });
+  const [savingLongHire, setSavingLongHire] = useState(false);
+  const [saveLongHireError, setSaveLongHireError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
@@ -132,7 +140,6 @@ export default function InvoiceManagementPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Sorting state
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   const fetchClaimInvoices = async () => {
@@ -194,6 +201,7 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  // Claim invoice edit handlers
   const startEditing = (inv: ClaimInvoice) => {
     setEditingId(inv.id);
     setEditFormData({
@@ -238,6 +246,56 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  // Long hire edit handlers
+  const startEditingLongHire = (inv: LongHireInvoice) => {
+    setEditingLongHireId(inv.id);
+    setEditLongHireFormData({
+      payment_date: inv.payment_date ? inv.payment_date.slice(0, 10) : "",
+    });
+    setSaveLongHireError(null);
+  };
+
+  const cancelEditLongHire = () => {
+    setEditingLongHireId(null);
+    setEditLongHireFormData({ payment_date: "" });
+    setSaveLongHireError(null);
+  };
+
+  // Shared save — pass explicit dateValue so clear (null) path can call it too
+  const saveLongHirePaymentDate = async (inv: LongHireInvoice, dateValue: string | null) => {
+    if (!inv.claim_id) {
+      setSaveLongHireError("Cannot update: no Claim ID on this record.");
+      return;
+    }
+    setSavingLongHire(true);
+    setSaveLongHireError(null);
+    try {
+      const payload = {
+        claim_id: inv.claim_id,
+        payment_date: dateValue || null,
+      };
+      const res = await api.post("/api/long_hire_invoice/update_payment_date", payload, {
+        headers: { requiresAuth: true },
+      });
+      if (!res.data.success) throw new Error(res.data.message || "Update failed");
+      await fetchLongHireInvoices();
+      cancelEditLongHire();
+    } catch (err: any) {
+      setSaveLongHireError(err.response?.data?.message || "Failed to update payment date.");
+    } finally {
+      setSavingLongHire(false);
+    }
+  };
+
+  const handleSaveLongHireEdit = (inv: LongHireInvoice) => {
+    saveLongHirePaymentDate(inv, editLongHireFormData.payment_date.trim() || null);
+  };
+
+  // Clear payment date → send null
+  const handleClearLongHirePaymentDate = (inv: LongHireInvoice) => {
+    saveLongHirePaymentDate(inv, null);
+  };
+
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
@@ -248,48 +306,32 @@ export default function InvoiceManagementPage() {
 
   const sortData = <T extends Record<string, any>>(data: T[]): T[] => {
     if (!sortConfig) return data;
-
     return [...data].sort((a, b) => {
       let valA = a[sortConfig.key];
       let valB = b[sortConfig.key];
 
-      // Special handling for derived fields
       if (sortConfig.key === "total") {
         valA = (a.storage_bill || 0) + (a.rent_bill || 0);
         valB = (b.storage_bill || 0) + (b.rent_bill || 0);
       }
-
-      // Special handling for money strings
       if (sortConfig.key === "payment_amount") {
         valA = typeof valA === "string" ? parseFloat(valA.replace(/[^0-9.-]+/g, "")) || 0 : valA || 0;
         valB = typeof valB === "string" ? parseFloat(valB.replace(/[^0-9.-]+/g, "")) || 0 : valB || 0;
       }
 
       if (valA === valB) return 0;
-
-      // Handle nulls
       if (valA === null || valA === undefined) return sortConfig.direction === "asc" ? -1 : 1;
       if (valB === null || valB === undefined) return sortConfig.direction === "asc" ? 1 : -1;
-
-      // String vs Number sorting
       if (typeof valA === "string" && typeof valB === "string") {
-        return sortConfig.direction === "asc"
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
+        return sortConfig.direction === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
-
       if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
       if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-
       return 0;
     });
   };
 
-  // 1. Filter
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
-    // Exclude invoices if claim_type is "vehicle damage" or "sovereign"
-    
-
     const matchesSearch =
       !search ||
       String(inv.id).includes(search) ||
@@ -316,7 +358,6 @@ export default function InvoiceManagementPage() {
     return matchesSearch && matchesClaimId && matchesHirer && matchesSentBy;
   });
 
-  // 2. Sort
   const sortedClaimInvoices = sortData(filteredClaimInvoices);
   const sortedLongHireInvoices = sortData(filteredLongHireInvoices);
 
@@ -324,20 +365,28 @@ export default function InvoiceManagementPage() {
   const isLoading = isClaimTab ? loadingClaim : loadingLongHire;
   const error = isClaimTab ? errorClaim : errorLongHire;
   const filteredCount = isClaimTab ? sortedClaimInvoices.length : sortedLongHireInvoices.length;
-  // Using the original list length for total count before filtering, you can change this if you want total count without hidden types
-  const totalCount = isClaimTab ? claimInvoices.filter(i => {
-    const t = i.claim_type?.toLowerCase();
-    return true; // Show all in total count, change to (t !== "vehicle damage" && t !== "sovereign") if you want to exclude them from total count as well
-  }).length : longHireInvoices.length;
+  const totalCount = isClaimTab ? claimInvoices.length : longHireInvoices.length;
 
-  const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {
+  const SortHeader = ({
+    label,
+    sortKey,
+    align = "left",
+  }: {
+    label: string;
+    sortKey: string;
+    align?: "left" | "right" | "center";
+  }) => {
     const isActive = sortConfig?.key === sortKey;
     return (
       <th
         className={`px-3 py-2 text-${align} font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 transition-colors select-none group`}
         onClick={() => handleSort(sortKey)}
       >
-        <div className={`flex items-center gap-1 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"}`}>
+        <div
+          className={`flex items-center gap-1 ${
+            align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"
+          }`}
+        >
           {label}
           <span className="text-green-600">
             {isActive ? (
@@ -369,7 +418,6 @@ export default function InvoiceManagementPage() {
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
               Refresh All
             </button>
-           
           </div>
         </div>
 
@@ -381,7 +429,7 @@ export default function InvoiceManagementPage() {
                 key={tab}
                 onClick={() => {
                   setActiveTab(tab);
-                  setSortConfig(null); // Reset sort when changing tabs
+                  setSortConfig(null);
                 }}
                 className={`pb-3 px-1 text-lg font-medium transition-colors ${
                   activeTab === tab
@@ -531,6 +579,8 @@ export default function InvoiceManagementPage() {
                         <SortHeader label="Date Sent" sortKey="date_sent" />
                         <SortHeader label="Sent By" sortKey="user_name" />
                         <SortHeader label="Amount" sortKey="amount" align="right" />
+                        <SortHeader label="Payment Date" sortKey="payment_date" />
+                        <th className="px-3 py-2 text-center font-semibold text-green-800">Actions</th>
                       </>
                     )}
                   </tr>
@@ -548,8 +598,6 @@ export default function InvoiceManagementPage() {
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                               {formatDate(inv.invoice_datetime)}
                             </td>
-
-                            {/* Info */}
                             <td className="px-3 py-1.5 border-r border-gray-300 text-center">
                               {isEditing ? (
                                 <input
@@ -561,8 +609,6 @@ export default function InvoiceManagementPage() {
                                 />
                               ) : getInfoBadge(inv.info)}
                             </td>
-
-                            {/* Sent By */}
                             <td className="px-3 py-1.5 border-r border-gray-300">
                               {isEditing ? (
                                 <input
@@ -576,8 +622,6 @@ export default function InvoiceManagementPage() {
                                 <span className="truncate block max-w-[140px]">{inv.user_name?.toUpperCase() || "—"}</span>
                               )}
                             </td>
-
-                            {/* Storage */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {isEditing ? (
                                 <input
@@ -589,8 +633,6 @@ export default function InvoiceManagementPage() {
                                 />
                               ) : formatCurrency(inv.storage_bill)}
                             </td>
-
-                            {/* Rent/Hire */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {isEditing ? (
                                 <input
@@ -602,13 +644,9 @@ export default function InvoiceManagementPage() {
                                 />
                               ) : formatCurrency(inv.rent_bill)}
                             </td>
-
-                            {/* Total */}
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {formatCurrency((inv.rent_bill || 0) + (inv.storage_bill || 0))}
                             </td>
-
-                            {/* Payment Amount */}
                             <td className="px-3 py-1.5 border-r border-gray-300">
                               {isEditing ? (
                                 <input
@@ -624,8 +662,6 @@ export default function InvoiceManagementPage() {
                                 </span>
                               )}
                             </td>
-
-                            {/* Payment Date */}
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                               {isEditing ? (
                                 <input
@@ -640,8 +676,6 @@ export default function InvoiceManagementPage() {
                                 </span>
                               )}
                             </td>
-
-                            {/* Actions */}
                             <td className="px-3 py-1.5 text-center">
                               {isEditing ? (
                                 <div className="flex items-center justify-center gap-2">
@@ -666,15 +700,101 @@ export default function InvoiceManagementPage() {
                           </tr>
                         );
                       })
-                    : sortedLongHireInvoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
-                          <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">{inv.hirer_name || "—"}</td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">{formatDate(inv.date_sent)}</td>
-                          <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[140px]">{inv.user_name || "—"}</td>
-                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">{formatCurrency(inv.amount)}</td>
-                        </tr>
-                      ))}
+                    : sortedLongHireInvoices.map((inv) => {
+                        const isEditingLH = editingLongHireId === inv.id;
+                        return (
+                          <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
+                            <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
+                            <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
+                              {inv.hirer_name || "—"}
+                            </td>
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                              {formatDate(inv.date_sent)}
+                            </td>
+                            <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[140px]">
+                              {inv.user_name || "—"}
+                            </td>
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {formatCurrency(inv.amount)}
+                            </td>
+
+                            {/* Payment Date — editable + clearable */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                              {isEditingLH ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="date"
+                                    value={editLongHireFormData.payment_date}
+                                    onChange={(e) =>
+                                      setEditLongHireFormData((p) => ({ ...p, payment_date: e.target.value }))
+                                    }
+                                    className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  />
+                                  {/* Clear button inside edit mode — wipes the input value */}
+                                  {editLongHireFormData.payment_date && (
+                                    <button
+                                      onClick={() => setEditLongHireFormData((p) => ({ ...p, payment_date: "" }))}
+                                      className="text-slate-400 hover:text-red-500 transition-colors"
+                                      title="Clear date"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span className={inv.payment_date ? "text-green-700 font-medium" : "text-slate-400"}>
+                                    {formatShortDate(inv.payment_date)}
+                                  </span>
+                                  {/* Quick-clear button when NOT editing — immediately sends null */}
+                                  {inv.payment_date && !isEditingLH && (
+                                    <button
+                                      onClick={() => handleClearLongHirePaymentDate(inv)}
+                                      disabled={savingLongHire}
+                                      className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
+                                      title="Clear payment date"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-3 py-1.5 text-center">
+                              {isEditingLH ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleSaveLongHireEdit(inv)}
+                                    disabled={savingLongHire}
+                                    className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                                    title="Save"
+                                  >
+                                    {savingLongHire ? <Loader2 size={14} className="animate-spin" /> : <Check size={16} />}
+                                  </button>
+                                  <button
+                                    onClick={cancelEditLongHire}
+                                    disabled={savingLongHire}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                                    title="Cancel"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => startEditingLongHire(inv)}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Edit payment date"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                 </tbody>
               </table>
             </div>
@@ -682,6 +802,11 @@ export default function InvoiceManagementPage() {
             {saveError && (
               <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
                 {saveError}
+              </div>
+            )}
+            {saveLongHireError && (
+              <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
+                {saveLongHireError}
               </div>
             )}
           </div>
