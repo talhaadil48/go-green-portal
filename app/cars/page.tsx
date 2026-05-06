@@ -18,6 +18,7 @@ import {
   History,
   Filter,
   ChevronDown,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
@@ -32,6 +33,9 @@ interface Vehicle {
   current_holder_claim_id?: string | null;
   service_time?: string | null;
   last_miles_in?: number | null;
+  last_service_miles?: number | null;
+  mot_date?: string | null;
+  current_miles?: number | null;
   attributes?: string[];
 }
 
@@ -49,7 +53,17 @@ interface FleetHistory {
   miles_out?: number | null;
 }
 
-type SortField = "reg_no" | "name" | "model" | "available" | "service_time" | "last_miles_in";
+type SortField = 
+  | "reg_no" 
+  | "name" 
+  | "model" 
+  | "available" 
+  | "service_time" 
+  | "last_miles_in"
+  | "last_service_miles"
+  | "mot_date"
+  | "current_miles";
+
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
@@ -90,11 +104,20 @@ export default function VehiclesPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState({ model: "", name: "", service_time: "", attributes: [] as string[] });
+  const [editData, setEditData] = useState({ 
+    model: "", 
+    name: "", 
+    service_time: "", 
+    mot_date: "",
+    current_miles: "",
+    attributes: [] as string[] 
+  });
   const [saving, setSaving] = useState(false);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
 
@@ -193,24 +216,34 @@ export default function VehiclesPage() {
     let st = "";
     if (vehicle.service_time) {
       try {
-        st = String(vehicle.service_time).includes("T") 
-          ? new Date(vehicle.service_time).toISOString().split("T")[0]
-          : String(vehicle.service_time);
+        st = new Date(vehicle.service_time).toISOString().split("T")[0];
       } catch (e) {
-        st = String(vehicle.service_time);
+        st = "";
       }
     }
+    
+    let md = "";
+    if (vehicle.mot_date) {
+      try {
+        md = new Date(vehicle.mot_date).toISOString().split("T")[0];
+      } catch (e) {
+        md = "";
+      }
+    }
+
     setEditData({
-      model: vehicle.model,
-      name: vehicle.name,
+      model: vehicle.model || "",
+      name: vehicle.name || "",
       service_time: st,
+      mot_date: md,
+      current_miles: vehicle.current_miles ? String(vehicle.current_miles) : "",
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditData({ model: "", name: "", service_time: "", attributes: [] });
+    setEditData({ model: "", name: "", service_time: "", mot_date: "", current_miles: "", attributes: [] });
   };
 
   const saveEdit = async (id: number) => {
@@ -219,12 +252,14 @@ export default function VehiclesPage() {
       const payload = {
         model: editData.model.trim(),
         name: editData.name.trim(),
-        service_time: editData.service_time && !isNaN(Number(editData.service_time)) 
-          ? Number(editData.service_time) 
-          : editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        service_time: editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        mot_date: editData.mot_date ? new Date(editData.mot_date).toISOString() : null,
+        current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
+      
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
+      
       setVehicles((prev) =>
         prev.map((v) => (v.id === id ? { ...v, ...payload } : v))
       );
@@ -233,6 +268,34 @@ export default function VehiclesPage() {
       alert(err.response?.data?.detail || "Failed to update vehicle.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmServiceDone = (id: number) => {
+    if (window.confirm("Mark service as done for this vehicle? This will sync the current service miles.")) {
+      syncServiceMiles(id);
+    }
+  };
+
+  const syncServiceMiles = async (id: number) => {
+    setSyncingId(id);
+    try {
+      const res = await api.put(`/api/cars/${id}/sync-service-miles`, {}, { headers: { requiresAuth: true } });
+      if (res.data?.success) {
+        if (res.data.data) {
+          setVehicles((prev) =>
+            prev.map((v) => (v.id === id ? { ...v, ...res.data.data } : v))
+          );
+        } else {
+          await fetchAllData();
+        }
+      } else {
+        alert(res.data?.message || res.data?.error || "Failed to sync service miles.");
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.response?.data?.message || "Failed to sync service miles.");
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -321,12 +384,15 @@ export default function VehiclesPage() {
     else if (sortField === "name") { valA = a.name || ""; valB = b.name || ""; }
     else if (sortField === "model") { valA = a.model || ""; valB = b.model || ""; }
     else if (sortField === "service_time") {
-      valA = a.service_time && String(a.service_time).includes("T") ? new Date(a.service_time).getTime() : Number(a.service_time || 0);
-      valB = b.service_time && String(b.service_time).includes("T") ? new Date(b.service_time).getTime() : Number(b.service_time || 0);
+      valA = a.service_time ? new Date(a.service_time).getTime() : 0;
+      valB = b.service_time ? new Date(b.service_time).getTime() : 0;
     }
-    else if (sortField === "last_miles_in") {
-      valA = a.last_miles_in || 0;
-      valB = b.last_miles_in || 0;
+    else if (sortField === "last_miles_in") { valA = a.last_miles_in || 0; valB = b.last_miles_in || 0; }
+    else if (sortField === "last_service_miles") { valA = a.last_service_miles || 0; valB = b.last_service_miles || 0; }
+    else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
+    else if (sortField === "mot_date") { 
+      valA = a.mot_date ? new Date(a.mot_date).getTime() : 0; 
+      valB = b.mot_date ? new Date(b.mot_date).getTime() : 0; 
     }
     else if (sortField === "available") {
       valA = checkIsAvail(a) ? 1 : 0;
@@ -366,109 +432,109 @@ export default function VehiclesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50/30">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-6">
         {/* Header + Summary Cards */}
-        <div className="mb-10 space-y-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="mb-6 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+              <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
                 Vehicle Fleet
               </h1>
-              <p className="mt-2 text-gray-600">
+              <p className="mt-1 text-sm text-gray-600">
                 Manage hire and long hire fleet
               </p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={activeTab === "history" ? fetchFleetHistory : fetchAllData}
                 disabled={loading || historyLoading}
-                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition font-medium shadow-sm disabled:opacity-60"
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium shadow-sm disabled:opacity-60"
               >
-                <RefreshCw size={16} className={(loading || historyLoading) ? "animate-spin" : ""} />
+                <RefreshCw size={14} className={(loading || historyLoading) ? "animate-spin" : ""} />
                 Refresh
               </button>
               {activeTab !== "history" && (
                 <button
                   onClick={() => setShowForm((v) => !v)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl transition shadow-lg font-semibold"
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg transition shadow-md font-semibold"
                 >
-                  <Plus size={18} />
+                  <Plus size={16} />
                   Add Vehicle
                 </button>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div 
               onClick={() => setActiveTab("all")}
-              className={`bg-white rounded-2xl border ${activeTab === "all" ? "border-gray-400 ring-2 ring-gray-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+              className={`bg-white rounded-xl border ${activeTab === "all" ? "border-gray-400 ring-1 ring-gray-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{total}</p>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Total</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-0.5">{total}</p>
                 </div>
-                <Car size={28} className="text-emerald-600 opacity-80" />
+                <Car size={20} className="text-emerald-600 opacity-80" />
               </div>
             </div>
             <div 
               onClick={() => setActiveTab("normal")}
-              className={`bg-white rounded-2xl border ${activeTab === "normal" ? "border-blue-400 ring-2 ring-blue-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+              className={`bg-white rounded-xl border ${activeTab === "normal" ? "border-blue-400 ring-1 ring-blue-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Daily Hire</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{totalNormal}</p>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Daily Hire</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-0.5">{totalNormal}</p>
                 </div>
-                <Clock size={28} className="text-blue-600 opacity-80" />
+                <Clock size={20} className="text-blue-600 opacity-80" />
               </div>
             </div>
             <div 
               onClick={() => setActiveTab("long")}
-              className={`bg-white rounded-2xl border ${activeTab === "long" ? "border-purple-400 ring-2 ring-purple-200" : "border-gray-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+              className={`bg-white rounded-xl border ${activeTab === "long" ? "border-purple-400 ring-1 ring-purple-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Long Hire</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{totalLong}</p>
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Long Hire</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-0.5">{totalLong}</p>
                 </div>
-                <Calendar size={28} className="text-purple-600 opacity-80" />
+                <Calendar size={20} className="text-purple-600 opacity-80" />
               </div>
             </div>
             <div 
               onClick={() => setActiveTab("normal_avail")}
-              className={`bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border ${activeTab === "normal_avail" ? "border-emerald-400 ring-2 ring-emerald-200" : "border-emerald-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+              className={`bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border ${activeTab === "normal_avail" ? "border-emerald-400 ring-1 ring-emerald-200" : "border-emerald-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Daily Hire Avail</p>
-                  <p className="text-3xl font-bold text-emerald-700 mt-1">{availNormal}</p>
+                  <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">Daily Hire Avail</p>
+                  <p className="text-2xl font-bold text-emerald-700 mt-0.5">{availNormal}</p>
                 </div>
-                <div className="bg-emerald-100 p-2 rounded-full">
-                  <Check size={24} className="text-emerald-600" />
+                <div className="bg-emerald-100 p-1.5 rounded-full">
+                  <Check size={16} className="text-emerald-600" />
                 </div>
               </div>
             </div>
             <div 
               onClick={() => setActiveTab("long_avail")}
-              className={`bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border ${activeTab === "long_avail" ? "border-teal-400 ring-2 ring-teal-200" : "border-teal-100"} shadow-md hover:shadow-lg transition-all duration-300 p-6 cursor-pointer`}
+              className={`bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl border ${activeTab === "long_avail" ? "border-teal-400 ring-1 ring-teal-200" : "border-teal-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-teal-700 uppercase tracking-wide">Long Hire Avail</p>
-                  <p className="text-3xl font-bold text-teal-700 mt-1">{availLong}</p>
+                  <p className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide">Long Hire Avail</p>
+                  <p className="text-2xl font-bold text-teal-700 mt-0.5">{availLong}</p>
                 </div>
-                <div className="bg-teal-100 p-2 rounded-full">
-                  <Check size={24} className="text-teal-600" />
+                <div className="bg-teal-100 p-1.5 rounded-full">
+                  <Check size={16} className="text-teal-600" />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mb-6 border-b border-gray-200">
-          <div className="flex space-x-2">
+        <div className="mb-5 border-b border-gray-200">
+          <div className="flex space-x-1">
             {(["all", "normal", "long", "history"] as const).map((tab) => {
               const isActive = activeTab === tab || 
                                (tab === "normal" && activeTab === "normal_avail") || 
@@ -477,17 +543,17 @@ export default function VehiclesPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-3 text-sm font-medium rounded-t-xl transition-all ${isActive
+                  className={`px-4 py-2.5 text-xs font-medium rounded-t-lg transition-all ${isActive
                     ? "bg-white border border-b-0 border-gray-200 text-emerald-700 font-semibold shadow-sm"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-50/80"
                     }`}
                 >
                   {tab === "all" && "All Vehicles"}
-                  {tab === "normal" && "Daily Hire Vehicles"}
-                  {tab === "long" && "Long Hire Vehicles"}
+                  {tab === "normal" && "Daily Hire"}
+                  {tab === "long" && "Long Hire"}
                   {tab === "history" && (
-                    <span className="flex items-center gap-2">
-                      <History size={16} /> Fleet History
+                    <span className="flex items-center gap-1.5">
+                      <History size={14} /> History
                     </span>
                   )}
                 </button>
@@ -497,11 +563,11 @@ export default function VehiclesPage() {
         </div>
 
         {showForm && activeTab !== "history" && (
-          <div className="mb-8 bg-white border border-emerald-100 rounded-2xl shadow-xl p-7">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">Add New Vehicle</h2>
-            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="mb-6 bg-white border border-emerald-100 rounded-xl shadow-md p-5">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Add New Vehicle</h2>
+            <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Reg No.</label>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wide">Reg No.</label>
                 <input
                   required
                   value={formData.reg_no}
@@ -509,35 +575,35 @@ export default function VehiclesPage() {
                     setFormData((p) => ({ ...p, reg_no: e.target.value.toUpperCase() }))
                   }
                   placeholder="e.g. AB12CDE"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 uppercase transition"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 uppercase transition"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Make</label>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wide">Make</label>
                 <input
                   required
                   value={formData.name}
                   onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                   placeholder="e.g. TOYOTA"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Model</label>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wide">Model</label>
                 <input
                   required
                   value={formData.model}
                   onChange={(e) => setFormData((p) => ({ ...p, model: e.target.value }))}
                   placeholder="e.g. Prius"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
               </div>
              
-              <div className="sm:col-span-3 mt-2">
-                <label className="block text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Vehicle Attributes</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="sm:col-span-3 mt-1">
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Vehicle Attributes</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                   {AVAILABLE_ATTRIBUTES.map((attr) => (
-                    <label key={attr} className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                    <label key={attr} className="flex items-center space-x-1.5 text-xs text-gray-700 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={formData.attributes.includes(attr)}
@@ -545,7 +611,7 @@ export default function VehiclesPage() {
                           ...prev,
                           attributes: handleAttributeToggle(prev.attributes, attr)
                         }))}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
                       />
                       <span>{ATTRIBUTE_MAPPING[attr].label}</span>
                     </label>
@@ -553,22 +619,22 @@ export default function VehiclesPage() {
                 </div>
               </div>
 
-              <div className="flex gap-4 sm:col-span-3 mt-4">
+              <div className="flex gap-3 sm:col-span-3 mt-2">
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-6 py-3 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition font-medium"
+                  className="px-5 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-sm font-semibold transition disabled:opacity-60 shadow-md"
+                  className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-60 shadow-sm"
                 >
                   {creating ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                       Creating...
                     </>
                   ) : (
@@ -577,7 +643,7 @@ export default function VehiclesPage() {
                 </button>
               </div>
               {createError && (
-                <p className="sm:col-span-3 text-red-600 text-sm text-center mt-3 font-medium">
+                <p className="sm:col-span-3 text-red-600 text-xs text-center mt-2 font-medium">
                   {createError}
                 </p>
               )}
@@ -585,31 +651,31 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 relative">
+        <div className="mb-4 flex flex-col sm:flex-row gap-3 relative">
           <input
             type="text"
             value={activeTab === "history" ? historySearch : search}
             onChange={(e) => activeTab === "history" ? setHistorySearch(e.target.value) : setSearch(e.target.value)}
             placeholder={activeTab === "history" ? "Search history by Reg No. or Claim ID..." : "Search by name, model or reg no..."}
-            className="w-full max-w-md px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
+            className="w-full max-w-md px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
           />
           
           {activeTab !== "history" && (
-            <div className="relative w-full max-w-[250px]">
+            <div className="relative w-full max-w-[200px]">
               <button
                 type="button"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="w-full flex items-center justify-between px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
+                className="w-full flex items-center justify-between px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
               >
                 <div className="flex items-center gap-2 text-gray-700">
-                  <Filter size={16} className="text-emerald-600" />
-                  <span className="font-medium">
+                  <Filter size={14} className="text-emerald-600" />
+                  <span className="font-medium text-xs">
                     {attributeFilters.length === 0
                       ? "Filter Attributes"
                       : `Filters (${attributeFilters.length})`}
                   </span>
                 </div>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
+                <ChevronDown size={14} className={`text-gray-400 transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
               </button>
 
               {isFilterOpen && (
@@ -618,12 +684,12 @@ export default function VehiclesPage() {
                     className="fixed inset-0 z-10" 
                     onClick={() => setIsFilterOpen(false)}
                   />
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-20 overflow-hidden">
-                    <div className="max-h-60 overflow-y-auto p-2 space-y-1">
+                  <div className="absolute top-full left-0 mt-1.5 w-56 bg-white border border-gray-100 rounded-lg shadow-xl z-20 overflow-hidden">
+                    <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
                       {AVAILABLE_ATTRIBUTES.map((attr) => (
                         <label
                           key={attr}
-                          className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition"
+                          className="flex items-center space-x-2.5 px-2.5 py-1.5 hover:bg-gray-50 rounded-md cursor-pointer transition"
                         >
                           <input
                             type="checkbox"
@@ -635,19 +701,19 @@ export default function VehiclesPage() {
                                   : [...prev, attr]
                               );
                             }}
-                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
                           />
-                          <span className="text-sm text-gray-700 font-medium">
+                          <span className="text-xs text-gray-700 font-medium">
                             {ATTRIBUTE_MAPPING[attr].label}
                           </span>
                         </label>
                       ))}
                     </div>
                     {attributeFilters.length > 0 && (
-                      <div className="p-2 border-t border-gray-100 bg-gray-50">
+                      <div className="p-1.5 border-t border-gray-100 bg-gray-50">
                         <button
                           onClick={() => setAttributeFilters([])}
-                          className="w-full py-1.5 text-sm text-gray-600 hover:text-emerald-700 font-semibold transition"
+                          className="w-full py-1 text-xs text-gray-600 hover:text-emerald-700 font-semibold transition"
                         >
                           Clear Filters
                         </button>
@@ -661,90 +727,117 @@ export default function VehiclesPage() {
         </div>
 
         {error && (
-          <div className="mb-8 p-5 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-medium">
+          <div className="mb-5 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium">
             {error}
           </div>
         )}
 
         {activeTab !== "history" ? (
           loading ? (
-            <div className="flex items-center justify-center py-32">
-              <Loader2 className="animate-spin text-emerald-600" size={40} />
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="animate-spin text-emerald-600" size={32} />
             </div>
           ) : displayed.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-32 gap-5 text-gray-400">
-              <Car size={64} strokeWidth={1.1} />
-              <p className="text-xl font-medium">
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-gray-400">
+              <Car size={48} strokeWidth={1.1} />
+              <p className="text-lg font-medium">
                 {search || attributeFilters.length > 0
                   ? "No vehicles match your search and filter criteria"
                   : "No vehicles found in this category"}
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
+              <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
                     <th
                       onClick={() => handleSort("reg_no")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         Reg No.
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("name")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         Make
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("model")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         Model
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] select-none"
                     >
                       Attributes
                     </th>
                     <th
                       onClick={() => handleSort("service_time")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         Service Time
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort("last_service_miles")}
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        Last Service
+                        <ArrowUpDown size={12} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort("mot_date")}
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        MOT Date
+                        <ArrowUpDown size={12} className="text-gray-400" />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => handleSort("current_miles")}
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                    >
+                      <div className="flex items-center gap-1">
+                        Curr Miles
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("last_miles_in")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center gap-1">
                         Last Miles In
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("available")}
-                      className="text-center px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-center px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
                       <div className="flex items-center justify-center gap-1">
                         Available
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-right px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs">
+                    <th className="text-right px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -755,35 +848,35 @@ export default function VehiclesPage() {
                     const isAvail = checkIsAvail(v);
                     const isToggling = togglingLongHireId === v.id;
                     const hasClaim = !!v.current_holder_claim_id;
-                    const showClaimLink = hasClaim && !isLong;
+                    const claimLinkHref = isLong ? `/long-claims/${v.current_holder_claim_id}` : `/claim/${v.current_holder_claim_id}`;
 
                     return (
-                      <tr key={v.id} className="hover:bg-gray-50/60 transition">
+                      <tr key={v.id} className="hover:bg-gray-50/60 transition text-xs">
                         {editingId === v.id ? (
                           <>
-                            <td className="px-5 py-2 align-top">
-                              <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-500 font-mono text-base font-semibold tracking-wider rounded cursor-not-allowed">
+                            <td className="px-3 py-1.5 align-middle">
+                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-5 py-2 align-top">
+                            <td className="px-3 py-1.5 align-middle">
                               <input
                                 value={editData.name}
                                 onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
-                                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2 align-top">
+                            <td className="px-3 py-1.5 align-middle">
                               <input
                                 value={editData.model}
                                 onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
-                                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2 align-top">
-                              <div className="flex flex-wrap gap-2 max-w-[200px]">
+                            <td className="px-3 py-1.5 align-middle">
+                              <div className="flex flex-wrap gap-1 max-w-[150px]">
                                 {AVAILABLE_ATTRIBUTES.map((attr) => (
-                                  <label key={attr} className="flex items-center space-x-1 text-xs text-gray-700 cursor-pointer whitespace-nowrap">
+                                  <label key={attr} className="flex items-center space-x-1 text-[10px] text-gray-700 cursor-pointer whitespace-nowrap">
                                     <input
                                       type="checkbox"
                                       checked={editData.attributes.includes(attr)}
@@ -791,65 +884,86 @@ export default function VehiclesPage() {
                                         ...prev,
                                         attributes: handleAttributeToggle(prev.attributes, attr)
                                       }))}
-                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3 w-3"
+                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-2.5 w-2.5"
                                     />
                                     <span>{ATTRIBUTE_MAPPING[attr].label}</span>
                                   </label>
                                 ))}
                               </div>
                             </td>
-                            <td className="px-5 py-2 align-top">
+                            <td className="px-3 py-1.5 align-middle">
                               <input
-                                type="text"
-                                placeholder="Service time"
+                                type="date"
                                 value={editData.service_time}
                                 onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
-                                className="w-full px-2.5 py-1.5 border border-emerald-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
                               />
                             </td>
-                            <td className="px-5 py-2 text-gray-500 align-top">
+                            <td className="px-3 py-1.5 text-gray-500 align-middle">
+                              {v.last_service_miles ?? "—"}
+                            </td>
+                            <td className="px-3 py-1.5 align-middle">
+                              <input
+                                type="date"
+                                value={editData.mot_date}
+                                onChange={(e) => setEditData((p) => ({ ...p, mot_date: e.target.value }))}
+                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                              />
+                            </td>
+                            <td className="px-3 py-1.5 align-middle">
+                              <input
+                                type="number"
+                                placeholder="Miles"
+                                value={editData.current_miles}
+                                onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
+                                className="w-[80px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                              />
+                            </td>
+                            <td className="px-3 py-1.5 text-gray-500 align-middle">
                               {v.last_miles_in ?? "—"}
                             </td>
-                            <td className="px-5 py-2 text-center align-top">-</td>
-                            <td className="px-5 py-2 text-right align-top">
-                              <div className="flex justify-end gap-1.5">
+                            <td className="px-3 py-1.5 text-center align-middle">-</td>
+                            <td className="px-3 py-1.5 text-right align-middle">
+                              <div className="flex justify-end gap-1">
                                 <button
                                   onClick={() => saveEdit(v.id)}
                                   disabled={saving}
-                                  className="p-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
+                                  className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
+                                  title="Save Changes"
                                 >
-                                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                 </button>
                                 <button
                                   onClick={cancelEdit}
-                                  className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
+                                  className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
+                                  title="Cancel"
                                 >
-                                  <X size={14} />
+                                  <X size={12} />
                                 </button>
                               </div>
                             </td>
                           </>
                         ) : (
                           <>
-                            <td className="px-5 py-2.5 align-middle">
-                              <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
+                            <td className="px-3 py-2 align-middle">
+                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-5 py-2.5 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
-                            <td className="px-5 py-2.5 text-gray-700 align-middle">{v.model || "—"}</td>
-                            <td className="px-5 py-2.5 text-gray-700 align-middle cursor-default">
+                            <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
+                            <td className="px-3 py-2 text-gray-700 align-middle">{v.model || "—"}</td>
+                            <td className="px-3 py-2 text-gray-700 align-middle cursor-default">
                               {v.attributes && v.attributes.length > 0 ? (
-                                <div className="relative group flex flex-wrap gap-2 items-center">
+                                <div className="relative group flex flex-wrap gap-1 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses = "inline-flex items-center justify-center w-5 h-5 shrink-0";
+                                    const sharedClasses = "inline-flex items-center justify-center w-4 h-4 shrink-0";
                                     
                                     if (mapped?.type === "circle") {
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} rounded-full border-2 border-black text-black bg-white text-[10px] font-bold`}
+                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[8px] font-bold`}
                                           title={mapped.label}
                                         >
                                           {mapped.symbol}
@@ -871,7 +985,7 @@ export default function VehiclesPage() {
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} text-yellow-500 text-xl leading-none pb-0.5`}
+                                          className={`${sharedClasses} text-yellow-500 text-sm leading-none pb-0.5`}
                                           title={mapped.label}
                                         >
                                           ★
@@ -880,29 +994,29 @@ export default function VehiclesPage() {
                                     }
 
                                     return (
-                                      <span key={attr} className={`${sharedClasses} text-black`}>
+                                      <span key={attr} className={`${sharedClasses} text-black text-[10px]`}>
                                         {attr}
                                       </span>
                                     );
                                   })}
                                   
                                   {/* Custom Tooltip */}
-                                  <div className="absolute left-0 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
-                                    <div className="bg-gray-800 text-white text-xs rounded-xl shadow-2xl p-3 border border-gray-700">
-                                      <p className="text-gray-400 font-semibold mb-2 uppercase text-[10px] tracking-wider">Attributes</p>
-                                      <div className="flex flex-col gap-1.5">
+                                  <div className="absolute left-0 bottom-full mb-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
+                                    <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-2 border border-gray-700">
+                                      <p className="text-gray-400 font-semibold mb-1 uppercase text-[8px] tracking-wider">Attributes</p>
+                                      <div className="flex flex-col gap-1">
                                         {v.attributes.map(a => {
                                           const mapped = ATTRIBUTE_MAPPING[a];
                                           return (
-                                            <div key={a} className="flex items-center gap-2 text-gray-100 font-medium">
+                                            <div key={a} className="flex items-center gap-1.5 text-gray-100 font-medium">
                                               {mapped?.type === "circle" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[10px] font-bold shrink-0">
+                                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[8px] font-bold shrink-0">
                                                   {mapped.symbol}
                                                 </span>
                                               ) : mapped?.type === "filled-circle" ? (
-                                                <span className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`} />
+                                                <span className={`inline-flex w-4 h-4 rounded-full ${mapped.colorClass} shrink-0`} />
                                               ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-lg leading-none shrink-0 pb-0.5">★</span>
+                                                <span className="inline-flex items-center justify-center w-4 h-4 text-yellow-500 text-sm leading-none shrink-0 pb-0.5">★</span>
                                               ) : (
                                                 <span>{a}</span>
                                               )}
@@ -912,24 +1026,30 @@ export default function VehiclesPage() {
                                         })}
                                       </div>
                                     </div>
-                                    {/* Tooltip Arrow pointing down */}
-                                    <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
+                                    <div className="absolute -bottom-1 left-3 w-2 h-2 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
                                   </div>
                                 </div>
                               ) : (
                                 "—"
                               )}
                             </td>
-                            <td className="px-5 py-2.5 text-gray-700 align-middle">
+                            <td className="px-3 py-2 text-gray-700 align-middle">
                               {v.service_time 
-                                ? (String(v.service_time).includes("T") ? new Date(v.service_time).toLocaleDateString("en-GB") : `${v.service_time} months`) 
+                                ? new Date(v.service_time).toLocaleDateString("en-GB") 
                                 : "—"}
                             </td>
-                            <td className="px-5 py-2.5 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
+                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
+                            <td className="px-3 py-2 text-gray-700 align-middle">
+                              {v.mot_date 
+                                ? new Date(v.mot_date).toLocaleDateString("en-GB") 
+                                : "—"}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 align-middle">{v.current_miles ?? "—"}</td>
+                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
 
-                            <td className="px-5 py-2.5 text-center align-middle">
+                            <td className="px-3 py-2 text-center align-middle">
                               <span
-                                className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${isAvail
+                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${isAvail
                                   ? "bg-emerald-100 text-emerald-700"
                                   : "bg-rose-100 text-rose-700"
                                   }`}
@@ -938,54 +1058,67 @@ export default function VehiclesPage() {
                               </span>
                             </td>
 
-                            <td className="px-5 py-2.5 text-right align-middle">
-                              <div className="flex justify-end items-center gap-1.5">
+                            <td className="px-3 py-2 text-right align-middle">
+                              <div className="flex justify-end items-center gap-1">
+                                <button
+                                  onClick={() => confirmServiceDone(v.id)}
+                                  disabled={syncingId === v.id}
+                                  className="p-1 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded transition"
+                                  title="Mark Service Done"
+                                >
+                                  {syncingId === v.id ? (
+                                    <Loader2 size={12} className="animate-spin text-orange-600" />
+                                  ) : (
+                                    <Wrench size={12} />
+                                  )}
+                                </button>
+
                                 <button
                                   onClick={() => startEdit(v)}
-                                  className="p-1.5 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
+                                  className="p-1 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
                                   title="Edit vehicle"
                                 >
-                                  <Pencil size={14} />
+                                  <Pencil size={12} />
                                 </button>
 
                                 {isAvail && (
                                   <button
                                     onClick={() => toggleLongHire(v.id, isLong)}
                                     disabled={isToggling}
-                                    className="p-1.5 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
+                                    className="p-1 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
                                     title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
                                   >
                                     {isToggling ? (
-                                      <Loader2 size={16} className="animate-spin text-purple-600" />
+                                      <Loader2 size={14} className="animate-spin text-purple-600" />
                                     ) : isLong ? (
-                                      <ToggleRight size={20} className="text-emerald-600" />
+                                      <ToggleRight size={16} className="text-emerald-600" />
                                     ) : (
-                                      <ToggleLeft size={20} className="text-gray-400" />
+                                      <ToggleLeft size={16} className="text-gray-400" />
                                     )}
                                   </button>
                                 )}
 
-                                {showClaimLink && (
+                                {hasClaim && (
                                   <Link
                                     target="_blank"
-                                    href={`/claim/${v.current_holder_claim_id}`}
-                                    className="p-1.5 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
-                                    title="View Claim Holder"
+                                    href={claimLinkHref}
+                                    className="p-1 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
+                                    title="View hire holder"
                                   >
-                                    <ExternalLink size={16} />
+                                    <ExternalLink size={14} />
                                   </Link>
                                 )}
 
                                 <button
                                   onClick={() => confirmDelete(v.id)}
                                   disabled={deleteLoading && deletingId === v.id}
-                                  className="p-1.5 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
+                                  className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
                                   title="Delete vehicle"
                                 >
                                   {deleteLoading && deletingId === v.id ? (
-                                    <Loader2 size={14} className="animate-spin text-red-600" />
+                                    <Loader2 size={12} className="animate-spin text-red-600" />
                                   ) : (
-                                    <Trash2 size={14} />
+                                    <Trash2 size={12} />
                                   )}
                                 </button>
                               </div>
@@ -1000,108 +1133,108 @@ export default function VehiclesPage() {
             </div>
           )
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
             {historyLoading ? (
-              <div className="flex items-center justify-center py-32">
-                <Loader2 className="animate-spin text-emerald-600" size={40} />
+              <div className="flex items-center justify-center py-24">
+                <Loader2 className="animate-spin text-emerald-600" size={32} />
               </div>
             ) : displayedHistory.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-32 gap-5 text-gray-400">
-                <History size={64} strokeWidth={1.1} />
-                <p className="text-xl font-medium">
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-gray-400">
+                <History size={48} strokeWidth={1.1} />
+                <p className="text-lg font-medium">
                   {historySearch ? "No fleet history records match your search" : "No fleet history records found"}
                 </p>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
                     <th
                       onClick={() => handleHistorySort("car_reg")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Car Reg No.
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("claim_id")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Claim ID
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("hire_start")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Hire Start
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("hire_end")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Hire End
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("miles_out")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Miles Out
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("miles_in")}
-                      className="text-left px-5 py-3 font-semibold text-gray-600 uppercase tracking-wide text-xs cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
                     >
                       <div className="flex items-center gap-1">
                         Miles In
-                        <ArrowUpDown size={14} className="text-gray-400" />
+                        <ArrowUpDown size={12} className="text-gray-400" />
                       </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {displayedHistory.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50/60 transition">
-                      <td className="px-5 py-3">
-                        <span className="inline-flex px-4 py-1.5 bg-gray-100 text-gray-900 font-mono text-base font-semibold tracking-wider rounded">
+                    <tr key={record.id} className="hover:bg-gray-50/60 transition text-xs">
+                      <td className="px-4 py-2">
+                        <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
                           {record.car_reg}
                         </span>
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-4 py-2">
                         <Link
                           href={`/claim/${record.claim_id}`}
                           className="text-blue-600 hover:text-blue-700 hover:underline font-medium flex items-center gap-1 group"
                         >
                           {record.claim_id}
-                          <ExternalLink size={14} className="opacity-70 group-hover:opacity-100" />
+                          <ExternalLink size={12} className="opacity-70 group-hover:opacity-100" />
                         </Link>
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-4 py-2 text-gray-600">
                         {new Date(record.hire_start).toLocaleDateString("en-GB")}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-4 py-2 text-gray-600">
                         {record.hire_end
                           ? new Date(record.hire_end).toLocaleDateString("en-GB")
                           : "-"
                         }
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-4 py-2 text-gray-600">
                         {record.miles_out ?? "-"}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-4 py-2 text-gray-600">
                         {record.miles_in ?? "-"}
                       </td>
                     </tr>

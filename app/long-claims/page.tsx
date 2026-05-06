@@ -428,7 +428,7 @@ export default function LongClaimsPage() {
                           <button
                             onClick={() => router.push(`/long-claims/${claim.id}`)}
                             className="p-1 text-green-600 hover:text-green-800 transition rounded"
-                            title="View claim"
+                            title="view hire"
                           >
                             <Eye size={16} />
                           </button>
