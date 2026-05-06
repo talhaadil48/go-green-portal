@@ -19,6 +19,8 @@ import {
   Filter,
   ChevronDown,
   Wrench,
+  FileText,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
@@ -35,6 +37,7 @@ interface Vehicle {
   last_miles_in?: number | null;
   last_service_miles?: number | null;
   mot_date?: string | null;
+  mot_doc?: string | null;
   current_miles?: number | null;
   attributes?: string[];
 }
@@ -120,6 +123,8 @@ export default function VehiclesPage() {
   const [syncingId, setSyncingId] = useState<number | null>(null);
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
+
+  const [uploadingMotId, setUploadingMotId] = useState<number | null>(null);
 
   // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
@@ -332,6 +337,64 @@ export default function VehiclesPage() {
       setDeleteLoading(false);
       setDeletingId(null);
     }
+  };
+
+  const handleUploadMotDoc = async (carId: number, file: File) => {
+    setUploadingMotId(carId);
+    try {
+      const presignRes = await fetch("/api/presign-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          claimId: `car_mot_${carId}`, // Group under a generic or specific folder name
+          files: [{ name: file.name, type: file.type }],
+        }),
+      });
+
+      if (!presignRes.ok) throw new Error("Failed to get upload URLs");
+
+      const { results } = await presignRes.json() as {
+        results: { presignedUrl: string; fileUrl: string; key: string }[];
+      };
+
+      const { presignedUrl, fileUrl } = results[0];
+
+      const s3Res = await fetch(presignedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!s3Res.ok) throw new Error(`S3 upload failed for ${file.name}`);
+
+      await api.post("/api/car/upload_mot_doc", {
+        car_id: carId,
+        mot_doc: fileUrl
+      }, { headers: { requiresAuth: true } });
+
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === carId ? { ...v, mot_doc: fileUrl } : v))
+      );
+
+    } catch (error) {
+      console.error(error);
+      alert("Failed to upload MOT document.");
+    } finally {
+      setUploadingMotId(null);
+    }
+  };
+
+  const triggerFileInput = (carId: number) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.jpg,.jpeg,.png,.doc,.docx";
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleUploadMotDoc(carId, file);
+      }
+    };
+    input.click();
   };
 
   const handleSort = (field: SortField) => {
@@ -1039,11 +1102,43 @@ export default function VehiclesPage() {
                                 : "—"}
                             </td>
                             <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
+                            
+                            {/* MOT Date + Actions */}
                             <td className="px-3 py-2 text-gray-700 align-middle">
-                              {v.mot_date 
-                                ? new Date(v.mot_date).toLocaleDateString("en-GB") 
-                                : "—"}
+                              <div className="flex items-center gap-2 whitespace-nowrap">
+                                <span>
+                                  {v.mot_date 
+                                    ? new Date(v.mot_date).toLocaleDateString("en-GB") 
+                                    : "—"}
+                                </span>
+                                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
+                                  {v.mot_doc && (
+                                    <a
+                                      href={v.mot_doc}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
+                                      title="View MOT Document"
+                                    >
+                                      <FileText size={14} />
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => triggerFileInput(v.id)}
+                                    disabled={uploadingMotId === v.id}
+                                    className="p-1 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
+                                    title="Upload MOT Document"
+                                  >
+                                    {uploadingMotId === v.id ? (
+                                      <Loader2 size={14} className="animate-spin text-emerald-600" />
+                                    ) : (
+                                      <Upload size={14} />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
                             </td>
+
                             <td className="px-3 py-2 text-gray-700 align-middle">{v.current_miles ?? "—"}</td>
                             <td className="px-3 py-2 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
 
