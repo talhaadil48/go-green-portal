@@ -23,6 +23,7 @@ interface ClaimInvoice {
   invoice_datetime: string | null;
   info: string | null;
   docs: string | null;
+  hire_days: number | null;
   storage_bill: number | null;
   rent_bill: number | null;
   user_name: string | null;
@@ -566,6 +567,7 @@ export default function InvoiceManagementPage() {
                         <SortHeader label="Date / Time" sortKey="invoice_datetime" />
                         <SortHeader label="Info" sortKey="info" align="center" />
                         <SortHeader label="Sent By" sortKey="user_name" />
+                        <SortHeader label="Hire Days" sortKey="hire_days" align="right" />
                         <SortHeader label="Storage" sortKey="storage_bill" align="right" />
                         <SortHeader label="Hire" sortKey="rent_bill" align="right" />
                         <SortHeader label="Total" sortKey="total" align="right" />
@@ -621,6 +623,9 @@ export default function InvoiceManagementPage() {
                               ) : (
                                 <span className="truncate block max-w-[140px]">{inv.user_name?.toUpperCase() || "—"}</span>
                               )}
+                            </td>
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {inv.hire_days !== null && inv.hire_days !== undefined ? inv.hire_days : "—"}
                             </td>
                             <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
                               {isEditing ? (
