@@ -1020,13 +1020,14 @@ export default function VehiclesPage() {
                                 <div className="relative group flex flex-wrap gap-1 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses = "inline-flex items-center justify-center w-4 h-4 shrink-0";
+                                    // Updated size (w-5 h-5) and line-height (leading-none)
+                                    const sharedClasses = "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
                                     
                                     if (mapped?.type === "circle") {
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[8px] font-bold`}
+                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[9px] font-bold`}
                                           title={mapped.label}
                                         >
                                           {mapped.symbol}
@@ -1048,7 +1049,7 @@ export default function VehiclesPage() {
                                       return (
                                         <span 
                                           key={attr} 
-                                          className={`${sharedClasses} text-yellow-500 text-sm leading-none pb-0.5`}
+                                          className={`${sharedClasses} text-yellow-500 text-[16px] leading-none pb-0.5`}
                                           title={mapped.label}
                                         >
                                           ★
@@ -1073,13 +1074,13 @@ export default function VehiclesPage() {
                                           return (
                                             <div key={a} className="flex items-center gap-1.5 text-gray-100 font-medium">
                                               {mapped?.type === "circle" ? (
-                                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[8px] font-bold shrink-0">
+                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[9px] font-bold shrink-0 leading-none">
                                                   {mapped.symbol}
                                                 </span>
                                               ) : mapped?.type === "filled-circle" ? (
-                                                <span className={`inline-flex w-4 h-4 rounded-full ${mapped.colorClass} shrink-0`} />
+                                                <span className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`} />
                                               ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-4 h-4 text-yellow-500 text-sm leading-none shrink-0 pb-0.5">★</span>
+                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">★</span>
                                               ) : (
                                                 <span>{a}</span>
                                               )}
