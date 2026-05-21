@@ -125,6 +125,7 @@ export default function VehiclesPage() {
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
 
   const [uploadingMotId, setUploadingMotId] = useState<number | null>(null);
+  const [deletingMotDocId, setDeletingMotDocId] = useState<number | null>(null);
 
   // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
@@ -346,7 +347,7 @@ export default function VehiclesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          claimId: `car_mot_${carId}`, // Group under a generic or specific folder name
+          claimId: `car_mot_${carId}`,
           files: [{ name: file.name, type: file.type }],
         }),
       });
@@ -381,6 +382,31 @@ export default function VehiclesPage() {
       alert("Failed to upload MOT document.");
     } finally {
       setUploadingMotId(null);
+    }
+  };
+
+  const confirmDeleteMotDoc = (carId: number) => {
+    if (window.confirm("Delete the MOT document for this vehicle? This cannot be undone.")) {
+      handleDeleteMotDoc(carId);
+    }
+  };
+
+  const handleDeleteMotDoc = async (carId: number) => {
+    setDeletingMotDocId(carId);
+    try {
+      await api.post("/api/car/upload_mot_doc", {
+        car_id: carId,
+        mot_doc: null,
+      }, { headers: { requiresAuth: true } });
+
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === carId ? { ...v, mot_doc: null } : v))
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete MOT document.");
+    } finally {
+      setDeletingMotDocId(null);
     }
   };
 
@@ -433,7 +459,6 @@ export default function VehiclesPage() {
     v.model?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Apply multi-select attribute filter (AND logic: vehicle must have ALL selected attributes)
   if (attributeFilters.length > 0) {
     displayed = displayed.filter(v => 
       attributeFilters.every(attr => v.attributes?.includes(attr))
@@ -1020,7 +1045,6 @@ export default function VehiclesPage() {
                                 <div className="relative group flex flex-wrap gap-1 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    // Updated size (w-5 h-5) and line-height (leading-none)
                                     const sharedClasses = "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
                                     
                                     if (mapped?.type === "circle") {
@@ -1104,7 +1128,7 @@ export default function VehiclesPage() {
                             </td>
                             <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
                             
-                            {/* MOT Date + Actions */}
+                            {/* MOT Date + Doc Actions */}
                             <td className="px-3 py-2 text-gray-700 align-middle">
                               <div className="flex items-center gap-2 whitespace-nowrap">
                                 <span>
@@ -1114,21 +1138,35 @@ export default function VehiclesPage() {
                                 </span>
                                 <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
                                   {v.mot_doc && (
-                                    <a
-                                      href={v.mot_doc}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
-                                      title="View MOT Document"
-                                    >
-                                      <FileText size={14} />
-                                    </a>
+                                    <>
+                                      <a
+                                        href={v.mot_doc}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
+                                        title="View MOT Document"
+                                      >
+                                        <FileText size={14} />
+                                      </a>
+                                      <button
+                                        onClick={() => confirmDeleteMotDoc(v.id)}
+                                        disabled={deletingMotDocId === v.id}
+                                        className="p-1 hover:bg-red-100 text-red-500 rounded transition disabled:opacity-50"
+                                        title="Delete MOT Document"
+                                      >
+                                        {deletingMotDocId === v.id ? (
+                                          <Loader2 size={14} className="animate-spin text-red-500" />
+                                        ) : (
+                                          <Trash2 size={14} />
+                                        )}
+                                      </button>
+                                    </>
                                   )}
                                   <button
                                     onClick={() => triggerFileInput(v.id)}
                                     disabled={uploadingMotId === v.id}
                                     className="p-1 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
-                                    title="Upload MOT Document"
+                                    title={v.mot_doc ? "Replace MOT Document" : "Upload MOT Document"}
                                   >
                                     {uploadingMotId === v.id ? (
                                       <Loader2 size={14} className="animate-spin text-emerald-600" />
