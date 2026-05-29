@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       "delivery_charge",
       "cdw_per_day",
       "days_out",
+      "hire_vehicle_rate_per_day",
       "days_in",
       "total_days",
       "rate_per_day",

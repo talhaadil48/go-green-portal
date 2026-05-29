@@ -38,7 +38,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     fuel_in: string;
     miles_out: string;
     miles_in: string;
-    fromApi?: boolean; // Track if this vehicle came from API (locked reg change)
+    rate_per_day: string;
+    fromApi?: boolean;
   }
 
   const initialFormData = {
@@ -95,16 +96,13 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     hire_vehicle_fuel_in: "",
     hire_vehicle_miles_out: "",
     hire_vehicle_miles_in: "",
-    // Change of Hire Vehicle - Now using JSONB array
+    hire_vehicle_rate_per_day: "",
+    // Change of Hire Vehicle - JSONB array
     change_vehicle_history: [] as ChangeVehicleRecord[],
     // Charges Summary
     admin_fee: "",
     delivery_charge: "",
     cdw_per_day: "",
-    days_out: "",
-    days_in: "",
-    total_days: "",
-    rate_per_day: "",
     refuelling_total: "",
     subtotal: "",
     vat: "",
@@ -117,7 +115,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [formData, setFormData] = useState<Record<string, string | number>>(initialFormData);
   const [signatures, setSignatures] = useState<Record<string, string | null>>({});
 
-  // Flags to determine if signature came from API (locked) or is editable
   const [isHirerTermsFromApi, setIsHirerTermsFromApi] = useState(false);
   const [isCompanyFromApi, setIsCompanyFromApi] = useState(false);
   const [isHirerInsuranceFromApi, setIsHirerInsuranceFromApi] = useState(false);
@@ -129,18 +126,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [error, setError] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(true);
 
-  // Conditional section states
   const [showAdditionalDriver, setShowAdditionalDriver] = useState<boolean | null>(null);
   const [showOwnInsurance, setShowOwnInsurance] = useState<boolean | null>(null);
   const [showChangeVehicle, setShowChangeVehicle] = useState<boolean | null>(null);
 
-  // Flag to check if data already exists from API (don't ask, just show)
   const [hasApiData, setHasApiData] = useState(false);
-
-  // Track if vehicle reg values came from API (locked/non-editable)
   const [hireVehicleFromApi, setHireVehicleFromApi] = useState(false);
-
-  // Track current vehicle index being edited (for vehicle changes)
   const [editingVehicleIndex, setEditingVehicleIndex] = useState<number | null>(null);
 
   // Vehicle search states
@@ -152,102 +143,94 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [changeVehicleSuggestions, setChangeVehicleSuggestions] = useState<Vehicle[]>([]);
   const [changeVehicleShowDropdown, setChangeVehicleShowDropdown] = useState<boolean>(false);
 
-  // Refs for clearing signature pads (if component supports .clear())
   const hirerTermsRef = useRef<any>(null);
   const companyRef = useRef<any>(null);
   const hirerInsuranceRef = useRef<any>(null);
   const declarationRef = useRef<any>(null);
   const liabilityRef = useRef<any>(null);
-  const calculateInclusiveDays = (dateOut: string, dateIn: string): string => {
-    if (!dateOut || !dateIn) return "";
 
+  // ─── Helper: calculate inclusive days between two date strings ───
+  const calculateInclusiveDays = (dateOut: string, dateIn: string): number => {
+    if (!dateOut || !dateIn) return 0;
     try {
       const out = new Date(dateOut);
       const inDate = new Date(dateIn);
-
-      // Invalid dates or check-in before check-out
-      if (isNaN(out.getTime()) || isNaN(inDate.getTime()) || inDate < out) {
-        return "";
-      }
-
+      if (isNaN(out.getTime()) || isNaN(inDate.getTime()) || inDate < out) return 0;
       const diffMs = inDate.getTime() - out.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-      // Inclusive (same day = 1 day)
-      return String(diffDays + 1);
+      return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
     } catch {
-      return "";
+      return 0;
     }
   };
 
+  // ─── Helper: compute subtotal for a single vehicle ───
+  const computeVehicleSubtotal = (
+    dateOut: string,
+    dateIn: string,
+    ratePerDay: string
+  ): number => {
+    const days = calculateInclusiveDays(dateOut, dateIn);
+    const rate = Number(ratePerDay) || 0;
+    return days * rate;
+  };
 
-  useEffect(() => {
-    const getCurrentUsername = (): string | null => {
-      try {
-        const userData = Cookies.get("user");
-        if (!userData) return null;
-        const parsed = JSON.parse(userData);
-        return parsed?.username || null;
-      } catch {
-        return null;
-      }
-    };
-    const currentUser = getCurrentUsername();
-    setUsername(currentUser);
-  }, []);
+  // ─── Derive all vehicle subtotals + grand totals reactively ───
+  const deriveCharges = () => {
+    const parseNum = (val: string | number) => Number(val) || 0;
 
+    // Main hire vehicle subtotal
+    const mainSubtotal = computeVehicleSubtotal(
+      String(formData.hire_vehicle_date_out || ""),
+      String(formData.hire_vehicle_date_in || ""),
+      String(formData.hire_vehicle_rate_per_day || "")
+    );
 
+    // Change vehicle subtotals
+    const changeHistory = (formData.change_vehicle_history as ChangeVehicleRecord[]);
+    const changeSubtotals = changeHistory.map((v) =>
+      computeVehicleSubtotal(v.date_out, v.date_in, v.rate_per_day)
+    );
+    const totalVehicleCost = mainSubtotal + changeSubtotals.reduce((a, b) => a + b, 0);
 
-  useEffect(() => {
-    // Auto-calculate total_days when hire_vehicle_date_out or hire_vehicle_date_in changes
-    // days_in and days_out are kept separate for the API
-    const dateOut = String(formData.hire_vehicle_date_out || "");
-    const dateIn = String(formData.days_in || "");
-
-    const totalDays = calculateInclusiveDays(dateOut, dateIn);
-
-    setFormData(prev => ({ ...prev, total_days: totalDays }));
-
-  }, [formData.hire_vehicle_date_out, formData.days_in]);
-
-
-  // ─── 2. Auto-calculate money fields when dependencies change ───
-  useEffect(() => {
-    // Parse numbers safely (empty or invalid → 0)
-    const parseNum = (val: string) => Number(val) || 0;
-
-    const totalDays = parseNum(formData.total_days);
-    const ratePerDay = parseNum(formData.rate_per_day);
     const admin = parseNum(formData.admin_fee);
     const delivery = parseNum(formData.delivery_charge);
     const cdwPerDay = parseNum(formData.cdw_per_day);
+
+    // CDW applied across total days from main vehicle only (or you can sum all — kept per original logic)
+    const mainDays = calculateInclusiveDays(
+      String(formData.hire_vehicle_date_out || ""),
+      String(formData.hire_vehicle_date_in || "")
+    );
+    const cdwCharge = mainDays * cdwPerDay;
     const refuelTotal = parseNum(formData.refuelling_total);
 
-    const hireCharge = totalDays * ratePerDay;
-    const cdwCharge = totalDays * cdwPerDay;
-    const subtotal = hireCharge + admin + delivery + cdwCharge + refuelTotal;
+    const subtotal = totalVehicleCost + admin + delivery + cdwCharge + refuelTotal;
     const vatAmount = subtotal * 0.2;
     const totalCost = subtotal + vatAmount;
 
+    return { mainSubtotal, changeSubtotals, totalVehicleCost, subtotal, vatAmount, totalCost };
+  };
+
+  // ─── Auto-calculate money fields when dependencies change ───
+  useEffect(() => {
+    const { subtotal, vatAmount, totalCost } = deriveCharges();
+
     setFormData(prev => {
       const next = { ...prev };
-
       const updateIfChanged = (key: keyof typeof next, newVal: number) => {
         const strVal = newVal ? newVal.toFixed(2) : "";
-        if (next[key] !== strVal) {
-          next[key] = strVal;
-        }
+        if (next[key] !== strVal) next[key] = strVal;
       };
-
       updateIfChanged("subtotal", subtotal);
       updateIfChanged("vat", vatAmount);
       updateIfChanged("total_cost", totalCost);
-
       return next;
     });
   }, [
-    formData.total_days,
-    formData.rate_per_day,
+    formData.hire_vehicle_date_out,
+    formData.hire_vehicle_date_in,
+    formData.hire_vehicle_rate_per_day,
+    formData.change_vehicle_history,
     formData.admin_fee,
     formData.delivery_charge,
     formData.cdw_per_day,
@@ -296,22 +279,18 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
       setFormData(updatedFormData);
 
-      // Set flags for vehicle reg values from API (locked)
       if (data.hire_vehicle_reg) {
         setHireVehicleFromApi(true);
       }
 
-      // Check if API data exists for conditional sections
       const hasAdditionalDriverData = data.additional_driver_name || data.licence_no || data.dob || data.occupation;
       const hasOwnInsuranceData = data.insurance_company || data.policy_no || data.insurance_dates;
       const hasChangeVehicleData = data.change_vehicle_history && data.change_vehicle_history.length > 0;
 
-      // If API has data for a section, skip question and show form directly
       if (hasAdditionalDriverData) {
         setHasApiData(true);
         setShowAdditionalDriver(true);
       } else {
-        // If no API data, reset to null (show question again)
         setShowAdditionalDriver(null);
       }
 
@@ -328,7 +307,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
         const vehiclesFromApi = data.change_vehicle_history.map((v: ChangeVehicleRecord) => ({
           ...v,
-          fromApi: !!v.vehicle_reg, // If reg exists, mark as from API (lock reg change)
+          rate_per_day: v.rate_per_day || "",
+          fromApi: !!v.vehicle_reg,
         }));
 
         setFormData((prev) => ({
@@ -338,7 +318,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       } else {
         setShowChangeVehicle(null);
       }
-      // Load signatures + set locked flags
+
       if (data.hirer_signature_terms) {
         setSignatures((prev) => ({ ...prev, hirer_signature_terms: data.hirer_signature_terms }));
         setIsHirerTermsFromApi(true);
@@ -397,13 +377,26 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   }, [claimId]);
 
+  useEffect(() => {
+    const getCurrentUsername = (): string | null => {
+      try {
+        const userData = Cookies.get("user");
+        if (!userData) return null;
+        const parsed = JSON.parse(userData);
+        return parsed?.username || null;
+      } catch {
+        return null;
+      }
+    };
+    const currentUser = getCurrentUsername();
+    setUsername(currentUser);
+  }, []);
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Mark as changed when user modifies form
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -466,7 +459,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   };
 
   const selectChangeVehicle = (vehicle: Vehicle) => {
-    const idx = editingVehicleIndex !== null ? editingVehicleIndex : (formData.change_vehicle_history as ChangeVehicleRecord[]).length;
+    const idx = editingVehicleIndex !== null
+      ? editingVehicleIndex
+      : (formData.change_vehicle_history as ChangeVehicleRecord[]).length;
     const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
 
     if (idx === newHistory.length) {
@@ -479,6 +474,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
         date_in: "",
         fuel_out: "",
         fuel_in: "",
+        miles_out: "",
+        miles_in: "",
+        rate_per_day: "",
       });
     } else {
       newHistory[idx] = {
@@ -501,7 +499,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   };
 
-  // Clear hire vehicle selection to allow reselection
   const clearHireVehicle = () => {
     setFormData((prev) => ({
       ...prev,
@@ -517,7 +514,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   };
 
-  // Remove a vehicle change record
   const removeChangeVehicle = (index: number) => {
     const newHistory = (formData.change_vehicle_history as ChangeVehicleRecord[]).filter((_, i) => i !== index);
     setFormData((prev) => ({
@@ -530,7 +526,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     }
   };
 
-  // Update a specific field in a vehicle change record
   const updateChangeVehicleField = (index: number, field: keyof ChangeVehicleRecord, value: string) => {
     const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
     if (newHistory[index]) {
@@ -548,8 +543,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const handleRadio = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Mark as changed when user modifies form
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -558,8 +551,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const handleCheckbox = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: checked ? "Yes" : "No" }));
-
-    // Mark as changed when user modifies form
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
@@ -568,7 +559,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const handleSignature = (field: string) => (dataUrl: string | null) => {
     setSignatures((prev) => ({ ...prev, [field]: dataUrl }));
   };
-  const formatGBP = (value: string) => {
+
+  const formatGBP = (value: string | number) => {
     if (value === "" || value === null || value === undefined) return "";
     return `£${value}`;
   };
@@ -580,19 +572,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const handleMoneyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numericValue = parseGBP(value);
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: numericValue,
-    }));
-
-    // Mark as changed when user modifies form
+    setFormData((prev) => ({ ...prev, [name]: numericValue }));
     if (unsavedChangesContext) {
       unsavedChangesContext.setHasUnsavedChanges(true);
     }
   };
 
-  // Validate that numerical fields contain only numeric values
   const validateNumericFields = (): boolean => {
     const numericFields = [
       "daily_rate",
@@ -602,38 +587,29 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       "admin_fee",
       "delivery_charge",
       "cdw_per_day",
-
-      "total_days",
-      "rate_per_day",
       "refuelling_total",
       "subtotal",
       "vat",
-      "total_cost"
+      "total_cost",
+      "hire_vehicle_rate_per_day",
     ];
 
     for (const field of numericFields) {
       const value = String(formData[field] || "").trim();
-
-      // Skip empty fields (optional)
       if (value === "") continue;
-
-      // Check if value contains only numeric characters and dots
       if (!/^[0-9.]*$/.test(value)) {
         setError(`${field.replace(/_/g, " ")} contains invalid characters. Only numeric values are allowed.`);
         return false;
       }
-
-      // Check for valid decimal format (max 2 decimal places for money)
-      if (!["days_out", "days_in", "total_days"].includes(field)) {
-        if (!/^[0-9]*(\.[0-9]{1,2})?$/.test(value) && value !== "") {
-          setError(`${field.replace(/_/g, " ")} must have valid format (up to 2 decimal places).`);
-          return false;
-        }
+      if (!/^[0-9]*(\.[0-9]{1,2})?$/.test(value) && value !== "") {
+        setError(`${field.replace(/_/g, " ")} must have valid format (up to 2 decimal places).`);
+        return false;
       }
     }
 
     return true;
   };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -659,46 +635,32 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       const response = await axios.post(
         "/api/submit-rental-agreement",
         fullData,
-        {
-          headers: { "Content-Type": "application/json" },
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
-      // Only runs for 2xx responses
       if (response.data?.success === false) {
         const message =
           response.data?.message ||
           "This rental agreement has already been submitted and cannot be modified.";
-
-        if (response.data?.status === 409) {
-          alert(message);
-        }
-
+        if (response.data?.status === 409) alert(message);
         throw new Error(message);
       }
 
       setSubmitted(true);
-
       if (unsavedChangesContext) {
         unsavedChangesContext.setHasUnsavedChanges(false);
       }
-
       await fetchRentalData();
     } catch (err: any) {
       console.error("Submission error:", err);
-
       const status = err?.response?.status;
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
         err?.message ||
         "Something went wrong. Please try again.";
-
       if (status === 409) {
-        alert(
-          message ||
-          "This rental agreement has already been submitted and cannot be modified."
-        );
+        alert(message || "This rental agreement has already been submitted and cannot be modified.");
       } else {
         setError(message);
       }
@@ -714,6 +676,13 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       </div>
     );
   }
+
+  // ─── Derived values for rendering Charges Summary ───
+  const { mainSubtotal, changeSubtotals } = deriveCharges();
+  const mainDays = calculateInclusiveDays(
+    String(formData.hire_vehicle_date_out || ""),
+    String(formData.hire_vehicle_date_in || "")
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex flex-col">
@@ -736,17 +705,15 @@ export function RentalAgreement({ claimId }: ClaimProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-12">
-            {/* Hirer’s Details */}
+            {/* Hirer's Details */}
             <div className="space-y-10">
-              {/* Merged section – side by side on md+ */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
-                {/* Left: Hirer’s Details (wider label area + name layout) */}
+                {/* Left: Hirer's Details */}
                 <section className="lg:col-span-2 space-y-6">
                   <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                    Hirer’s Details
+                    Hirer's Details
                   </h3>
 
-                  {/* Title + Full Name in one row */}
                   <div className="grid grid-cols-4 gap-4">
                     <div className="col-span-1">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -769,7 +736,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
                     <div className="col-span-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Hirer’s Name (in full)
+                        Hirer's Name (in full)
                       </label>
                       <input
                         type="text"
@@ -895,8 +862,20 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
 
+                    {/* Rate Per Day */}
+                    <div className="lg:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Rate Per Day</label>
+                      <input
+                        type="text"
+                        name="hire_vehicle_rate_per_day"
+                        placeholder="£0.00"
+                        value={formatGBP(formData.hire_vehicle_rate_per_day)}
+                        onChange={handleMoneyChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
 
-                    {/* Date Out & Date In - Single Line */}
+                    {/* Date Out & Date In */}
                     <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Date out</label>
@@ -920,7 +899,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
                     </div>
 
-                    {/* Fuel Out & Fuel In - Single Line */}
+                    {/* Fuel Out & Fuel In */}
                     <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Fuel out</label>
@@ -946,7 +925,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
                     </div>
 
-                    {/* Miles Out & Miles In - Single Line */}
+                    {/* Miles Out & Miles In */}
                     <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Miles out</label>
@@ -974,7 +953,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </div>
             </div>
 
-            {/* Change of Hire Vehicle - Appears after Hire Vehicle */}
+            {/* Change of Hire Vehicle */}
             <section className="space-y-6 bg-emerald-50 p-8 rounded-2xl border border-emerald-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-semibold text-emerald-700 pb-0 border-b-0">
@@ -983,18 +962,22 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[]), {
-                      vehicle_reg: "",
-                      vehicle_make: "",
-                      vehicle_model: "",
-                      vehicle_group: "",
-                      date_out: "",
-                      date_in: "",
-                      fuel_out: "",
-                      fuel_in: "",
-                      miles_out: "",
-                      miles_in: "",
-                    }];
+                    const newHistory = [
+                      ...(formData.change_vehicle_history as ChangeVehicleRecord[]),
+                      {
+                        vehicle_reg: "",
+                        vehicle_make: "",
+                        vehicle_model: "",
+                        vehicle_group: "",
+                        date_out: "",
+                        date_in: "",
+                        fuel_out: "",
+                        fuel_in: "",
+                        miles_out: "",
+                        miles_in: "",
+                        rate_per_day: "",
+                      },
+                    ];
                     setFormData((prev) => ({
                       ...prev,
                       change_vehicle_history: newHistory,
@@ -1030,10 +1013,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {/* Reg */}
                         <div className="relative col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Reg</label>
                           {vehicle.vehicle_reg && editingVehicleIndex !== index ? (
-                            <div className="flex items-center gap-2 ">
+                            <div className="flex items-center gap-2">
                               <div className="flex-1">
                                 <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700">
                                   <span>{vehicle.vehicle_reg}</span>
@@ -1047,10 +1031,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   setChangeVehicleSuggestions([]);
                                 }}
                                 disabled={vehicle.fromApi}
-                                className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
-                                  ? "bg-green-400 cursor-not-allowed"
-                                  : "bg-green-500 hover:bg-green-600"
-                                  }`}
+                                className={`px-2 py-2 text-white text-xs rounded-lg transition ${
+                                  vehicle.fromApi
+                                    ? "bg-green-400 cursor-not-allowed"
+                                    : "bg-green-500 hover:bg-green-600"
+                                }`}
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
@@ -1074,8 +1059,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   }}
                                   placeholder="Search by reg..."
                                   disabled={vehicle.fromApi}
-                                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
-                                    }`}
+                                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${
+                                    vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
+                                  }`}
                                 />
                                 {!vehicle.fromApi && (
                                   <button
@@ -1094,24 +1080,27 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   </button>
                                 )}
                               </div>
-                              {editingVehicleIndex === index && changeVehicleShowDropdown && changeVehicleSuggestions.length > 0 && !vehicle.fromApi && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
-                                  {changeVehicleSuggestions.map((v) => (
-                                    <button
-                                      key={v.id}
-                                      type="button"
-                                      onClick={() => {
-                                        selectChangeVehicle(v);
-                                        setChangeVehicleShowDropdown(false);
-                                      }}
-                                      className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-200 last:border-b-0"
-                                    >
-                                      <div className="font-medium text-gray-900">{v.reg_no}</div>
-                                      <div className="text-sm text-gray-600">{v.name} {v.model}</div>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                              {editingVehicleIndex === index &&
+                                changeVehicleShowDropdown &&
+                                changeVehicleSuggestions.length > 0 &&
+                                !vehicle.fromApi && (
+                                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                                    {changeVehicleSuggestions.map((v) => (
+                                      <button
+                                        key={v.id}
+                                        type="button"
+                                        onClick={() => {
+                                          selectChangeVehicle(v);
+                                          setChangeVehicleShowDropdown(false);
+                                        }}
+                                        className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-200 last:border-b-0"
+                                      >
+                                        <div className="font-medium text-gray-900">{v.reg_no}</div>
+                                        <div className="text-sm text-gray-600">{v.name} {v.model}</div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                             </>
                           )}
                         </div>
@@ -1142,6 +1131,20 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             type="text"
                             value={vehicle.vehicle_group}
                             onChange={(e) => updateChangeVehicleField(index, "vehicle_group", e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
+                          />
+                        </div>
+
+                        {/* Rate Per Day for this vehicle */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Rate Per Day</label>
+                          <input
+                            type="text"
+                            placeholder="£0.00"
+                            value={formatGBP(vehicle.rate_per_day)}
+                            onChange={(e) =>
+                              updateChangeVehicleField(index, "rate_per_day", parseGBP(e.target.value))
+                            }
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
                           />
                         </div>
@@ -1208,12 +1211,31 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                           />
                         </div>
                       </div>
+
+                      {/* Per-vehicle subtotal display */}
+                      {changeSubtotals[index] > 0 && (
+                        <div className="mt-2 flex justify-end">
+                          <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200">
+                            Vehicle subtotal:{" "}
+                            <span className="font-bold">
+                              £{changeSubtotals[index].toFixed(2)}
+                            </span>
+                            {vehicle.date_out && vehicle.date_in && (
+                              <span className="text-gray-500 ml-2">
+                                ({calculateInclusiveDays(vehicle.date_out, vehicle.date_in)} days
+                                × £{Number(vehicle.rate_per_day || 0).toFixed(2)}/day)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </section>
 
+            {/* Driver Details */}
             <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
               <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                 Driver Details
@@ -1271,20 +1293,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
-
-
-
-
               </div>
             </section>
 
-
-
-
-
-
-
-
+            {/* Additional Driver question */}
             <section className="space-y-6 mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
                 <label className="text-sm font-medium text-gray-700">
@@ -1315,12 +1327,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </div>
             </section>
 
-
-            {/* Additional Driver's Details - Show only if selected or API data exists */}
+            {/* Additional Driver's Details */}
             {showAdditionalDriver && (
               <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
                 <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                  Additional Driver’s Details
+                  Additional Driver's Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-3">
@@ -1383,7 +1394,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                     />
                   </div>
-
                   <div className="md:col-span-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Occupation:
@@ -1439,7 +1449,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
 
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1476,7 +1485,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </div>
             </section>
 
-            {/* Conditional: Ask about own insurance (only if state is null) */}
+            {/* Own Insurance question */}
             {showOwnInsurance === null && (
               <section className="space-y-6 mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
@@ -1509,11 +1518,11 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </section>
             )}
 
-            {/* Hirer's Own Insurance - Show only if selected or API data exists */}
+            {/* Hirer's Own Insurance */}
             {showOwnInsurance && (
               <section className="space-y-6 bg-green-50 p-8 rounded-2xl border border-green-200">
                 <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
-                  Hirer’s Own Insurance (if applicable)
+                  Hirer's Own Insurance (if applicable)
                 </h3>
                 <div className="space-y-5">
                   <div>
@@ -1569,7 +1578,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Hirer's Signature:
                     </label>
-
                     {isHirerInsuranceFromApi && signatures.hirer_signature_insurance ? (
                       <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                         <img
@@ -1577,9 +1585,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                           alt="Hirer insurance signature"
                           className="max-h-40 mx-auto object-contain"
                         />
-                        <p className="text-sm text-green-700 font-medium">
-                          Signature saved ✓ (from record)
-                        </p>
+                        <p className="text-sm text-green-700 font-medium">Signature saved ✓ (from record)</p>
                         <button
                           type="button"
                           onClick={() => setIsHirerInsuranceFromApi(false)}
@@ -1590,22 +1596,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-4">
-                        <Signature
-                          ref={hirerInsuranceRef}
-                          onSign={handleSignature("hirer_signature_insurance")}
-                        />
-                        {signatures.hirer_signature_insurance && (
-                          <p></p>
-                        )}
+                        <Signature ref={hirerInsuranceRef} onSign={handleSignature("hirer_signature_insurance")} />
                       </div>
                     )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date:
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date:</label>
                       <input
                         type="date"
                         name="insurance_date"
@@ -1615,9 +1613,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time:
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Time:</label>
                       <input
                         type="text"
                         name="insurance_time"
@@ -1632,9 +1628,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             )}
 
             <div className="space-y-10 lg:space-y-0">
-              {/* Merged Insurance + Medical – side by side on large screens, equal width */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                {/* Left: Insurance Proposal */}
+                {/* Insurance Proposal */}
                 <section className="space-y-6">
                   <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                     Insurance Proposal
@@ -1647,8 +1642,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <div className="space-y-5 pt-1">
                     {[
                       {
-                        question:
-                          "Have you been convicted or received notice of intended prosecution for any motoring offence (including endorsable fixed penalty offences) in the last 3 years?",
+                        question: "Have you been convicted or received notice of intended prosecution for any motoring offence (including endorsable fixed penalty offences) in the last 3 years?",
                         name: "motoring_offence_3yrs",
                       },
                       {
@@ -1656,28 +1650,20 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         name: "disqualified_5yrs",
                       },
                       {
-                        question:
-                          "Have you been involved in any motoring accident or loss in the last 3 years?",
+                        question: "Have you been involved in any motoring accident or loss in the last 3 years?",
                         name: "accident_3yrs",
                       },
                       {
-                        question:
-                          "Has any motoring insurance proposal been declined, non-renewed, cancelled, or had special conditions applied in the last 5 years?",
+                        question: "Has any motoring insurance proposal been declined, non-renewed, cancelled, or had special conditions applied in the last 5 years?",
                         name: "insurance_declined_5yrs",
                       },
                       {
-                        question:
-                          "Have you ever been convicted or received notice of intended prosecution involving dishonesty of any kind?",
+                        question: "Have you ever been convicted or received notice of intended prosecution involving dishonesty of any kind?",
                         name: "dishonesty_conviction",
                       },
                     ].map((item) => (
-                      <div
-                        key={item.name}
-                        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
-                      >
-                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">
-                          {item.question}
-                        </label>
+                      <div key={item.name} className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">{item.question}</label>
                         <div className="flex gap-10 shrink-0 pt-1 sm:pt-0">
                           <label className="flex items-center">
                             <input
@@ -1707,7 +1693,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   </div>
                 </section>
 
-                {/* Right: Medical Declaration */}
+                {/* Medical Declaration */}
                 <section className="space-y-6">
                   <h3 className="text-2xl font-semibold text-green-700 pb-3 border-b border-green-200">
                     Medical Declaration
@@ -1725,13 +1711,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         name: "medical_condition2",
                       },
                     ].map((item) => (
-                      <div
-                        key={item.name}
-                        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
-                      >
-                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">
-                          {item.q}
-                        </label>
+                      <div key={item.name} className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <label className="text-sm text-gray-700 flex-1 leading-relaxed">{item.q}</label>
                         <div className="flex gap-10 shrink-0 pt-1 sm:pt-0">
                           <label className="flex items-center">
                             <input
@@ -1761,7 +1742,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
                     <div className="pt-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        If “Yes” to any above, please give details:
+                        If "Yes" to any above, please give details:
                       </label>
                       <textarea
                         name="medical_details"
@@ -1830,15 +1811,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
             {/* 1984 Data Protection Act */}
             <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
-              <h3 className="text-xl font-bold text-green-800 mb-3">
-                1984 Data Protection Act
-              </h3>
+              <h3 className="text-xl font-bold text-green-800 mb-3">1984 Data Protection Act</h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                Insurers maintain a motor insurance anti-fraud and theft
-                register. In line with the 1984 Data Protection Act's first data protection
-                principle, which is concerned with the obtaining of information. We wish to
-                advise you that insurance companies exchange information with each other to
-                detect fraudulent claims.
+                Insurers maintain a motor insurance anti-fraud and theft register. In line with
+                the 1984 Data Protection Act's first data protection principle, which is concerned
+                with the obtaining of information. We wish to advise you that insurance companies
+                exchange information with each other to detect fraudulent claims.
               </p>
             </div>
 
@@ -1848,13 +1826,12 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Declaration
               </h3>
               <p className="text-gray-700 italic text-sm leading-relaxed">
-
                 I declare that all statements and particulars given by me in this proposal,
                 which I have read over, are correct, and no material fact has been omitted,
-                mis-represented or mis-stated. I am not aware of any other circumstances
-                likely to affect the risk
-                I understand that I shall not allow the vehicle to be driven by any person not
-                authorised by the underwriter to drive the vehicle during the period of hire.
+                mis-represented or mis-stated. I am not aware of any other circumstances likely
+                to affect the risk. I understand that I shall not allow the vehicle to be driven
+                by any person not authorised by the underwriter to drive the vehicle during the
+                period of hire.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
@@ -1862,7 +1839,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Hirer's Signature:
                   </label>
-
                   {isDeclarationFromApi && signatures.declaration_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
@@ -1870,9 +1846,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         alt="Declaration signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="text-sm text-green-700 font-medium">
-                        Signature saved ✓ (from record)
-                      </p>
+                      <p className="text-sm text-green-700 font-medium">Signature saved ✓ (from record)</p>
                       <button
                         type="button"
                         onClick={() => setIsDeclarationFromApi(false)}
@@ -1883,21 +1857,13 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
-                      <Signature
-                        ref={declarationRef}
-                        onSign={handleSignature("declaration_signature")}
-                      />
-                      {signatures.declaration_signature && (
-                        <p></p>
-                      )}
+                      <Signature ref={declarationRef} onSign={handleSignature("declaration_signature")} />
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date:
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date:</label>
                   <input
                     type="date"
                     name="declaration_date"
@@ -1909,16 +1875,76 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               </div>
             </section>
 
+            {/* ─── Charges Summary ─────────────────────────────────────────── */}
             <section className="space-y-6 bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-200 shadow-inner">
               <h3 className="text-2xl font-semibold text-green-800 pb-4 border-b border-green-300">
                 Charges Summary
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Per-vehicle breakdown */}
+              <div className="space-y-4">
+                <h4 className="text-base font-semibold text-green-700">Vehicle Charges</h4>
+
+                {/* Main hire vehicle row */}
+                {formData.hire_vehicle_reg ? (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-5 py-4 rounded-xl border border-green-200">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">
+                        {formData.hire_vehicle_reg}
+                      </span>
+                      {formData.hire_vehicle_make && (
+                        <span className="ml-2 text-gray-500">
+                          {formData.hire_vehicle_make} {formData.hire_vehicle_model}
+                        </span>
+                      )}
+                      {formData.hire_vehicle_date_out && formData.hire_vehicle_date_in && (
+                        <span className="ml-2 text-gray-400 text-xs">
+                          ({mainDays} day{mainDays !== 1 ? "s" : ""} ×{" "}
+                          £{Number(formData.hire_vehicle_rate_per_day || 0).toFixed(2)}/day)
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-green-700 whitespace-nowrap">
+                      £{mainSubtotal.toFixed(2)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic px-1">No main hire vehicle selected yet.</p>
+                )}
+
+                {/* Change vehicle rows */}
+                {(formData.change_vehicle_history as ChangeVehicleRecord[]).map((v, i) => {
+                  const sub = changeSubtotals[i] ?? 0;
+                  const days = calculateInclusiveDays(v.date_out, v.date_in);
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white px-5 py-4 rounded-xl border border-emerald-200"
+                    >
+                      <div className="text-sm text-gray-700">
+                        <span className="font-semibold text-gray-900">{v.vehicle_reg || `Vehicle ${i + 1}`}</span>
+                        {v.vehicle_make && (
+                          <span className="ml-2 text-gray-500">{v.vehicle_make} {v.vehicle_model}</span>
+                        )}
+                        {v.date_out && v.date_in && (
+                          <span className="ml-2 text-gray-400 text-xs">
+                            ({days} day{days !== 1 ? "s" : ""} ×{" "}
+                            £{Number(v.rate_per_day || 0).toFixed(2)}/day)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">
+                        £{sub.toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Global charges */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 border-t border-green-100">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Admin Fee
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Admin Fee</label>
                   <input
                     type="text"
                     name="admin_fee"
@@ -1930,9 +1956,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Delivery Charge
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Charge</label>
                   <input
                     type="text"
                     name="delivery_charge"
@@ -1944,9 +1968,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CDW Per Day
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CDW Per Day</label>
                   <input
                     type="text"
                     name="cdw_per_day"
@@ -1956,10 +1978,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Refuelling @
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Refuelling @</label>
                   <input
                     type="text"
                     name="refuelling_total"
@@ -1969,102 +1990,43 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
                   />
                 </div>
+              </div>
+
+              {/* Subtotal / VAT / Total */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-green-100">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Days Out
-                  </label>
-                  <input
-                    type="date"
-                    name="hire_vehicle_date_out"
-                    value={formData.hire_vehicle_date_out}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Days In
-                  </label>
-                  <input
-                    type="date"
-                    name="days_in"
-                    value={formData.days_in}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Total Days
-                  </label>
-                  <input
-                    type="number"
-                    name="total_days"
-                    value={formData.total_days}
-                    readOnly
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
-                  />
-                  <p className="text-sm text-gray-600 mt-1">Auto-calculated from hire dates</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Rate per Day
-                  </label>
-                  <input
-                    type="text"
-                    name="rate_per_day"
-                    placeholder="£0.00"
-                    value={formatGBP(formData.rate_per_day)}
-                    onChange={handleMoneyChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-
-
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Subtotal
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
                   <input
                     type="text"
                     name="subtotal"
                     placeholder="£0.00"
                     value={formatGBP(formData.subtotal)}
-                    onChange={handleMoneyChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    VAT at __%
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">VAT (20%)</label>
                   <input
                     type="text"
                     name="vat"
                     placeholder="£0.00"
                     value={formatGBP(formData.vat)}
-                    onChange={handleMoneyChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white/80 focus:ring-2 focus:ring-green-500"
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed"
                   />
                 </div>
 
-                <div className="sm:col-span-2 lg:col-span-3 mt-4">
-                  <label className="block text-xl font-bold text-green-800 mb-2">
-                    Total Cost
-                  </label>
+                <div>
+                  <label className="block text-xl font-bold text-green-800 mb-2">Total Cost</label>
                   <input
                     type="text"
                     name="total_cost"
                     placeholder="£0.00"
                     value={formatGBP(formData.total_cost)}
-                    onChange={handleMoneyChange}
-                    className="w-full px-6 py-5 text-2xl font-bold border-2 border-green-400 rounded-2xl bg-green-50 focus:ring-4 focus:ring-green-300 shadow-md"
+                    readOnly
+                    className="w-full px-6 py-5 text-2xl font-bold border-2 border-green-400 rounded-2xl bg-green-50 cursor-not-allowed shadow-md"
                   />
                   <p className="text-sm text-gray-600 mt-2 italic">
                     (Charges will be completed at termination of hire.)
@@ -2072,13 +2034,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </div>
             </section>
+
             {/* VAT Notice */}
             <div className="bg-green-50 p-6 rounded-2xl border border-green-200">
               <h3 className="text-xl font-bold text-green-800 mb-3">VAT Notice:</h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                For Hirers who are VAT registered, the vehicle hired under this
-                contract is a qualifying car as delivered under Article 7 (2) of the
-                value added Tax (Input Tax) order 1882, as amended.
+                For Hirers who are VAT registered, the vehicle hired under this contract is a
+                qualifying car as delivered under Article 7 (2) of the value added Tax (Input Tax)
+                order 1882, as amended.
               </p>
             </div>
 
@@ -2088,16 +2051,13 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Parking Fines & Congestion Charges
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                To cover administration costs a surcharge of £30
-                will be made for parking tickets left unpaid in addition to the
-                amount of fine.
-
+                To cover administration costs a surcharge of £30 will be made for parking tickets
+                left unpaid in addition to the amount of fine.
               </p>
               <p className="text-gray-700 text-sm leading-relaxed mt-3">
-                The hirer accepts full responsibility to pay any congestion charge
-                upon demand together with an administration fee of £30 and any
-                other associated costs/charges or penalties which may arise
-                therefrom
+                The hirer accepts full responsibility to pay any congestion charge upon demand
+                together with an administration fee of £30 and any other associated costs/charges
+                or penalties which may arise therefrom.
               </p>
             </div>
 
@@ -2107,14 +2067,15 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 Statement of Liability
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">
-                I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or
-                replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.
+                I acknowledge that during the currency of this rental agreement for the purpose
+                of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991
+                (as amended or replaced by any new legislation) I will be liable as the owner of
+                the vehicle hired in respect of any fixed penalty offence or parking charge
+                incurred in respect of the vehicle.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date:
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date:</label>
                   <input
                     type="date"
                     name="liability_date"
@@ -2127,7 +2088,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Signed by Hirer:
                   </label>
-
                   {isLiabilityFromApi && signatures.liability_signature ? (
                     <div className="border border-green-300 rounded-xl p-6 bg-green-50 max-w-md mx-auto text-center space-y-3">
                       <img
@@ -2135,9 +2095,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         alt="Liability signature"
                         className="max-h-40 mx-auto object-contain"
                       />
-                      <p className="text-sm text-green-700 font-medium">
-                        Signature saved ✓ (from record)
-                      </p>
+                      <p className="text-sm text-green-700 font-medium">Signature saved ✓ (from record)</p>
                       <button
                         type="button"
                         onClick={() => setIsLiabilityFromApi(false)}
@@ -2148,20 +2106,14 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4">
-                      <Signature
-                        ref={liabilityRef}
-                        onSign={handleSignature("liability_signature")}
-                      />
-                      {signatures.liability_signature && (
-                        <p></p>
-                      )}
+                      <Signature ref={liabilityRef} onSign={handleSignature("liability_signature")} />
                     </div>
                   )}
                 </div>
               </div>
             </section>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <div className="text-center pt-10">
               <button
                 type="submit"
@@ -2179,9 +2131,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 {loading ? "Submitting..." : "Submit"}
               </button>
 
-              {error && (
-                <p className="mt-4 text-red-600 font-medium">{error}</p>
-              )}
+              {error && <p className="mt-4 text-red-600 font-medium">{error}</p>}
 
               {submitted && !loading && (
                 <p className="mt-6 text-green-700 font-medium">
