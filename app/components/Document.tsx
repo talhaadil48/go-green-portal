@@ -8,7 +8,6 @@ interface DocumentManagerProps {
   claimId: string;
 }
 
-// Update the map to support both legacy string URLs and the new object format with user_name
 interface DocumentData {
   url: string;
   user_name?: string;
@@ -16,6 +15,79 @@ interface DocumentData {
 
 interface DocumentsMap {
   [key: string]: string | DocumentData;
+}
+
+/**
+ * Normalize an S3 URL so the object key matches what S3 expects.
+ *
+ * Fixes the common case where the backend stored a URL with a literal '+'
+ * in the PATH (object key). In URLs, '+' is not special in the path, but many
+ * systems confuse it with querystring decoding or end up storing it unencoded.
+ *
+ * Strategy:
+ * - Parse URL
+ * - Rebuild pathname segment-by-segment
+ *   - decode percent-escapes (best effort)
+ *   - replace literal '+' with '%2B'
+ *   - encode each segment (so spaces -> %20, etc.)
+ * - Do NOT modify search params (important for signed URLs) or host/origin
+ */
+function normalizeS3Url(rawUrl: string): string {
+  if (!rawUrl) return rawUrl;
+
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
+
+  // Only normalize typical S3-style hosts. If you use CloudFront/custom domains,
+  // you can remove this guard.
+  const host = u.hostname.toLowerCase();
+  const looksLikeS3 =
+    host === "s3.amazonaws.com" ||
+    host.endsWith(".s3.amazonaws.com") ||
+    host.includes(".s3.") ||
+    host.includes(".s3-") ||
+    host.startsWith("s3.") ||
+    host.includes("amazonaws.com");
+
+  if (!looksLikeS3) return rawUrl;
+
+  const segments = u.pathname.split("/");
+
+  const normalizedPath = segments
+    .map((seg) => {
+      // keep leading empty segment from "/..."
+      if (seg === "") return "";
+
+      // best-effort decode; if malformed, leave as-is
+      let decoded = seg;
+      try {
+        decoded = decodeURIComponent(seg);
+      } catch {
+        decoded = seg;
+      }
+
+      // critical fix: literal '+' in PATH should be treated as plus in key,
+      // and must be percent-encoded to avoid any downstream decoding surprises
+      decoded = decoded.replaceAll("+", "%2B");
+
+      // Now ensure the segment is properly encoded.
+      // encodeURIComponent will also encode '%' so first restore %2B markers:
+      // (we used "%2B" as text above; convert it back to '+' before encoding,
+      // then encode will turn it into %2B)
+      decoded = decoded.replaceAll("%2B", "+");
+
+      return encodeURIComponent(decoded);
+    })
+    .join("/");
+
+  // Assigning pathname keeps search/hash intact
+  u.pathname = normalizedPath;
+
+  return u.toString();
 }
 
 export default function DocumentManager({ claimId }: DocumentManagerProps) {
@@ -68,9 +140,13 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
   useEffect(() => {
     if (claimId) fetchDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claimId]);
 
-  const handleFilesSelect = (e: ChangeEvent<HTMLInputElement>, from: "file" | "camera") => {
+  const handleFilesSelect = (
+    e: ChangeEvent<HTMLInputElement>,
+    from: "file" | "camera"
+  ) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       setSelectedFiles((prev) => [...prev, ...newFiles]);
@@ -107,16 +183,14 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     try {
       let names: string[];
       let isExplicitReplacement = false;
-      
+
       if (selectedFiles.length === 1) {
         names = [singleDocName.trim() || selectedFiles[0].name];
         if (singleDocName.trim() !== "") {
           isExplicitReplacement = true; // User explicitly typed a name to replace
         }
       } else {
-        names = fileNames.map((n, i) =>
-          n.trim() ? n.trim() : selectedFiles[i].name
-        );
+        names = fileNames.map((n, i) => (n.trim() ? n.trim() : selectedFiles[i].name));
       }
 
       const presignRes = await fetch("/api/presign-upload", {
@@ -130,7 +204,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
       if (!presignRes.ok) throw new Error("Failed to get upload URLs");
 
-      const { results } = await presignRes.json() as {
+      const { results } = (await presignRes.json()) as {
         results: { presignedUrl: string; fileUrl: string; key: string }[];
       };
 
@@ -159,19 +233,20 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         currentDocs = {};
       }
 
-      // Step 4: Merge logic preserving user_name if it exists
+      // Merge logic preserving user_name if it exists
       for (let i = 0; i < results.length; i++) {
-        let desiredName = names[i].trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
+        let desiredName =
+          names[i].trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
 
         const [base, ext] = desiredName.includes(".")
           ? [
-            desiredName.slice(0, desiredName.lastIndexOf(".")),
-            desiredName.slice(desiredName.lastIndexOf(".")),
-          ]
+              desiredName.slice(0, desiredName.lastIndexOf(".")),
+              desiredName.slice(desiredName.lastIndexOf(".")),
+            ]
           : [desiredName, ""];
 
         let finalKey = desiredName;
-        
+
         // Only dedup if it's not an explicit single file replacement
         if (!isExplicitReplacement) {
           let counter = 1;
@@ -181,20 +256,17 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           }
         }
 
-        // Check if the document already exists to preserve the original uploader's name
         const existingDoc = currentDocs[finalKey];
         let originalUserName = username;
 
-        if (existingDoc) {
-          // If it was previously saved as an object, grab the old user_name
-          if (typeof existingDoc === 'object' && existingDoc.user_name) {
-            originalUserName = existingDoc.user_name;
-          }
+        if (existingDoc && typeof existingDoc === "object" && existingDoc.user_name) {
+          originalUserName = existingDoc.user_name;
         }
 
         currentDocs[finalKey] = {
+          // Store as-is (backend behavior), UI will normalize when opening
           url: results[i].fileUrl,
-          user_name: originalUserName // Retains old username if replacing, otherwise uses current username
+          user_name: originalUserName,
         };
       }
 
@@ -203,9 +275,9 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             documents: currentDocs,
-            user_name: username 
+            user_name: username,
           }),
         }
       );
@@ -411,7 +483,9 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         </form>
 
         {error && <p className="mt-6 text-red-600 text-center font-medium">{error}</p>}
-        {successMsg && <p className="mt-6 text-green-600 text-center font-medium">{successMsg}</p>}
+        {successMsg && (
+          <p className="mt-6 text-green-600 text-center font-medium">{successMsg}</p>
+        )}
       </div>
 
       <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6 md:p-8">
@@ -432,9 +506,13 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         ) : (
           <div className="space-y-4">
             {Object.entries(documents).map(([name, docData]) => {
-              // Handle backwards compatibility for legacy strings vs new objects
-              const url = typeof docData === 'string' ? docData : docData.url;
-              const uploader = typeof docData === 'object' && docData.user_name ? docData.user_name.toUpperCase() : "__";
+              const rawUrl = typeof docData === "string" ? docData : docData.url;
+              const openUrl = normalizeS3Url(rawUrl);
+
+              const uploader =
+                typeof docData === "object" && docData.user_name
+                  ? docData.user_name.toUpperCase()
+                  : "__";
 
               return (
                 <div
@@ -448,7 +526,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
                   <div className="flex gap-3 flex-shrink-0">
                     <a
-                      href={url}
+                      href={openUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
