@@ -29,6 +29,10 @@ interface ClaimInvoice {
   user_name: string | null;
   payment_amount: string | null;
   payment_date: string | null;
+  status: string | null;
+  solicitor_fee: number | null;
+  payment_received: number | null;
+  date_received: string | null;
 }
 
 interface LongHireInvoice {
@@ -46,16 +50,29 @@ type SortConfig = {
   direction: "asc" | "desc";
 } | null;
 
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+type InvoiceStatus = "Paid" | "Disputed" | "Rejected" | "";
+
+const STATUS_OPTIONS: InvoiceStatus[] = ["", "Paid", "Disputed", "Rejected"];
+
+function statusBadge(status: string | null) {
+  if (!status) return <span className="text-xs text-slate-400">—</span>;
+  const styles: Record<string, string> = {
+    Paid: "bg-green-100 text-green-800",
+    Disputed: "bg-amber-100 text-amber-800",
+    Rejected: "bg-red-100 text-red-800",
+  };
+  return (
+    <span
+      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+        styles[status] ?? "bg-slate-100 text-slate-700"
+      }`}
+    >
+      {status}
+    </span>
+  );
 }
 
-function formatShortDate(d: string | null) {
+function formatDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -78,15 +95,6 @@ function formatCurrency(value: number | null | undefined | string) {
   });
 }
 
-function getInfoBadge(info: string | null) {
-  if (!info) return <span className="text-xs text-slate-400">—</span>;
-  return (
-    <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-      {info}
-    </span>
-  );
-}
-
 export default function InvoiceManagementPage() {
   const router = useRouter();
 
@@ -103,12 +111,14 @@ export default function InvoiceManagementPage() {
   // Claim invoice editing
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState({
+    status: "" as InvoiceStatus,
     info: "",
     storage_bill: "",
     rent_bill: "",
     user_name: "",
     payment_amount: "",
     payment_date: "",
+    solicitor_fee: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -127,6 +137,7 @@ export default function InvoiceManagementPage() {
   const [filterInfo, setFilterInfo] = useState("");
   const [filterSentBy, setFilterSentBy] = useState("");
   const [filterHirer, setFilterHirer] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createFormData, setCreateFormData] = useState({
@@ -137,12 +148,14 @@ export default function InvoiceManagementPage() {
     user_name: "",
     payment_amount: "",
     payment_date: "",
+    solicitor_fee: "",
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
+  // ─── Fetch helpers (used only for initial load & manual refresh) ───────────
   const fetchClaimInvoices = async () => {
     setLoadingClaim(true);
     setErrorClaim(null);
@@ -169,11 +182,13 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  // ─── Single fetch on mount only ───────────────────────────────────────────
   useEffect(() => {
     fetchClaimInvoices();
     fetchLongHireInvoices();
-  }, []);
+  }, []); // empty deps → runs exactly once
 
+  // ─── Create claim invoice — update local state, no re-fetch ───────────────
   const handleCreateClaimInvoice = async (e: FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -187,14 +202,30 @@ export default function InvoiceManagementPage() {
         user_name: createFormData.user_name.trim() || null,
         payment_amount: createFormData.payment_amount.trim() || null,
         payment_date: createFormData.payment_date.trim() || null,
+        solicitor_fee: createFormData.solicitor_fee ? Number(createFormData.solicitor_fee) : null,
       };
-      await api.post("/api/invoice", payload, { headers: { requiresAuth: true } });
+      const res = await api.post("/api/invoice", payload, { headers: { requiresAuth: true } });
+
+      // Prefer server-returned record; fall back to payload + generated id
+      const newRecord: ClaimInvoice = res.data.data ?? {
+        id: res.data.id ?? Date.now(),
+        claim_type: null,
+        invoice_datetime: new Date().toISOString(),
+        info: null,
+        docs: null,
+        hire_days: null,
+        status: null,
+        payment_received: null,
+        date_received: null,
+        ...payload,
+      };
+
+      setClaimInvoices((prev) => [newRecord, ...prev]);
       setCreateFormData({
         claim_id: "", claimant_name: "", storage_bill: "", rent_bill: "",
-        user_name: "", payment_amount: "", payment_date: "",
+        user_name: "", payment_amount: "", payment_date: "", solicitor_fee: "",
       });
       setShowCreateForm(false);
-      await fetchClaimInvoices();
     } catch (err: any) {
       setCreateError(err.response?.data?.message || "Failed to create invoice.");
     } finally {
@@ -202,43 +233,57 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  // Claim invoice edit handlers
+  // ─── Claim invoice edit handlers ──────────────────────────────────────────
   const startEditing = (inv: ClaimInvoice) => {
     setEditingId(inv.id);
     setEditFormData({
+      status: (inv.status as InvoiceStatus) || "",
       info: inv.info || "",
       storage_bill: inv.storage_bill?.toString() || "",
       rent_bill: inv.rent_bill?.toString() || "",
       user_name: inv.user_name || "",
       payment_amount: inv.payment_amount || "",
       payment_date: inv.payment_date ? inv.payment_date.slice(0, 10) : "",
+      solicitor_fee: inv.solicitor_fee?.toString() || "",
     });
     setSaveError(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditFormData({ info: "", storage_bill: "", rent_bill: "", user_name: "", payment_amount: "", payment_date: "" });
+    setEditFormData({
+      status: "", info: "", storage_bill: "", rent_bill: "",
+      user_name: "", payment_amount: "", payment_date: "", solicitor_fee: "",
+    });
     setSaveError(null);
   };
 
+  // Save edit — update local state, no re-fetch
   const handleSaveEdit = async (invoiceId: number) => {
     setSaving(true);
     setSaveError(null);
     try {
       const payload = {
+        status: editFormData.status || null,
         info: editFormData.info.trim() || null,
         storage_bill: editFormData.storage_bill ? Number(editFormData.storage_bill) : null,
         rent_bill: editFormData.rent_bill ? Number(editFormData.rent_bill) : null,
         user_name: editFormData.user_name.trim() || null,
         payment_amount: editFormData.payment_amount.trim() || null,
         payment_date: editFormData.payment_date.trim() || null,
+        solicitor_fee: editFormData.solicitor_fee ? Number(editFormData.solicitor_fee) : null,
       };
       const res = await api.put(`/api/invoice/${invoiceId}`, payload, {
         headers: { requiresAuth: true },
       });
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
-      await fetchClaimInvoices();
+
+      // Merge changes into local list — no network call needed
+      setClaimInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === invoiceId ? { ...inv, ...payload } : inv
+        )
+      );
       cancelEdit();
     } catch (err: any) {
       setSaveError(err.response?.data?.message || "Failed to update invoice.");
@@ -247,7 +292,7 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  // Long hire edit handlers
+  // ─── Long hire edit handlers ───────────────────────────────────────────────
   const startEditingLongHire = (inv: LongHireInvoice) => {
     setEditingLongHireId(inv.id);
     setEditLongHireFormData({
@@ -262,7 +307,7 @@ export default function InvoiceManagementPage() {
     setSaveLongHireError(null);
   };
 
-  // Shared save — pass explicit dateValue so clear (null) path can call it too
+  // Save long hire payment date — update local state, no re-fetch
   const saveLongHirePaymentDate = async (inv: LongHireInvoice, dateValue: string | null) => {
     if (!inv.claim_id) {
       setSaveLongHireError("Cannot update: no Claim ID on this record.");
@@ -279,7 +324,13 @@ export default function InvoiceManagementPage() {
         headers: { requiresAuth: true },
       });
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
-      await fetchLongHireInvoices();
+
+      // Merge change into local list — no network call needed
+      setLongHireInvoices((prev) =>
+        prev.map((item) =>
+          item.id === inv.id ? { ...item, payment_date: dateValue } : item
+        )
+      );
       cancelEditLongHire();
     } catch (err: any) {
       setSaveLongHireError(err.response?.data?.message || "Failed to update payment date.");
@@ -292,11 +343,11 @@ export default function InvoiceManagementPage() {
     saveLongHirePaymentDate(inv, editLongHireFormData.payment_date.trim() || null);
   };
 
-  // Clear payment date → send null
   const handleClearLongHirePaymentDate = (inv: LongHireInvoice) => {
     saveLongHirePaymentDate(inv, null);
   };
 
+  // ─── Sorting ───────────────────────────────────────────────────────────────
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "asc") {
@@ -311,7 +362,7 @@ export default function InvoiceManagementPage() {
       let valA = a[sortConfig.key];
       let valB = b[sortConfig.key];
 
-      if (sortConfig.key === "total") {
+      if (sortConfig.key === "hire_storage_total") {
         valA = (a.storage_bill || 0) + (a.rent_bill || 0);
         valB = (b.storage_bill || 0) + (b.rent_bill || 0);
       }
@@ -332,6 +383,7 @@ export default function InvoiceManagementPage() {
     });
   };
 
+  // ─── Filtering ─────────────────────────────────────────────────────────────
   const filteredClaimInvoices = claimInvoices.filter((inv) => {
     const matchesSearch =
       !search ||
@@ -343,7 +395,8 @@ export default function InvoiceManagementPage() {
     const matchesClaimant = !filterClaimant || inv.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
     const matchesInfo = !filterInfo || inv.info?.toLowerCase().includes(filterInfo.toLowerCase());
     const matchesSentBy = !filterSentBy || inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase());
-    return matchesSearch && matchesClaimId && matchesClaimant && matchesInfo && matchesSentBy;
+    const matchesStatus = !filterStatus || inv.status?.toLowerCase().includes(filterStatus.toLowerCase());
+    return matchesSearch && matchesClaimId && matchesClaimant && matchesInfo && matchesSentBy && matchesStatus;
   });
 
   const filteredLongHireInvoices = longHireInvoices.filter((inv) => {
@@ -454,6 +507,7 @@ export default function InvoiceManagementPage() {
                 { label: "Claimant Name", key: "claimant_name", placeholder: "Muhammad Ahmed", type: "text" },
                 { label: "Storage Bill (£)", key: "storage_bill", placeholder: "0", type: "number" },
                 { label: "Rent Bill (£)", key: "rent_bill", placeholder: "0", type: "number" },
+                { label: "Solicitor Fee (£)", key: "solicitor_fee", placeholder: "0", type: "number" },
                 { label: "Sent By (optional)", key: "user_name", placeholder: "Your name", type: "text" },
                 { label: "Payment Amount (optional)", key: "payment_amount", placeholder: "e.g. £500", type: "text" },
               ].map(({ label, key, placeholder, type }) => (
@@ -517,9 +571,16 @@ export default function InvoiceManagementPage() {
               <input type="text" value={filterClaimant} onChange={(e) => setFilterClaimant(e.target.value)}
                 placeholder="Filter Claimant"
                 className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
-              <input type="text" value={filterInfo} onChange={(e) => setFilterInfo(e.target.value)}
-                placeholder="Filter Info / Status"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm text-gray-600"
+              >
+                <option value="">All Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Disputed">Disputed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
               <input type="text" value={filterSentBy} onChange={(e) => setFilterSentBy(e.target.value)}
                 placeholder="Filter Sent By"
                 className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm" />
@@ -550,7 +611,7 @@ export default function InvoiceManagementPage() {
           </div>
         ) : (isClaimTab ? sortedClaimInvoices : sortedLongHireInvoices).length === 0 ? (
           <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
-            {search || filterClaimId || filterSentBy || (isClaimTab ? filterClaimant || filterInfo : filterHirer)
+            {search || filterClaimId || filterSentBy || filterStatus || (isClaimTab ? filterClaimant || filterInfo : filterHirer)
               ? "No matching invoices"
               : `No ${isClaimTab ? "claim" : "long term hire"} invoices yet`}
           </div>
@@ -560,23 +621,23 @@ export default function InvoiceManagementPage() {
               <table className="min-w-full divide-y divide-gray-300 text-xs">
                 <thead className="bg-green-50/70">
                   <tr>
-                    <SortHeader label="Claim ID" sortKey="claim_id" />
                     {isClaimTab ? (
                       <>
+                        <SortHeader label="Status" sortKey="status" align="center" />
+                        <SortHeader label="Claim ID" sortKey="claim_id" />
                         <SortHeader label="Claimant" sortKey="claimant_name" />
-                        <SortHeader label="Date / Time" sortKey="invoice_datetime" />
-                        <SortHeader label="Info" sortKey="info" align="center" />
+                        <SortHeader label="Claim Type" sortKey="claim_type" />
+                        <SortHeader label="Date Sent" sortKey="invoice_datetime" />
                         <SortHeader label="Sent By" sortKey="user_name" />
-                        <SortHeader label="Hire Days" sortKey="hire_days" align="right" />
-                        <SortHeader label="Storage" sortKey="storage_bill" align="right" />
-                        <SortHeader label="Hire" sortKey="rent_bill" align="right" />
-                        <SortHeader label="Total" sortKey="total" align="right" />
-                        <SortHeader label="Payment Amt" sortKey="payment_amount" />
-                        <SortHeader label="Payment Date" sortKey="payment_date" />
+                        <SortHeader label="Hire + Storage" sortKey="hire_storage_total" align="right" />
+                        <SortHeader label="Solicitor Fee" sortKey="solicitor_fee" align="right" />
+                        <SortHeader label="Payment Received" sortKey="payment_received" align="right" />
+                        <SortHeader label="Date Received" sortKey="date_received" />
                         <th className="px-3 py-2 text-center font-semibold text-green-800">Actions</th>
                       </>
                     ) : (
                       <>
+                        <SortHeader label="Claim ID" sortKey="claim_id" />
                         <SortHeader label="Hirer" sortKey="hirer_name" />
                         <SortHeader label="Date Sent" sortKey="date_sent" />
                         <SortHeader label="Sent By" sortKey="user_name" />
@@ -591,26 +652,52 @@ export default function InvoiceManagementPage() {
                   {isClaimTab
                     ? sortedClaimInvoices.map((inv) => {
                         const isEditing = editingId === inv.id;
+                        const hireStorageTotal = (inv.rent_bill || 0) + (inv.storage_bill || 0);
                         return (
                           <tr key={inv.id} className="hover:bg-green-50/30 transition-colors">
-                            <td className="px-3 py-1.5 border-r border-gray-300">{inv.claim_id || "—"}</td>
-                            <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[180px]">
+
+                            {/* Status */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 text-center">
+                              {isEditing ? (
+                                <select
+                                  value={editFormData.status}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({ ...p, status: e.target.value as InvoiceStatus }))
+                                  }
+                                  className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
+                                >
+                                  {STATUS_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt === "" ? "— None —" : opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                statusBadge(inv.status)
+                              )}
+                            </td>
+
+                            {/* Claim ID */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap font-medium">
+                              {inv.claim_id || "—"}
+                            </td>
+
+                            {/* Claimant */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 truncate max-w-[160px]">
                               {inv.claimant_name?.toUpperCase() || "—"}
                             </td>
+
+                            {/* Claim Type */}
+                            <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                              {inv.claim_type?.toUpperCase() || "—"}
+                            </td>
+
+                            {/* Date Sent */}
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
                               {formatDate(inv.invoice_datetime)}
                             </td>
-                            <td className="px-3 py-1.5 border-r border-gray-300 text-center">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editFormData.info}
-                                  onChange={(e) => setEditFormData((p) => ({ ...p, info: e.target.value }))}
-                                  className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                  placeholder="e.g. SENT"
-                                />
-                              ) : getInfoBadge(inv.info)}
-                            </td>
+
+                            {/* Sent By */}
                             <td className="px-3 py-1.5 border-r border-gray-300">
                               {isEditing ? (
                                 <input
@@ -621,66 +708,68 @@ export default function InvoiceManagementPage() {
                                   placeholder="Name"
                                 />
                               ) : (
-                                <span className="truncate block max-w-[140px]">{inv.user_name?.toUpperCase() || "—"}</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                              {inv.hire_days !== null && inv.hire_days !== undefined ? inv.hire_days : "—"}
-                            </td>
-                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={editFormData.storage_bill}
-                                  onChange={(e) => setEditFormData((p) => ({ ...p, storage_bill: e.target.value }))}
-                                  className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                  placeholder="0"
-                                />
-                              ) : formatCurrency(inv.storage_bill)}
-                            </td>
-                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  value={editFormData.rent_bill}
-                                  onChange={(e) => setEditFormData((p) => ({ ...p, rent_bill: e.target.value }))}
-                                  className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                  placeholder="0"
-                                />
-                              ) : formatCurrency(inv.rent_bill)}
-                            </td>
-                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
-                              {formatCurrency((inv.rent_bill || 0) + (inv.storage_bill || 0))}
-                            </td>
-                            <td className="px-3 py-1.5 border-r border-gray-300">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  value={editFormData.payment_amount}
-                                  onChange={(e) => setEditFormData((p) => ({ ...p, payment_amount: e.target.value }))}
-                                  className="w-24 px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                  placeholder="e.g. £500"
-                                />
-                              ) : (
-                                <span className={inv.payment_amount ? "text-green-700 font-medium" : "text-slate-400"}>
-                                  {formatCurrency(inv.payment_amount) || "—"}
+                                <span className="truncate block max-w-[120px]">
+                                  {inv.user_name?.toUpperCase() || "—"}
                                 </span>
                               )}
                             </td>
+
+                            {/* Hire + Storage (combined, editable) */}
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              {isEditing ? (
+                                <div className="flex flex-col gap-1 items-end">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400 text-[10px]">Hire</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.rent_bill}
+                                      onChange={(e) =>
+                                        setEditFormData((p) => ({ ...p, rent_bill: e.target.value }))
+                                      }
+                                      className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-slate-400 text-[10px]">Storage</span>
+                                    <input
+                                      type="number"
+                                      value={editFormData.storage_bill}
+                                      onChange={(e) =>
+                                        setEditFormData((p) => ({ ...p, storage_bill: e.target.value }))
+                                      }
+                                      className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <span>{formatCurrency(hireStorageTotal)}</span>
+                              )}
+                            </td>
+
+                            {/* Solicitor Fee */}
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              <span className={inv.solicitor_fee ? "" : "text-slate-400"}>
+                                {inv.solicitor_fee != null ? formatCurrency(inv.solicitor_fee) : "—"}
+                              </span>
+                            </td>
+
+                            {/* Payment Received — read only */}
+                            <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium">
+                              <span className={inv.payment_received ? "text-green-700" : "text-slate-400"}>
+                                {inv.payment_received != null ? formatCurrency(inv.payment_received) : "—"}
+                              </span>
+                            </td>
+
+                            {/* Date Received — read only */}
                             <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
-                              {isEditing ? (
-                                <input
-                                  type="date"
-                                  value={editFormData.payment_date}
-                                  onChange={(e) => setEditFormData((p) => ({ ...p, payment_date: e.target.value }))}
-                                  className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
-                                />
-                              ) : (
-                                <span className={inv.payment_date ? "text-green-700 font-medium" : "text-slate-400"}>
-                                  {formatShortDate(inv.payment_date)}
-                                </span>
-                              )}
+                              <span className={inv.date_received ? "text-green-700 font-medium" : "text-slate-400"}>
+                                {formatDate(inv.date_received)}
+                              </span>
                             </td>
+
+                            {/* Actions */}
                             <td className="px-3 py-1.5 text-center">
                               {isEditing ? (
                                 <div className="flex items-center justify-center gap-2">
@@ -690,14 +779,27 @@ export default function InvoiceManagementPage() {
                                     className="text-green-600 hover:text-green-800 disabled:opacity-50"
                                     title="Save"
                                   >
-                                    <Check size={16} />
+                                    {saving ? (
+                                      <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                      <Check size={16} />
+                                    )}
                                   </button>
-                                  <button onClick={cancelEdit} className="text-red-600 hover:text-red-800" title="Cancel">
+                                  <button
+                                    onClick={cancelEdit}
+                                    disabled={saving}
+                                    className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                                    title="Cancel"
+                                  >
                                     <X size={16} />
                                   </button>
                                 </div>
                               ) : (
-                                <button onClick={() => startEditing(inv)} className="text-green-600 hover:text-green-800" title="Edit invoice">
+                                <button
+                                  onClick={() => startEditing(inv)}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Edit invoice"
+                                >
                                   <Edit2 size={16} />
                                 </button>
                               )}
@@ -735,7 +837,6 @@ export default function InvoiceManagementPage() {
                                     }
                                     className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                                   />
-                                  {/* Clear button inside edit mode — wipes the input value */}
                                   {editLongHireFormData.payment_date && (
                                     <button
                                       onClick={() => setEditLongHireFormData((p) => ({ ...p, payment_date: "" }))}
@@ -749,9 +850,8 @@ export default function InvoiceManagementPage() {
                               ) : (
                                 <div className="flex items-center gap-1">
                                   <span className={inv.payment_date ? "text-green-700 font-medium" : "text-slate-400"}>
-                                    {formatShortDate(inv.payment_date)}
+                                    {formatDate(inv.payment_date)}
                                   </span>
-                                  {/* Quick-clear button when NOT editing — immediately sends null */}
                                   {inv.payment_date && !isEditingLH && (
                                     <button
                                       onClick={() => handleClearLongHirePaymentDate(inv)}
