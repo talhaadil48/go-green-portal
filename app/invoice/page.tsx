@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { RefreshCw, Plus } from 'lucide-react';
 import InvoiceManagementPage from "../components/InvoiceManagment";
 import ClientsPage from '../components/Client';
+import OffersPage from '../components/Offers';
 
 export default function InvoicePage() {
   const [activeTab, setActiveTab] = useState<string | null>(null); // null = blank page by default
@@ -13,6 +14,7 @@ export default function InvoicePage() {
     { id: 'fleet', label: 'Fleet' },
     { id: 'clients', label: 'Clients' },
     { id: 'invoices', label: 'Invoices' },
+    { id: 'offers', label: 'Offers' },
   ];
 
   const handleRefresh = () => {
@@ -95,6 +97,14 @@ export default function InvoicePage() {
             <>
               <h2 className="text-2xl font-bold text-green-800 mb-6">All Invoices</h2>
               <InvoiceManagementPage />
+            </>
+          )}
+
+          {/* Offers Tab */}
+          {activeTab === 'offers' && (
+            <>
+              <h2 className="text-2xl font-bold text-green-800 mb-6">Offers</h2>
+              <OffersPage />
             </>
           )}
 
