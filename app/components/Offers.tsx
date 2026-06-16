@@ -190,7 +190,7 @@ export default function OffersManagementPage() {
 
   useEffect(() => {
     api
-      .get("/api/claims/search", { headers: { requiresAuth: true } })
+      .get("/api/claims-search", { headers: { requiresAuth: true } })
       .then((res) => setAllClaims(res.data.data || []))
       .catch(() => setAllClaims([]));
   }, []);
