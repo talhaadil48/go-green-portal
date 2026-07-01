@@ -1068,7 +1068,6 @@ async function generateStoragePDF(
 
   return yPos;
 }
-
 // Rental Agreement PDF Generator
 async function generateRentalPDF(
   pdf,
@@ -1462,6 +1461,7 @@ async function generateRentalPDF(
     );
     y += 5;
 
+    // ── Signature block, with Date & Time placed directly beneath it ──
     if (sigs.hirer_signature_insurance) {
       y = await addSignature(
         "Hirer (Insurance)",
@@ -1470,18 +1470,33 @@ async function generateRentalPDF(
         y,
         half * 0.7,
       );
+
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date", margin, y + 3);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(data.insurance_date), margin + 15, y + 3);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Time", margin + half * 0.35, y + 3);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(data.insurance_time), margin + half * 0.35 + 15, y + 3);
+
+      y += 7;
+    } else {
+      // No signature yet — still show Date & Time close together
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(data.insurance_date), margin + 15, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Time", margin + 50, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(data.insurance_time), margin + 65, y);
+      y += 5;
     }
-
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Date", pageWidth - margin - 40, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(formatDate(data.insurance_date), pageWidth - margin - 25, y);
-
-    pdf.setTextColor(80, 80, 80);
-    pdf.text("Time", margin + 50, y);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.insurance_time), margin + 65, y);
-    y += 5;
   }
 
   pdf.setDrawColor(100, 100, 100);
@@ -1614,13 +1629,7 @@ async function generateRentalPDF(
   pdf.text(declLines, margin, y);
   y += declLines.length * 2.5 + 2;
 
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Date", pageWidth - margin - 40, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(formatDate(data.declaration_date), pageWidth - margin - 25, y);
-  y += 3.5;
-
+  // ── Signature block, with Date placed directly beneath it ──
   if (sigs.declaration_signature) {
     y = await addSignature(
       "Hirer – Declaration",
@@ -1629,8 +1638,22 @@ async function generateRentalPDF(
       y,
       fullWidth * 0.3,
     );
+
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Date", margin, y + 3);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(formatDate(data.declaration_date), margin + 15, y + 3);
+    y += 7;
+  } else {
+    // No signature yet — still show Date on its own line
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Date", margin, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(formatDate(data.declaration_date), margin + 15, y);
+    y += 4;
   }
-  y += 4;
 
   pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
@@ -2007,13 +2030,6 @@ async function generateRentalPDF(
   y += 3.5;
 
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Date", pageWidth - margin - 40, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(up(data.liability_date) || "—", pageWidth - margin - 25, y);
-  y += 3;
-
   pdf.setFontSize(5.5);
   const liabilityText =
     "I acknowledge that during the currency of this rental agreement for the purpose of s86 of the Road Traffic Offenders Act 1986 and schedule 6 Road Traffic Act 1991 (as amended or replaced by any new legislation) I will be liable as the owner of the vehicle hired in respect of any fixed penalty offence or parking charge incurred in respect of the vehicle.";
@@ -2026,6 +2042,7 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 5;
 
+  // ── Signature block, with Date placed directly beneath it ──
   if (sigs.liability_signature) {
     y = await addSignature(
       "Hire Signature",
@@ -2034,6 +2051,23 @@ async function generateRentalPDF(
       y,
       fullWidth * 0.3,
     );
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Date", margin, y + 3);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(up(data.liability_date) || "—", margin + 15, y + 3);
+    y += 7;
+  } else {
+    // No signature yet — still show Date on its own line
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text("Date", margin, y);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(up(data.liability_date) || "—", margin + 15, y);
+    y += 4;
   }
 
   return y;
