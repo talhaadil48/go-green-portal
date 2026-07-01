@@ -878,7 +878,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                       )}
                       <div className="mt-2">
                         <span className="font-semibold text-gray-700">
-                          Rent Bill:{" "}
+                          Hire Bill:{" "}
                         </span>
                         <span className="text-md text-gray-700">
                           £{invoice.rent_bill}
