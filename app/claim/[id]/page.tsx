@@ -603,13 +603,16 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
       <div className="sticky top-0 z-40 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 backdrop-blur-sm shadow-sm">
         {/* View Only Banner */}
         {isViewOnly && (
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
-            <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg px-3 py-2 mb-2 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                <p className="text-xs text-blue-900">
-                  <span className="font-semibold">View-Only Mode</span> — locked by {claimData?.locked_by}
-                </p>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg p-4 mb-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <Eye className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-blue-900">View-Only Mode</p>
+                  <p className="text-sm text-blue-800 mt-1">
+                    This claim is locked by {claimData?.locked_by}. You are viewing it in read-only mode.
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -617,27 +620,31 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
         {/* Closed Claim Banner */}
         {isClosed && !isViewOnly && (
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2">
-            <div className="bg-amber-50 border-l-4 border-amber-600 rounded-lg px-3 py-2 mb-2">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                <p className="text-xs text-amber-900">
-                  <span className="font-semibold">Closed</span> by {claimData?.closed_by} on {claimData?.closed_date ? new Date(claimData.closed_date).toLocaleDateString() : "—"} — {claimData?.reason || "—"}
-                </p>
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+            <div className="bg-amber-50 border-l-4 border-amber-600 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-900">This claim is closed</p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Closed by {claimData?.closed_by} on {claimData?.closed_date ? new Date(claimData.closed_date).toLocaleDateString() : "—"}<br />
+                    Reason: {claimData?.reason || "—"}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
         )}
 
         {/* Customer Info Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-2">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
-              <h2 className="text-sm font-bold text-green-800">Claim / Customer Details</h2>
-              <div className="flex items-center gap-2">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+              <h2 className="text-lg font-bold text-green-800">Claim / Customer Details</h2>
+              <div className="flex items-center gap-3">
                 <button
                   onClick={refreshPage}
-                  className="refresh-btn action-btn px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-1.5"
+                  className="refresh-btn action-btn px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition flex items-center gap-2"
                 >
                   Refresh
                 </button>
@@ -645,9 +652,9 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                 {claimData?.locked && !isViewOnly && (
                   <button
                     onClick={handleManualUnlock}
-                    className="unlock-btn action-btn flex items-center gap-1.5 px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition"
+                    className="unlock-btn action-btn flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition"
                   >
-                    <Unlock size={14} />
+                    <Unlock size={18} />
                     Unlock Claim
                   </button>
                 )}
@@ -655,27 +662,27 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-5 h-5 text-green-600 animate-spin" />
-                <span className="ml-2 text-sm text-gray-600">Loading claim...</span>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 text-green-600 animate-spin" />
+                <span className="ml-3 text-gray-600">Loading claim...</span>
               </div>
             ) : error && !isViewOnly ? (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
+              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">{error}</div>
             ) : claimData ? (
-              <div className="space-y-2">
+              <div className="space-y-6">
                 {/* Top Read-Only Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
                   <div>
                     <p className="text-gray-500">Claim ID</p>
-                    <p className="font-medium text-gray-900">{claimData.claim_id?.toUpperCase() || "—"}</p>
+                    <p className="font-medium text-gray-900 mt-1">{claimData.claim_id?.toUpperCase() || "—"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Claimant Name</p>
-                    <p className="font-medium text-gray-900">{claimData.claimant_name?.toUpperCase() || "—"}</p>
+                    <p className="font-medium text-gray-900 mt-1">{claimData.claimant_name?.toUpperCase() || "—"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Claim Type</p>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-gray-900 mt-1">
                       {claimData.claim_type
                         ? claimData.claim_type === "learning"
                           ? "Learner"
@@ -689,16 +696,16 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
                 {/* Single Line Update Section */}
                 <div className="flex flex-col xl:flex-row xl:items-end gap-2">
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 xl:flex gap-2 items-start xl:items-center">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 xl:flex gap-4 items-start xl:items-center">
 
                     {/* Status Dropdown */}
-                    <div className="flex-1 min-w-[140px]">
-                      <label className="block text-[11px] text-gray-500 mb-0.5">Hire Stage</label>
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-xs text-gray-500 mb-1">Hire Stage</label>
                       <select
                         value={selectedStatus}
                         onChange={(e) => setSelectedStatus(e.target.value)}
                         disabled={isUpdatingDetails || isEffectivelyDisabled}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {STATUS_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -709,13 +716,13 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                     </div>
 
                     {/* Disputed Status */}
-                    <div className="flex-1 min-w-[110px]">
-                      <label className="block text-[11px] text-gray-500 mb-0.5">Disputed</label>
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-xs text-gray-500 mb-1">Disputed</label>
                       <select
                         value={isDisputed ? "yes" : "no"}
                         onChange={(e) => setIsDisputed(e.target.value === "yes")}
                         disabled={isUpdatingDetails || isEffectivelyDisabled}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="no">No</option>
                         <option value="yes">Yes</option>
@@ -724,37 +731,37 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
                     {/* Disputed Reason (Conditional) */}
                     {isDisputed && (
-                      <div className="flex-2 min-w-[180px] xl:w-56">
-                        <label className="block text-[11px] text-gray-500 mb-0.5">Dispute Reason</label>
+                      <div className="flex-2 min-w-[200px] xl:w-64">
+                        <label className="block text-xs text-gray-500 mb-1">Dispute Reason</label>
                         <input
                           type="text"
                           value={disputeReason}
                           onChange={(e) => setDisputeReason(e.target.value)}
                           placeholder="Enter reason..."
                           disabled={isUpdatingDetails || isEffectivelyDisabled}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs disabled:bg-gray-100 disabled:opacity-60"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
                         />
                       </div>
                     )}
 
                     {/* Ref No (Sovereign Only) */}
                     {isSovereign && (
-                      <div className="flex-1 min-w-[140px]">
-                        <label className="block text-[11px] text-gray-500 mb-0.5">Ref No</label>
+                      <div className="flex-1 min-w-[150px]">
+                        <label className="block text-xs text-gray-500 mb-1">Ref No</label>
                         <input
                           type="text"
                           value={refNo}
                           onChange={(e) => setRefNo(e.target.value)}
                           placeholder="Reference no."
                           disabled={isUpdatingDetails || isEffectivelyDisabled}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs disabled:bg-gray-100 disabled:opacity-60"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm disabled:bg-gray-100 disabled:opacity-60"
                         />
                       </div>
                     )}
                   </div>
 
                   {/* Single Update Button */}
-                  <div className="flex flex-col items-start xl:items-end min-w-[110px]">
+                  <div className="flex flex-col items-start xl:items-end min-w-[120px]">
                     <button
                       onClick={handleUpdateDetails}
                       disabled={
@@ -765,12 +772,12 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                           (isDisputed ? disputeReason === (claimData.dispute_reason || "") : true) &&
                           (!isSovereign || refNo === (claimData.ref_no || "")))
                       }
-                      className={`px-4 py-1.5 rounded-lg text-white text-xs font-medium flex items-center justify-center gap-1.5 transition w-full xl:w-auto ${isUpdatingDetails || isEffectivelyDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                      className={`px-6 py-2 rounded-lg text-white text-sm font-medium flex items-center justify-center gap-2 transition w-full xl:w-auto mt-auto mb-[2px] ${isUpdatingDetails || isEffectivelyDisabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
                         }`}
                     >
                       {isUpdatingDetails ? (
                         <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                           Saving...
                         </>
                       ) : (
@@ -782,21 +789,21 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
 
                 {/* Combined Feedback Message */}
                 {updateMessage && (
-                  <div className={`text-xs flex items-center gap-1.5 ${updateMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
-                    {updateMessage.type === "success" ? <CheckCircle size={13} /> : <AlertCircle size={13} />}
+                  <div className={`mt-2 text-sm flex items-center gap-1.5 ${updateMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                    {updateMessage.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
                     {updateMessage.text}
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-600">No claim data available.</p>
+              <p className="text-gray-600">No claim data available.</p>
             )}
           </div>
         </section>
       </div>
 
       {(!error || isViewOnly) && claimData && (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-wrap gap-1.5 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6 scrollbar-hide">
             {visibleTabs.map((tab) => (
               <button
