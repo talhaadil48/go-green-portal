@@ -1612,7 +1612,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                       />
                     </div>
-                    <div>
+                    {/* <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Time:</label>
                       <input
                         type="text"
@@ -1621,7 +1621,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         onChange={handleChange}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                       />
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </section>
