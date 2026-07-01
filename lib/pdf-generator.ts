@@ -808,14 +808,14 @@ async function generateStoragePDF(
   addField("Name", up(data.name), margin, yPos, colWidth);
   addField("Postcode", up(data.postcode), margin + colWidth, yPos, colWidth);
   yPos += 12;
-  addField("Address Line 1", up(data.address1), margin, yPos, colWidth * 1.5);
-  addField(
-    "Address Line 2",
-    up(data.address2),
-    margin + colWidth * 1.5,
-    yPos,
-    colWidth * 1.5,
-  );
+  addField("Address", up(data.address1), margin, yPos, colWidth * 1.5);
+  // addField(
+  //   "Address Line 2",
+  //   up(data.address2),
+  //   margin + colWidth * 1.5,
+  //   yPos,
+  //   colWidth * 1.5,
+  // );
   yPos += 14;
 
   // Vehicle Information

@@ -394,7 +394,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address 1:
+                    Address
                   </label>
                   <input
                     type="text"
@@ -404,7 +404,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Address 2:
                   </label>
@@ -415,7 +415,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                   />
-                </div>
+                </div> */}
               </div>
             </section>
 
