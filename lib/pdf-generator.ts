@@ -322,35 +322,26 @@ Website: www.gogreenhire.co.uk`;
 
     return y + height + 6;
   };
+  const addFooter = () => {
+    const footerY = pageHeight - 6;
 
-  const addFooter = (pageNum: number) => {
-    const footerY = pageHeight - 15;
-
+    // Thin divider
     pdf.setDrawColor(...colors.primary);
-    pdf.setLineWidth(0.5);
-    pdf.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+    pdf.setLineWidth(0.2);
+    pdf.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
 
-    pdf.setTextColor(...colors.gray);
-    pdf.setFontSize(7);
+    // Small footer text
     pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(...colors.gray);
+
     pdf.text(
-      "Go Green Car Hire Ltd | Derby Turn, Building 1, Derby Road, Burton-On-Trent, DE14 1RX",
-      margin,
+      "Go Green Car Hire Ltd  |  Company No: 15238847  |  VAT No: 480641883",
+      pageWidth / 2,
       footerY,
+      { align: "center" }
     );
-
-    pdf.setTextColor(...colors.primary);
-    pdf.text(`Page ${pageNum}`, pageWidth - margin, footerY, {
-      align: "right",
-    });
-
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(`Ref: ${formData.claimId}`, pageWidth / 2, footerY, {
-      align: "center",
-    });
   };
-
   const checkNewPage = (currentY: number, neededSpace: number): number => {
     if (currentY + neededSpace > pageHeight - 25) {
       pdf.addPage();
@@ -428,7 +419,11 @@ Website: www.gogreenhire.co.uk`;
       });
       break;
   }
-
+  const totalPages = pdf.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    addFooter();
+  }
   // ────────────────────────────────────────────────
   //    Append terms.pdf ONLY for rental agreement
   // ────────────────────────────────────────────────
@@ -845,20 +840,17 @@ async function generateStoragePDF(
   const colWidth = (pageWidth - margin * 2) / 3;
 
   // Client Details
+  // Client Details
   yPos = addSectionHeader("CLIENT DETAILS", yPos);
-  addField("Name", up(data.name), margin, yPos, colWidth);
-  addField("Postcode", up(data.postcode), margin + colWidth, yPos, colWidth);
-  yPos += 12;
-  addField("Address", up(data.address1), margin, yPos, colWidth * 1.5);
-  // addField(
-  //   "Address Line 2",
-  //   up(data.address2),
-  //   margin + colWidth * 1.5,
-  //   yPos,
-  //   colWidth * 1.5,
-  // );
-  yPos += 14;
 
+  const availableWidth = pageWidth - margin * 2;
+  const fieldWidth = availableWidth / 3;
+
+  addField("Name", up(data.name), margin, yPos, fieldWidth);
+  addField("Address", up(data.address1), margin + fieldWidth, yPos, fieldWidth);
+  addField("Postcode", up(data.postcode), margin + fieldWidth * 2, yPos, fieldWidth);
+
+  yPos += 14;
   // Vehicle Information
   yPos = checkNewPage(yPos, 30);
   yPos = addSectionHeader("VEHICLE INFORMATION", yPos);
