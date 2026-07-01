@@ -695,7 +695,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             <PDFShareButton
               formData={{
                 refNo: refNo,
-                title: "Rental Agreement",
+                title: "Hire Agreement",
                 formType: "rental-agreement",
                 claimId: currentClaimId,
                 data: formData,

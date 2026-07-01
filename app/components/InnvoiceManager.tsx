@@ -192,7 +192,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     },
     {
       id: "rental-agreement",
-      name: "Rental Agreement",
+      name: "Hire Agreement",
       formType: "rental-agreement",
       description: "Vehicle rental terms and conditions",
       userName: documentsData["rental-agreement"]?.user_name,
