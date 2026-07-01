@@ -395,13 +395,25 @@ export default function ClaimsPage() {
             alert("User session not found. Please log in again.");
             return;
         }
-        const confirmClose = window.confirm(`Are you sure you want to close claim ${claimId}?`);
+
+        const reason = window.prompt(`Please provide a reason for closing claim ${claimId}:`);
+
+        // User cancelled the prompt
+        if (reason === null) return;
+
+        // Require a non-empty reason
+        if (!reason.trim()) {
+            alert("A reason is required to close this claim.");
+            return;
+        }
+
+        const confirmClose = window.confirm(`Are you sure you want to close claim ${claimId} with reason: "${reason.trim()}"?`);
         if (!confirmClose) return;
 
         try {
             await api.put(`/api/claims/${claimId}/close`, {
                 closed_by: userName,
-                reason: "claim ended"
+                reason: reason.trim()
             }, { headers: { requiresAuth: true } });
             await fetchClaims();
         } catch (err: any) {
@@ -409,7 +421,6 @@ export default function ClaimsPage() {
             alert(err.response?.data?.detail || "Failed to close claim.");
         }
     };
-
     // ── Update Logic ──────────────────────────────────────────────────
     const openAddUpdate = (claim_id: string) => {
         setUpdateModalState({ type: 'add', claim_id });
@@ -431,7 +442,7 @@ export default function ClaimsPage() {
         e.preventDefault();
         const claimId = updateModalState.claim_id;
         if (!claimId || !updateMessage.trim()) return;
-        
+
         setAddingUpdate(true);
         try {
             const currentClaim = allClaims.find(c => c.claim_id === claimId);
@@ -657,7 +668,7 @@ export default function ClaimsPage() {
             type,
             count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
-        
+
         // Exclude closed claims from invoice pending and sent summaries
         const invoicePending = allClaims.filter(c =>
             !isClaimClosed(c) && c.status?.toLowerCase() === "hire end"
@@ -665,7 +676,7 @@ export default function ClaimsPage() {
         const invoiceSent = allClaims.filter(c =>
             !isClaimClosed(c) && c.status?.toLowerCase() === "invoice sent"
         ).length;
-        
+
         return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
     }, [allClaims]);
 
@@ -708,13 +719,13 @@ export default function ClaimsPage() {
                             <Loader2 size={14} className="text-green-600 animate-spin" />
                         ) : (
                             <>    <button onClick={() => setEditValue("")} disabled={isSaving} title="Clear to Null" className="p-0.5 text-orange-500 hover:text-orange-700 disabled:opacity-50">
-                                    <Trash2 size={14} />
-                                </button>
+                                <Trash2 size={14} />
+                            </button>
                                 <button onClick={() => saveEdit(claim.claim_id)} disabled={isSaving} title="Save" className="p-0.5 text-green-600 hover:text-green-800 disabled:opacity-50">
                                     <Check size={14} />
                                 </button>
                                 {/* NEW: Trash Button sets value to empty string which guarantees null via backend API upon save */}
-                              
+
                                 <button onClick={cancelEdit} disabled={isSaving} title="Cancel" className="p-0.5 text-red-600 hover:text-red-800 disabled:opacity-50">
                                     <X size={14} />
                                 </button>
@@ -1357,14 +1368,14 @@ export default function ClaimsPage() {
                                         <h3 className="text-sm font-semibold text-green-900 tracking-tight">Invoice Summary</h3>
                                     </div>
                                     <div className="flex-1 flex flex-col gap-3">
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setSelectedStage(selectedStage === "hire end" ? "" : "hire end");
                                                 setStatusFilter("Non Active");
                                             }}
                                             className={`flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 rounded-xl transition-all duration-200 cursor-pointer
-                                                ${selectedStage === "hire end" 
-                                                    ? "border-amber-400 shadow-lg ring-2 ring-amber-200" 
+                                                ${selectedStage === "hire end"
+                                                    ? "border-amber-400 shadow-lg ring-2 ring-amber-200"
                                                     : "border-amber-200/70 hover:border-amber-300 hover:shadow-md"
                                                 }`}
                                         >
@@ -1379,14 +1390,14 @@ export default function ClaimsPage() {
                                             </div>
                                             <span className="text-2xl font-black text-amber-700 tabular-nums">{summary.invoicePending}</span>
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setSelectedStage(selectedStage === "invoice sent" ? "" : "invoice sent");
                                                 setStatusFilter("Non Active");
                                             }}
                                             className={`flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 border-2 rounded-xl transition-all duration-200 cursor-pointer
-                                                ${selectedStage === "invoice sent" 
-                                                    ? "border-emerald-400 shadow-lg ring-2 ring-emerald-200" 
+                                                ${selectedStage === "invoice sent"
+                                                    ? "border-emerald-400 shadow-lg ring-2 ring-emerald-200"
                                                     : "border-emerald-200/70 hover:border-emerald-300 hover:shadow-md"
                                                 }`}
                                         >
@@ -1598,7 +1609,7 @@ export default function ClaimsPage() {
                                             <X size={24} />
                                         </button>
                                     </div>
-                                    
+
                                     <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                                         {updatesList.length === 0 ? (
                                             <div className="text-center py-10 text-gray-500">
@@ -1620,7 +1631,7 @@ export default function ClaimsPage() {
                                             ))
                                         )}
                                     </div>
-                                    
+
                                     <div className="mt-6 flex justify-end">
                                         <button
                                             onClick={() => setUpdateModalState({ type: null, claim_id: null })}
