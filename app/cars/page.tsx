@@ -56,12 +56,12 @@ interface FleetHistory {
   miles_out?: number | null;
 }
 
-type SortField = 
-  | "reg_no" 
-  | "name" 
-  | "model" 
-  | "available" 
-  | "service_time" 
+type SortField =
+  | "reg_no"
+  | "name"
+  | "model"
+  | "available"
+  | "service_time"
   | "last_miles_in"
   | "last_service_miles"
   | "mot_date"
@@ -70,8 +70,15 @@ type SortField =
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
-
-const ATTRIBUTE_MAPPING: Record<string, { label: string; symbol: string; type: "circle" | "filled-circle" | "star"; colorClass?: string }> = {
+const ATTRIBUTE_MAPPING: Record<
+  string,
+  {
+    label: string;
+    symbol: string;
+    type: "circle" | "filled-circle" | "star" | "box";
+    colorClass?: string;
+  }
+> = {
   "SMALL CAR": { label: "Small Car", symbol: "SS", type: "circle" },
   "SALOON": { label: "Saloon", symbol: "S", type: "circle" },
   "ESTATE": { label: "Estate", symbol: "E", type: "circle" },
@@ -84,8 +91,10 @@ const ATTRIBUTE_MAPPING: Record<string, { label: string; symbol: string; type: "
   "ELECTRIC": { label: "Electric", symbol: "🔵", type: "filled-circle", colorClass: "bg-blue-400" },
   "MANUAL": { label: "Manual", symbol: "✚", type: "circle" },
   "AUTOMATIC": { label: "Automatic", symbol: "━", type: "circle" },
-};
 
+  "CAT S": { label: "Cat S", symbol: "S", type: "box", colorClass: "bg-red-500" },
+  "CAT N": { label: "Cat N", symbol: "N", type: "box", colorClass: "bg-orange-500" },
+};
 const AVAILABLE_ATTRIBUTES = Object.keys(ATTRIBUTE_MAPPING);
 
 export default function VehiclesPage() {
@@ -107,19 +116,19 @@ export default function VehiclesPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editData, setEditData] = useState({ 
-    model: "", 
-    name: "", 
-    service_time: "", 
+  const [editData, setEditData] = useState({
+    model: "",
+    name: "",
+    service_time: "",
     mot_date: "",
     current_miles: "",
-    attributes: [] as string[] 
+    attributes: [] as string[]
   });
   const [saving, setSaving] = useState(false);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   const [syncingId, setSyncingId] = useState<number | null>(null);
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
@@ -129,11 +138,11 @@ export default function VehiclesPage() {
 
   // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
-  
+
   // Multi-select attributes
   const [attributeFilters, setAttributeFilters] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
+
   const [sortField, setSortField] = useState<SortField>("reg_no");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -227,7 +236,7 @@ export default function VehiclesPage() {
         st = "";
       }
     }
-    
+
     let md = "";
     if (vehicle.mot_date) {
       try {
@@ -263,9 +272,9 @@ export default function VehiclesPage() {
         current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
-      
+
       await api.put(`/api/car/${id}`, payload, { headers: { requiresAuth: true } });
-      
+
       setVehicles((prev) =>
         prev.map((v) => (v.id === id ? { ...v, ...payload } : v))
       );
@@ -460,7 +469,7 @@ export default function VehiclesPage() {
   );
 
   if (attributeFilters.length > 0) {
-    displayed = displayed.filter(v => 
+    displayed = displayed.filter(v =>
       attributeFilters.every(attr => v.attributes?.includes(attr))
     );
   }
@@ -478,9 +487,9 @@ export default function VehiclesPage() {
     else if (sortField === "last_miles_in") { valA = a.last_miles_in || 0; valB = b.last_miles_in || 0; }
     else if (sortField === "last_service_miles") { valA = a.last_service_miles || 0; valB = b.last_service_miles || 0; }
     else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
-    else if (sortField === "mot_date") { 
-      valA = a.mot_date ? new Date(a.mot_date).getTime() : 0; 
-      valB = b.mot_date ? new Date(b.mot_date).getTime() : 0; 
+    else if (sortField === "mot_date") {
+      valA = a.mot_date ? new Date(a.mot_date).getTime() : 0;
+      valB = b.mot_date ? new Date(b.mot_date).getTime() : 0;
     }
     else if (sortField === "available") {
       valA = checkIsAvail(a) ? 1 : 0;
@@ -554,7 +563,7 @@ export default function VehiclesPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div 
+            <div
               onClick={() => setActiveTab("all")}
               className={`bg-white rounded-xl border ${activeTab === "all" ? "border-gray-400 ring-1 ring-gray-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
@@ -566,7 +575,7 @@ export default function VehiclesPage() {
                 <Car size={20} className="text-emerald-600 opacity-80" />
               </div>
             </div>
-            <div 
+            <div
               onClick={() => setActiveTab("normal")}
               className={`bg-white rounded-xl border ${activeTab === "normal" ? "border-blue-400 ring-1 ring-blue-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
@@ -578,7 +587,7 @@ export default function VehiclesPage() {
                 <Clock size={20} className="text-blue-600 opacity-80" />
               </div>
             </div>
-            <div 
+            <div
               onClick={() => setActiveTab("long")}
               className={`bg-white rounded-xl border ${activeTab === "long" ? "border-purple-400 ring-1 ring-purple-200" : "border-gray-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
@@ -590,7 +599,7 @@ export default function VehiclesPage() {
                 <Calendar size={20} className="text-purple-600 opacity-80" />
               </div>
             </div>
-            <div 
+            <div
               onClick={() => setActiveTab("normal_avail")}
               className={`bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border ${activeTab === "normal_avail" ? "border-emerald-400 ring-1 ring-emerald-200" : "border-emerald-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
@@ -604,7 +613,7 @@ export default function VehiclesPage() {
                 </div>
               </div>
             </div>
-            <div 
+            <div
               onClick={() => setActiveTab("long_avail")}
               className={`bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl border ${activeTab === "long_avail" ? "border-teal-400 ring-1 ring-teal-200" : "border-teal-100"} shadow-sm hover:shadow transition-all duration-300 p-4 cursor-pointer`}
             >
@@ -624,9 +633,9 @@ export default function VehiclesPage() {
         <div className="mb-5 border-b border-gray-200">
           <div className="flex space-x-1">
             {(["all", "normal", "long", "history"] as const).map((tab) => {
-              const isActive = activeTab === tab || 
-                               (tab === "normal" && activeTab === "normal_avail") || 
-                               (tab === "long" && activeTab === "long_avail");
+              const isActive = activeTab === tab ||
+                (tab === "normal" && activeTab === "normal_avail") ||
+                (tab === "long" && activeTab === "long_avail");
               return (
                 <button
                   key={tab}
@@ -654,7 +663,7 @@ export default function VehiclesPage() {
           <div className="mb-6 bg-white border border-emerald-100 rounded-xl shadow-md p-5">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Add New Vehicle</h2>
             <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-               <div>
+              <div>
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1 uppercase tracking-wide">Reg No.</label>
                 <input
                   required
@@ -686,21 +695,45 @@ export default function VehiclesPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-gray-50/40 transition"
                 />
               </div>
-             
+
               <div className="sm:col-span-3 mt-1">
                 <label className="block text-[11px] font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Vehicle Attributes</label>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
                   {AVAILABLE_ATTRIBUTES.map((attr) => (
-                    <label key={attr} className="flex items-center space-x-1.5 text-xs text-gray-700 cursor-pointer">
+                    <label
+                      key={attr}
+                      className="flex items-center space-x-1.5 text-xs text-gray-700 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={formData.attributes.includes(attr)}
-                        onChange={() => setFormData((prev) => ({
-                          ...prev,
-                          attributes: handleAttributeToggle(prev.attributes, attr)
-                        }))}
+                        onChange={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            attributes: handleAttributeToggle(prev.attributes, attr),
+                          }))
+                        }
                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
                       />
+
+                      {ATTRIBUTE_MAPPING[attr].type === "box" ? (
+                        <div
+                          className={`w-3.5 h-3.5 ${ATTRIBUTE_MAPPING[attr].colorClass} text-white text-[8px] font-bold flex items-center justify-center rounded-sm`}
+                        >
+                          {ATTRIBUTE_MAPPING[attr].symbol}
+                        </div>
+                      ) : ATTRIBUTE_MAPPING[attr].type === "filled-circle" ? (
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full ${ATTRIBUTE_MAPPING[attr].colorClass}`}
+                        />
+                      ) : ATTRIBUTE_MAPPING[attr].type === "circle" ? (
+                        <div className="w-3.5 h-3.5 rounded-full border border-gray-500 flex items-center justify-center text-[8px] font-bold">
+                          {ATTRIBUTE_MAPPING[attr].symbol}
+                        </div>
+                      ) : (
+                        <span className="text-yellow-500 text-xs">{ATTRIBUTE_MAPPING[attr].symbol}</span>
+                      )}
+
                       <span>{ATTRIBUTE_MAPPING[attr].label}</span>
                     </label>
                   ))}
@@ -747,7 +780,7 @@ export default function VehiclesPage() {
             placeholder={activeTab === "history" ? "Search history by Reg No. or Claim ID..." : "Search by name, model or reg no..."}
             className="w-full max-w-md px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white shadow-sm transition"
           />
-          
+
           {activeTab !== "history" && (
             <div className="relative w-full max-w-[200px]">
               <button
@@ -768,8 +801,8 @@ export default function VehiclesPage() {
 
               {isFilterOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-10" 
+                  <div
+                    className="fixed inset-0 z-10"
                     onClick={() => setIsFilterOpen(false)}
                   />
                   <div className="absolute top-full left-0 mt-1.5 w-56 bg-white border border-gray-100 rounded-lg shadow-xl z-20 overflow-hidden">
@@ -791,6 +824,27 @@ export default function VehiclesPage() {
                             }}
                             className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
                           />
+
+                          {ATTRIBUTE_MAPPING[attr].type === "box" ? (
+                            <div
+                              className={`w-4 h-4 ${ATTRIBUTE_MAPPING[attr].colorClass} text-white text-[9px] font-bold flex items-center justify-center rounded-sm`}
+                            >
+                              {ATTRIBUTE_MAPPING[attr].symbol}
+                            </div>
+                          ) : ATTRIBUTE_MAPPING[attr].type === "filled-circle" ? (
+                            <div
+                              className={`w-4 h-4 rounded-full ${ATTRIBUTE_MAPPING[attr].colorClass}`}
+                            />
+                          ) : ATTRIBUTE_MAPPING[attr].type === "circle" ? (
+                            <div className="w-4 h-4 rounded-full border border-gray-500 flex items-center justify-center text-[9px] font-bold">
+                              {ATTRIBUTE_MAPPING[attr].symbol}
+                            </div>
+                          ) : (
+                            <span className="text-yellow-500 text-sm">
+                              {ATTRIBUTE_MAPPING[attr].symbol}
+                            </span>
+                          )}
+
                           <span className="text-xs text-gray-700 font-medium">
                             {ATTRIBUTE_MAPPING[attr].label}
                           </span>
@@ -1045,12 +1099,13 @@ export default function VehiclesPage() {
                                 <div className="relative group flex flex-wrap gap-1 items-center">
                                   {v.attributes.map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses = "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
-                                    
+                                    const sharedClasses =
+                                      "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
+
                                     if (mapped?.type === "circle") {
                                       return (
-                                        <span 
-                                          key={attr} 
+                                        <span
+                                          key={attr}
                                           className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[9px] font-bold`}
                                           title={mapped.label}
                                         >
@@ -1058,21 +1113,33 @@ export default function VehiclesPage() {
                                         </span>
                                       );
                                     }
-                                    
+
                                     if (mapped?.type === "filled-circle") {
                                       return (
-                                        <span 
-                                          key={attr} 
+                                        <span
+                                          key={attr}
                                           className={`${sharedClasses} rounded-full ${mapped.colorClass}`}
                                           title={mapped.label}
                                         />
                                       );
                                     }
 
+                                    if (mapped?.type === "box") {
+                                      return (
+                                        <span
+                                          key={attr}
+                                          className={`${sharedClasses} rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold`}
+                                          title={mapped.label}
+                                        >
+                                          {mapped.symbol}
+                                        </span>
+                                      );
+                                    }
+
                                     if (mapped?.type === "star") {
                                       return (
-                                        <span 
-                                          key={attr} 
+                                        <span
+                                          key={attr}
                                           className={`${sharedClasses} text-yellow-500 text-[16px] leading-none pb-0.5`}
                                           title={mapped.label}
                                         >
@@ -1082,32 +1149,49 @@ export default function VehiclesPage() {
                                     }
 
                                     return (
-                                      <span key={attr} className={`${sharedClasses} text-black text-[10px]`}>
+                                      <span
+                                        key={attr}
+                                        className={`${sharedClasses} text-black text-[10px]`}
+                                      >
                                         {attr}
                                       </span>
                                     );
                                   })}
-                                  
+
                                   {/* Custom Tooltip */}
                                   <div className="absolute left-0 bottom-full mb-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
                                     <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-2 border border-gray-700">
                                       <p className="text-gray-400 font-semibold mb-1 uppercase text-[8px] tracking-wider">Attributes</p>
                                       <div className="flex flex-col gap-1">
-                                        {v.attributes.map(a => {
+                                        {v.attributes.map((a) => {
                                           const mapped = ATTRIBUTE_MAPPING[a];
                                           return (
-                                            <div key={a} className="flex items-center gap-1.5 text-gray-100 font-medium">
+                                            <div
+                                              key={a}
+                                              className="flex items-center gap-1.5 text-gray-100 font-medium"
+                                            >
                                               {mapped?.type === "circle" ? (
                                                 <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[9px] font-bold shrink-0 leading-none">
                                                   {mapped.symbol}
                                                 </span>
                                               ) : mapped?.type === "filled-circle" ? (
-                                                <span className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`} />
+                                                <span
+                                                  className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`}
+                                                />
+                                              ) : mapped?.type === "box" ? (
+                                                <span
+                                                  className={`inline-flex items-center justify-center w-5 h-5 rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold shrink-0 leading-none`}
+                                                >
+                                                  {mapped.symbol}
+                                                </span>
                                               ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">★</span>
+                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">
+                                                  ★
+                                                </span>
                                               ) : (
                                                 <span>{a}</span>
                                               )}
+
                                               <span>{mapped?.label || a}</span>
                                             </div>
                                           );
@@ -1122,18 +1206,18 @@ export default function VehiclesPage() {
                               )}
                             </td>
                             <td className="px-3 py-2 text-gray-700 align-middle">
-                              {v.service_time 
-                                ? new Date(v.service_time).toLocaleDateString("en-GB") 
+                              {v.service_time
+                                ? new Date(v.service_time).toLocaleDateString("en-GB")
                                 : "—"}
                             </td>
                             <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
-                            
+
                             {/* MOT Date + Doc Actions */}
                             <td className="px-3 py-2 text-gray-700 align-middle">
                               <div className="flex items-center gap-2 whitespace-nowrap">
                                 <span>
-                                  {v.mot_date 
-                                    ? new Date(v.mot_date).toLocaleDateString("en-GB") 
+                                  {v.mot_date
+                                    ? new Date(v.mot_date).toLocaleDateString("en-GB")
                                     : "—"}
                                 </span>
                                 <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
