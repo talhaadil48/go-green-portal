@@ -690,7 +690,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
         <div className="bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl p-10 border border-green-100">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
             <h2 className="text-2xl font-bold text-green-800 text-center sm:text-left tracking-tight">
-              Rental Agreement
+              Hire Agreement
             </h2>
             <PDFShareButton
               formData={{
@@ -1125,16 +1125,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
-                          <input
-                            type="text"
-                            value={vehicle.vehicle_group}
-                            onChange={(e) => updateChangeVehicleField(index, "vehicle_group", e.target.value)}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
-                          />
-                        </div>
-
+                       
                         {/* Rate Per Day for this vehicle */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Rate Per Day</label>

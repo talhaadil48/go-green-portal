@@ -32,7 +32,7 @@ type TabKey =
 const ALL_TABS: { key: TabKey; label: string }[] = [
   { key: "summary", label: "Summary" },
   { key: "claim", label: "RTA Form" },
-  { key: "rental-agreement", label: "Rental Agreement" },
+  { key: "rental-agreement", label: "Hire Agreement" },
   { key: "storage-recovery", label: "Storage" },
   { key: "cancellation", label: "Cancellation" },
   { key: "pre-inspection", label: "Hire Vehicle" },

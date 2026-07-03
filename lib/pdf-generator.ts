@@ -1710,11 +1710,6 @@ async function generateRentalPDF(
       pdf.setTextColor(0, 0, 0);
       pdf.text(up(vehicle.vehicle_model), margin + col4 * 2 + 20, y);
 
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Group", margin + col4 * 3, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.vehicle_group), margin + col4 * 3 + 20, y);
-
       y += 3;
 
       pdf.setTextColor(80, 80, 80);
