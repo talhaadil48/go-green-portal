@@ -103,6 +103,14 @@ function formatCurrency(value: number | null | undefined | string) {
   });
 }
 
+/**
+ * Always convert a YYYY-MM-DD date from frontend into ISO datetime at 00:00:00
+ * e.g. "2026-07-04" -> "2026-07-04T00:00:00"
+ */
+function toMidnightDateTime(dateValue: string) {
+  return `${dateValue}T00:00:00`;
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function InvoiceManagementPage() {
   const router = useRouter();
@@ -128,6 +136,7 @@ export default function InvoiceManagementPage() {
     payment_amount: "",
     payment_date: "",
     solicitor_fee: "",
+    invoice_date: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -313,6 +322,7 @@ export default function InvoiceManagementPage() {
       payment_amount: inv.payment_amount || "",
       payment_date: inv.payment_date ? inv.payment_date.slice(0, 10) : "",
       solicitor_fee: inv.solicitor_fee?.toString() || "",
+      invoice_date: inv.invoice_datetime ? inv.invoice_datetime.slice(0, 10) : "",
     });
     setSaveError(null);
     if (markingPaidId === inv.id) cancelMarkPaid();
@@ -329,6 +339,7 @@ export default function InvoiceManagementPage() {
       payment_amount: "",
       payment_date: "",
       solicitor_fee: "",
+      invoice_date: "",
     });
     setSaveError(null);
   };
@@ -347,16 +358,42 @@ export default function InvoiceManagementPage() {
         payment_date: editFormData.payment_date.trim() || null,
         solicitor_fee: editFormData.solicitor_fee ? Number(editFormData.solicitor_fee) : null,
       };
+
       const res = await api.put(`/api/invoice/${invoiceId}`, payload, {
         headers: { requiresAuth: true },
       });
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
+
+      // NEW: update invoice datetime through dedicated endpoint with fixed 00:00:00 time
+      if (editFormData.invoice_date.trim()) {
+        const datetimeRes = await api.put(
+          `/api/invoice/${invoiceId}/datetime`,
+          {
+            invoice_datetime: toMidnightDateTime(editFormData.invoice_date.trim()),
+          },
+          { headers: { requiresAuth: true } }
+        );
+        if (!datetimeRes.data.success) {
+          throw new Error(datetimeRes.data.message || "Failed to update invoice date");
+        }
+      }
+
       setClaimInvoices((prev) =>
-        prev.map((inv) => (inv.id === invoiceId ? { ...inv, ...payload } : inv))
+        prev.map((inv) =>
+          inv.id === invoiceId
+            ? {
+                ...inv,
+                ...payload,
+                invoice_datetime: editFormData.invoice_date
+                  ? toMidnightDateTime(editFormData.invoice_date)
+                  : inv.invoice_datetime,
+              }
+            : inv
+        )
       );
       cancelEdit();
     } catch (err: any) {
-      setSaveError(err.response?.data?.message || "Failed to update invoice.");
+      setSaveError(err.response?.data?.message || err.message || "Failed to update invoice.");
     } finally {
       setSaving(false);
     }
@@ -835,7 +872,21 @@ export default function InvoiceManagementPage() {
 
                             {/* Date Sent */}
                             <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
-                              {formatDate(inv.invoice_datetime)}
+                              {isEditing ? (
+                                <input
+                                  type="date"
+                                  value={editFormData.invoice_date}
+                                  onChange={(e) =>
+                                    setEditFormData((p) => ({
+                                      ...p,
+                                      invoice_date: e.target.value,
+                                    }))
+                                  }
+                                  className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
+                                />
+                              ) : (
+                                formatDate(inv.invoice_datetime)
+                              )}
                             </td>
 
                             {/* Sent By */}
@@ -913,7 +964,6 @@ export default function InvoiceManagementPage() {
                             <td className="px-3 py-2 border-r border-gray-300">
                               {canMarkPaid && !isEditing ? (
                                 isMarkingPaid ? (
-                                  /* ── Inline date picker ── */
                                   <div className="flex items-center gap-1.5">
                                     <input
                                       type="date"
@@ -948,7 +998,6 @@ export default function InvoiceManagementPage() {
                                     </button>
                                   </div>
                                 ) : (
-                                  /* ── Mark Paid button ── */
                                   <button
                                     onClick={() => startMarkPaid(inv)}
                                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors whitespace-nowrap"
