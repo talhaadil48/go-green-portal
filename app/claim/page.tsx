@@ -122,7 +122,7 @@ export default function ClaimsDashboard() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
-    const [selectedStage, setSelectedStage] = useState("hire start");
+    const [selectedStage, setSelectedStage] = useState("claim created"); // Default to Stage 1
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -180,6 +180,33 @@ export default function ClaimsDashboard() {
         const diffTime = endDate.getTime() - startDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         return diffDays;
+    };
+
+    // Determine stage based on dates
+    const getStageFromDates = (claim: Claim): string => {
+        // Check each stage in order (highest priority first)
+        if (claim.invoice_date) {
+            return "invoice sent";
+        }
+        if (claim.hire_end_date) {
+            return "hire end";
+        }
+        if (claim.pay_date) {
+            return "client paid";
+        }
+        if (claim.hire_start_date) {
+            return "hire start";
+        }
+        if (claim.claim_start_date) {
+            return "claim created";
+        }
+        return "claim created";
+    };
+
+    // Get stage number
+    const getStageNumber = (claim: Claim): number => {
+        const stage = getStageFromDates(claim);
+        return STATUS_COLORS[stage]?.number || 0;
     };
 
     useEffect(() => {
@@ -254,8 +281,21 @@ export default function ClaimsDashboard() {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
 
+        // Filter by stage based on dates
         if (selectedStage) {
-            filtered = filtered.filter((claim) => claim.status === selectedStage);
+            // If "claim created" is selected, show BOTH Stage 1 AND Stage 2
+            if (selectedStage === "claim created") {
+                filtered = filtered.filter((claim) => {
+                    const stage = getStageFromDates(claim);
+                    return stage === "claim created" || stage === "hire start";
+                });
+            } else {
+                // For other stages, filter normally
+                filtered = filtered.filter((claim) => {
+                    const stage = getStageFromDates(claim);
+                    return stage === selectedStage;
+                });
+            }
         }
 
         if (startDate || endDate) {
@@ -292,8 +332,8 @@ export default function ClaimsDashboard() {
                 }
 
                 if (sortColumn === "status") {
-                    const aNum = STATUS_COLORS[a.status?.toLowerCase()]?.number ?? 0;
-                    const bNum = STATUS_COLORS[b.status?.toLowerCase()]?.number ?? 0;
+                    const aNum = getStageNumber(a);
+                    const bNum = getStageNumber(b);
                     const comparison = aNum - bNum;
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
@@ -613,7 +653,7 @@ export default function ClaimsDashboard() {
         setSearchTerm("");
         setSelectedType("");
         setSelectedCouncil("");
-        setSelectedStage("");
+        setSelectedStage("claim created"); // Reset to Stage 1 (which shows Stage 1 + 2)
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -622,27 +662,35 @@ export default function ClaimsDashboard() {
 
     const summary = useMemo(() => {
         const activeClaims = allClaims.filter(c =>
-            !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent"
+            !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent"
         );
         const activeHire = activeClaims.filter(c =>
-            c.status?.toLowerCase() === "hire start" && !c.is_disputed
+            getStageFromDates(c) === "hire start" && !c.is_disputed
         ).length;
 
         const settledInHire = activeClaims.filter(c =>
-            c.status?.toLowerCase() === "client paid" && !c.is_disputed
+            getStageFromDates(c) === "client paid" && !c.is_disputed
         ).length;
 
         const hireEnd = activeClaims.filter(c =>
-            c.status?.toLowerCase() === "hire end" && !c.is_disputed
+            getStageFromDates(c) === "hire end" && !c.is_disputed
         ).length;
 
         const invoiceSent = activeClaims.filter(c =>
-            c.status?.toLowerCase() === "invoice sent" && !c.is_disputed
+            getStageFromDates(c) === "invoice sent" && !c.is_disputed
         ).length;
 
-        const filteredForTypes = selectedStage
-            ? activeClaims.filter(c => c.status === selectedStage)
-            : activeClaims;
+        // For the breakdown, if "claim created" is selected, include both Stage 1 and 2
+        let filteredForTypes;
+        if (selectedStage === "claim created") {
+            filteredForTypes = activeClaims.filter(c => 
+                getStageFromDates(c) === "claim created" || getStageFromDates(c) === "hire start"
+            );
+        } else if (selectedStage) {
+            filteredForTypes = activeClaims.filter(c => getStageFromDates(c) === selectedStage);
+        } else {
+            filteredForTypes = activeClaims;
+        }
 
         const typeBreakdown = CLAIM_TYPES.filter(t => t !== "vehicle damage").map(type => ({
             type,
@@ -670,6 +718,19 @@ export default function ClaimsDashboard() {
             totalInViewForTypes: filteredForTypes.length
         };
     }, [allClaims, vehiclesCount, selectedStage]);
+
+    // Update the status display in the table
+    const getStageBadge = (claim: Claim) => {
+        const stage = getStageFromDates(claim);
+        const statusData = STATUS_COLORS[stage] || STATUS_COLORS.default;
+        return {
+            number: statusData.number,
+            label: statusData.label,
+            color: statusData.color,
+            badgeBg: statusData.badgeBg,
+            badgeText: statusData.badgeText
+        };
+    };
 
     const renderDateCell = (
         claim: Claim,
@@ -843,7 +904,7 @@ export default function ClaimsDashboard() {
                                 const isEditing = editingClaimId === claim.claim_id;
                                 const isSaving = savingClaimId === claim.claim_id;
                                 const isClosed = isClaimClosed(claim);
-                                const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
+                                const stageInfo = getStageBadge(claim);
                                 const isVehicleDamage = claim.claim_type === "vehicle damage";
                                 const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
                                 const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
@@ -1006,12 +1067,12 @@ export default function ClaimsDashboard() {
                                                 ) : (
                                                     <span
                                                         className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold border-2
-                                                                    ${statusData.number >= 4
-                                                                ? `${statusData.badgeText} text-black border-transparent`
-                                                                : `bg-white ${statusData.color} ${statusData.badgeBg}`
+                                                                    ${stageInfo.number >= 4
+                                                                ? `${stageInfo.badgeText} text-black border-transparent`
+                                                                : `bg-white ${stageInfo.color} ${stageInfo.badgeBg}`
                                                             }`}
                                                     >
-                                                        {statusData.number}
+                                                        {stageInfo.number}
                                                     </span>
                                                 )}
                                             </div>
@@ -1130,7 +1191,7 @@ export default function ClaimsDashboard() {
                                     </div>
                                 </button>
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "" : "hire start")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire start" ? "claim created" : "hire start")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-emerald-400 to-green-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire start" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1144,7 +1205,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "" : "client paid")}
+                                    onClick={() => setSelectedStage(selectedStage === "client paid" ? "claim created" : "client paid")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-cyan-400 to-blue-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "client paid" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1158,7 +1219,7 @@ export default function ClaimsDashboard() {
                                 </button>
 
                                 <button
-                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "" : "hire end")}
+                                    onClick={() => setSelectedStage(selectedStage === "hire end" ? "claim created" : "hire end")}
                                     className={`text-left w-full group relative overflow-hidden rounded-3xl p-5 shadow-lg border-2 bg-gradient-to-br from-amber-400 to-orange-500 text-white hover:scale-102 hover:shadow-xl transition-all duration-300 ${selectedStage === "hire end" ? "border-yellow-600 ring-4 ring-yellow-400" : "border-transparent"}`}
                                 >
                                     <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full" />
@@ -1179,7 +1240,7 @@ export default function ClaimsDashboard() {
                                             <FileText size={12} className="text-green-600" />
                                         </div>
                                         <h3 className="text-xs font-semibold text-green-900 tracking-tight">
-                                            Claims by Type {selectedStage ? `(${selectedStage})` : ''}
+                                            Claims by Type {selectedStage === "claim created" ? "(Stage 1 + 2)" : selectedStage ? `(${selectedStage})` : ''}
                                         </h3>
                                     </div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -1241,7 +1302,7 @@ export default function ClaimsDashboard() {
                                             <LayoutGrid size={12} className="text-green-600" />
                                         </div>
                                         <h3 className="text-xs font-semibold text-green-900 tracking-tight">
-                                            Claims by Council {selectedStage ? `(${selectedStage})` : ''}
+                                            Claims by Council {selectedStage === "claim created" ? "(Stage 1 + 2)" : selectedStage ? `(${selectedStage})` : ''}
                                         </h3>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2">
@@ -1534,9 +1595,9 @@ export default function ClaimsDashboard() {
                                             onChange={(e) => setSelectedStage(e.target.value)}
                                             className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                         >
-                                            <option value="">All Stages</option>
+                                            <option value="claim created">Stage 1 + 2</option>
                                             {Object.entries(STATUS_COLORS)
-                                                .filter(([k]) => k !== "default")
+                                                .filter(([k]) => k !== "default" && k !== "claim created")
                                                 .map(([s, d]) => (
                                                     <option key={s} value={s}>
                                                         Stage {d.number} – {d.label}
@@ -1578,7 +1639,7 @@ export default function ClaimsDashboard() {
                         <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                             <span className="font-bold text-green-800">
-                                {allClaims.filter(c => !isClaimClosed(c) && c.status?.toLowerCase() !== "invoice sent").length}
+                                {allClaims.filter(c => !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent").length}
                             </span> active hires
                         </div>
 

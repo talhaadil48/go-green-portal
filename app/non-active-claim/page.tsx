@@ -109,6 +109,61 @@ const isClaimClosed = (claim: Claim) => {
     return claim.status?.toLowerCase() === "close claim" || !!(claim.closed_date && claim.closed_by);
 };
 
+// Determine stage based on dates - only for non-closed claims
+const getStageFromDates = (claim: Claim): string => {
+    // If claim is closed, return "closed"
+    if (isClaimClosed(claim)) {
+        return "closed";
+    }
+    
+    // Check each stage in priority order (highest priority first)
+    if (claim.invoice_date) {
+        return "invoice sent";
+    }
+    if (claim.hire_end_date) {
+        return "hire end";
+    }
+    if (claim.pay_date) {
+        return "client paid";
+    }
+    if (claim.hire_start_date) {
+        return "hire start";
+    }
+    if (claim.claim_start_date) {
+        return "claim created";
+    }
+    return "claim created";
+};
+
+// Get stage number
+const getStageNumber = (claim: Claim): number => {
+    const stage = getStageFromDates(claim);
+    if (stage === "closed") return 0;
+    return STATUS_COLORS[stage]?.number || 0;
+};
+
+// Get stage badge info
+const getStageBadge = (claim: Claim) => {
+    const stage = getStageFromDates(claim);
+    if (stage === "closed") {
+        return {
+            number: 0,
+            label: "Closed",
+            color: "text-gray-500",
+            badgeBg: "border-gray-300",
+            badgeText: "bg-gray-400"
+        };
+    }
+    const statusData = STATUS_COLORS[stage] || STATUS_COLORS.default;
+    return {
+        number: statusData.number,
+        label: statusData.label,
+        color: statusData.color,
+        badgeBg: statusData.badgeBg,
+        badgeText: statusData.badgeText
+    };
+};
+
 export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [allClaims, setAllClaims] = useState<Claim[]>([]);
@@ -233,20 +288,25 @@ export default function ClaimsPage() {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
 
+        // Filter by stage based on dates - skip closed claims
         if (selectedStage) {
-            filtered = filtered.filter((claim) => claim.status === selectedStage);
+            filtered = filtered.filter((claim) => {
+                if (isClaimClosed(claim)) return false;
+                const stage = getStageFromDates(claim);
+                return stage === selectedStage;
+            });
         }
 
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
                 !claim.is_disputed &&
-                ["claim created", "hire start", "client paid"].includes(claim.status?.toLowerCase())
+                ["claim created", "hire start", "client paid"].includes(getStageFromDates(claim))
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
-                (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase()))
+                (claim.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(claim)))
             );
         } else if (statusFilter === "Closed") {
             filtered = filtered.filter((claim) => isClaimClosed(claim));
@@ -266,8 +326,8 @@ export default function ClaimsPage() {
 
         if (sortColumn && sortDirection) {
             filtered.sort((a, b) => {
-                let aVal: any = a[sortColumn] ?? "";
-                let bVal: any = b[sortColumn] ?? "";
+                let aVal: any = a[sortColumn as keyof Claim] ?? "";
+                let bVal: any = b[sortColumn as keyof Claim] ?? "";
 
                 if (sortColumn === "claim_id") {
                     const getParts = (id: string) => {
@@ -286,8 +346,8 @@ export default function ClaimsPage() {
                 }
 
                 if (sortColumn === "status") {
-                    const aNum = STATUS_COLORS[a.status?.toLowerCase()]?.number ?? 0;
-                    const bNum = STATUS_COLORS[b.status?.toLowerCase()]?.number ?? 0;
+                    const aNum = getStageNumber(a);
+                    const bNum = getStageNumber(b);
                     const comparison = aNum - bNum;
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
@@ -299,8 +359,8 @@ export default function ClaimsPage() {
                     if (sortColumn === "hire_end_date") field = "hire_end_date";
                     if (sortColumn === "invoice_date") field = "invoice_date";
                     const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
-                    aVal = a[field] ? new Date(a[field]).getTime() : sentinel;
-                    bVal = b[field] ? new Date(b[field]).getTime() : sentinel;
+                    aVal = a[field] ? new Date(a[field]!).getTime() : sentinel;
+                    bVal = b[field] ? new Date(b[field]!).getTime() : sentinel;
                 }
 
                 if (sortColumn === "closed") {
@@ -657,11 +717,11 @@ export default function ClaimsPage() {
         const activeClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
             !c.is_disputed &&
-            ["claim created", "hire start", "client paid"].includes(c.status?.toLowerCase())
+            ["claim created", "hire start", "client paid"].includes(getStageFromDates(c))
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
-            (c.is_disputed || ["hire end", "invoice sent"].includes(c.status?.toLowerCase()))
+            (c.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(c)))
         ).length;
         const closedClaims = allClaims.filter(c => isClaimClosed(c)).length;
         const typeBreakdown = CLAIM_TYPES.map(type => ({
@@ -671,10 +731,10 @@ export default function ClaimsPage() {
 
         // Exclude closed claims from invoice pending and sent summaries
         const invoicePending = allClaims.filter(c =>
-            !isClaimClosed(c) && c.status?.toLowerCase() === "hire end"
+            !isClaimClosed(c) && getStageFromDates(c) === "hire end"
         ).length;
         const invoiceSent = allClaims.filter(c =>
-            !isClaimClosed(c) && c.status?.toLowerCase() === "invoice sent"
+            !isClaimClosed(c) && getStageFromDates(c) === "invoice sent"
         ).length;
 
         return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
@@ -876,7 +936,7 @@ export default function ClaimsPage() {
                                 const isEditing = editingClaimId === claim.claim_id;
                                 const isSaving = savingClaimId === claim.claim_id;
                                 const isClosed = isClaimClosed(claim);
-                                const statusData = STATUS_COLORS[claim.status?.toLowerCase()] || STATUS_COLORS.default;
+                                const stageInfo = getStageBadge(claim);
                                 const isVehicleDamage = claim.claim_type === "vehicle damage";
                                 const rowBgColor = claim.is_disputed ? "bg-red-200/50" : "bg-white";
                                 const hoverBgColor = claim.is_disputed ? "hover:bg-red-200/80" : "hover:bg-green-100/80";
@@ -892,7 +952,7 @@ export default function ClaimsPage() {
                                                     if (isClosed) {
                                                         statusText = "Closed";
                                                         bgColor = "bg-red-100 text-red-800";
-                                                    } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(claim.status?.toLowerCase())) {
+                                                    } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(claim))) {
                                                         statusText = "Non Active";
                                                         bgColor = "bg-amber-100 text-amber-800";
                                                     }
@@ -1075,7 +1135,7 @@ export default function ClaimsPage() {
                                             )}
                                         </td>
 
-                                        {/* Stage badge */}
+                                        {/* Stage badge - show nothing for closed claims */}
                                         <td className="border-r border-gray-300 px-1 py-0.5 whitespace-nowrap">
                                             <div className="flex items-center justify-center">
                                                 {isClosed ? (
@@ -1085,12 +1145,12 @@ export default function ClaimsPage() {
                                                 ) : (
                                                     <span
                                                         className={`px-1.5 py-0.5 rounded-full text-xs font-semibold border-2
-                                                                    ${statusData.number >= 4
-                                                                ? `${statusData.badgeText} text-black border-transparent`
-                                                                : `bg-white ${statusData.color} ${statusData.badgeBg}`
+                                                                    ${stageInfo.number >= 4
+                                                                ? `${stageInfo.badgeText} text-black border-transparent`
+                                                                : `bg-white ${stageInfo.color} ${stageInfo.badgeBg}`
                                                             }`}
                                                     >
-                                                        {statusData.number}
+                                                        {stageInfo.number}
                                                     </span>
                                                 )}
                                             </div>
@@ -1195,7 +1255,7 @@ export default function ClaimsPage() {
                     <>
                         {/* ══════════════════════════════════════════════════════════
                     SUMMARY DASHBOARD
-                ═══════════���══════════════════════════════════════════════ */}
+                ══════════════════════════════════════════════════════════ */}
                         <div className="mb-10 space-y-6">
                             <div className="flex items-center gap-3">
                                 <div className="w-1 h-7 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />

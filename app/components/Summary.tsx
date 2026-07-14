@@ -842,9 +842,6 @@ export default function SummaryPage({ claimId }: { claimId: string }) {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div className={`sr-badge ${claim.recently_deleted ? 'sr-badge-deleted' : ''}`}>
-                {claim.recently_deleted ? 'Recently Deleted' : (claim.status || "—")}
-              </div>
 
               {/* History Button */}
               <button onClick={() => setShowHistory(true)} className="sr-btn action-btn">

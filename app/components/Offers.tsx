@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -12,6 +12,8 @@ import {
   ArrowUpDown,
   Plus,
   Search,
+  CheckCircle2,
+  PoundSterling,
 } from "lucide-react";
 import api from "@/lib/axios";
 
@@ -39,7 +41,18 @@ interface ClaimSearchResult {
 }
 
 type OfferNum = 1 | 2 | 3;
-type SortConfig = { key: string; direction: "asc" | "desc" } | null;
+type SortKey =
+  | "status"
+  | "claim_id"
+  | "claimant_name"
+  | "claim_type"
+  | "offer1"
+  | "offer1_date"
+  | "offer2"
+  | "offer2_date"
+  | "offer3"
+  | "offer3_date";
+type SortConfig = { key: SortKey; direction: "asc" | "desc" } | null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,39 +76,79 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 /**
- * Derive display status purely from the offer data — no API status field needed.
- * Walk offer3 → offer2 → offer1 and return the status of the most recent one
- * that has an amount. If none exist, return "".
+ * Walk offer3 → offer2 → offer1 and return the amount + status of the most
+ * recent offer that has an amount. This is the single source of truth for
+ * "current" offer state — used for the status badge, status filter,
+ * status sorting, and the summary cards.
  */
-function deriveGlobalStatus(offer: {
+function getCurrentOffer(offer: {
   offer1: number | null; offer1_status: string | null;
   offer2: number | null; offer2_status: string | null;
   offer3: number | null; offer3_status: string | null;
-}): string {
+}): { amount: number | null; status: string | null } {
   const pairs = [
     { amount: offer.offer3, status: offer.offer3_status },
     { amount: offer.offer2, status: offer.offer2_status },
     { amount: offer.offer1, status: offer.offer1_status },
   ];
-  for (const { amount, status } of pairs) {
-    if (amount != null) {
-      return status ?? "";
-    }
+  for (const p of pairs) {
+    if (p.amount != null) return p;
   }
-  return "";
+  return { amount: null, status: null };
 }
+
+function deriveGlobalStatus(offer: {
+  offer1: number | null; offer1_status: string | null;
+  offer2: number | null; offer2_status: string | null;
+  offer3: number | null; offer3_status: string | null;
+}): string {
+  return getCurrentOffer(offer).status ?? "";
+}
+
+// Status ranking used purely for sorting (so it's deterministic & meaningful,
+// not alphabetical noise)
+const STATUS_RANK: Record<string, number> = {
+  paid: 3,
+  accepted: 2,
+  rejected: 1,
+  "": 0,
+};
+
+// "blank" is a special filter value (not a real stored status) meaning
+// "this claim has no current offer status at all" — i.e. brand-new blank
+// offers you just created. It's handled separately from the real statuses
+// below wherever filterStatus is used.
+const STATUS_OPTIONS = [
+  { value: "", label: "All Statuses" },
+  { value: "blank", label: "No Offer / Blank" },
+  { value: "paid", label: "Paid" },
+  { value: "accepted", label: "Accepted" },
+  { value: "rejected", label: "Rejected" },
+];
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
 function GlobalStatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-xs text-slate-400">—</span>;
+  if (!status) {
+    return (
+      <span className="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap bg-gray-100 text-gray-500">
+        No Offer
+      </span>
+    );
+  }
   const map: Record<string, string> = {
     paid:     "bg-emerald-100 text-emerald-800",
     accepted: "bg-blue-100 text-blue-800",
     rejected: "bg-red-100 text-red-700",
   };
   const cls = map[status.toLowerCase()];
-  if (!cls) return <span className="text-xs text-slate-400">—</span>;
+  if (!cls) {
+    return (
+      <span className="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap bg-gray-100 text-gray-500">
+        No Offer
+      </span>
+    );
+  }
   return (
     <span className={`px-2 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap ${cls}`}>
       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -158,7 +211,7 @@ export default function OffersManagementPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState(""); // "", "blank", "paid", "accepted", "rejected"
 
   // Editing — one offer cell at a time
   const [editKey, setEditKey] = useState<{ claimId: string; num: OfferNum } | null>(null);
@@ -168,6 +221,10 @@ export default function OffersManagementPage() {
 
   // Sort
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+  // Scroll preservation + "just updated" row highlight ─────────────────────
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [recentlyUpdatedClaimId, setRecentlyUpdatedClaimId] = useState<string | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -218,6 +275,9 @@ export default function OffersManagementPage() {
       setCreateSuccess(`Blank offer created for ${selectedClaim.claim_id}`);
       setSelectedClaim(null); setClaimSearch(""); setDropdownOpen(false);
       await fetchOffers();
+      // Show the person exactly which row is new
+      setRecentlyUpdatedClaimId(selectedClaim.claim_id);
+      setTimeout(() => setRecentlyUpdatedClaimId((cur) => (cur === selectedClaim.claim_id ? null : cur)), 2500);
     } catch (err: any) {
       setCreateError(err.response?.data?.message || "Failed to create offer.");
     } finally { setCreating(false); }
@@ -255,6 +315,10 @@ export default function OffersManagementPage() {
     }
 
     setSaving(true); setSaveError(null);
+
+    const scrollTop = scrollContainerRef.current?.scrollTop ?? null;
+    const claimId = offer.claim_id;
+
     try {
       const n            = editKey.num;
       const amountVal    = hasAmount ? Number(editForm.amount) : null;
@@ -269,8 +333,18 @@ export default function OffersManagementPage() {
 
       const res = await api.put(`/api/offers/${offer.claim_id}`, payload, { headers: { requiresAuth: true } });
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
+
       await fetchOffers();
       cancelEdit();
+
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current && scrollTop != null) {
+          scrollContainerRef.current.scrollTop = scrollTop;
+        }
+      });
+
+      setRecentlyUpdatedClaimId(claimId);
+      setTimeout(() => setRecentlyUpdatedClaimId((cur) => (cur === claimId ? null : cur)), 2500);
     } catch (err: any) {
       setSaveError(err.response?.data?.message || "Failed to update offer.");
     } finally { setSaving(false); }
@@ -278,7 +352,7 @@ export default function OffersManagementPage() {
 
   // ── Sort ───────────────────────────────────────────────────────────────────
 
-  const handleSort = (key: string) =>
+  const handleSort = (key: SortKey) =>
     setSortConfig((prev) =>
       prev?.key === key
         ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
@@ -287,15 +361,39 @@ export default function OffersManagementPage() {
 
   const sortData = (data: Offer[]) => {
     if (!sortConfig) return data;
+    const { key, direction } = sortConfig;
+    const dir = direction === "asc" ? 1 : -1;
+
     return [...data].sort((a, b) => {
-      let va: any = a[sortConfig.key as keyof Offer];
-      let vb: any = b[sortConfig.key as keyof Offer];
-      if (va === vb) return 0;
-      if (va == null) return sortConfig.direction === "asc" ? -1 : 1;
-      if (vb == null) return sortConfig.direction === "asc" ?  1 : -1;
-      if (typeof va === "string" && typeof vb === "string")
-        return sortConfig.direction === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-      return sortConfig.direction === "asc" ? (va < vb ? -1 : 1) : va > vb ? -1 : 1;
+      if (key === "status") {
+        const ra = STATUS_RANK[deriveGlobalStatus(a).toLowerCase()] ?? 0;
+        const rb = STATUS_RANK[deriveGlobalStatus(b).toLowerCase()] ?? 0;
+        return (ra - rb) * dir;
+      }
+
+      if (key === "offer1_date" || key === "offer2_date" || key === "offer3_date") {
+        const va = a[key] ? new Date(a[key] as string).getTime() : null;
+        const vb = b[key] ? new Date(b[key] as string).getTime() : null;
+        if (va === vb) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return (va - vb) * dir;
+      }
+
+      if (key === "offer1" || key === "offer2" || key === "offer3") {
+        const va = a[key];
+        const vb = b[key];
+        if (va === vb) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return (va - vb) * dir;
+      }
+
+      const va = (a[key] ?? "") as string;
+      const vb = (b[key] ?? "") as string;
+      if (!va && vb) return 1;
+      if (va && !vb) return -1;
+      return va.localeCompare(vb) * dir;
     });
   };
 
@@ -304,23 +402,48 @@ export default function OffersManagementPage() {
   const filtered = sortData(
     offers.filter((o) => {
       const q = search.toLowerCase();
+      const currentStatus = deriveGlobalStatus(o).toLowerCase();
+      const matchesStatus =
+        !filterStatus ||
+        (filterStatus === "blank"
+          ? currentStatus === ""
+          : currentStatus === filterStatus.toLowerCase());
       return (
-        (!search || o.claim_id.toLowerCase().includes(q) || o.claimant_name?.toLowerCase().includes(q) || o.claim_type?.toLowerCase().includes(q)) &&
+        (!search ||
+          o.claim_id.toLowerCase().includes(q) ||
+          o.claimant_name?.toLowerCase().includes(q) ||
+          o.claim_type?.toLowerCase().includes(q)) &&
         (!filterClaimId  || o.claim_id.toLowerCase().includes(filterClaimId.toLowerCase())) &&
         (!filterClaimant || o.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase())) &&
-        (!filterStatus   || o.status?.toLowerCase().includes(filterStatus.toLowerCase()))
+        matchesStatus
       );
     })
   );
 
+  // ── Summary (accepted offers count + total accepted amount) ────────────────
+
+  const { acceptedCount, acceptedTotal } = useMemo(() => {
+    let count = 0;
+    let total = 0;
+    for (const o of offers) {
+      const current = getCurrentOffer(o);
+      if (current.status?.toLowerCase() === "accepted" && current.amount != null) {
+        count += 1;
+        total += current.amount;
+      }
+    }
+    return { acceptedCount: count, acceptedTotal: total };
+  }, [offers]);
+
   // ── SortHeader sub-component ───────────────────────────────────────────────
 
-  const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: string; align?: "left" | "right" | "center" }) => {
+  const SortHeader = ({ label, sortKey, align = "left" }: { label: string; sortKey: SortKey; align?: "left" | "right" | "center" }) => {
     const active = sortConfig?.key === sortKey;
+    const alignClass = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
     return (
       <th
         onClick={() => handleSort(sortKey)}
-        className={`px-3 py-2 text-${align} font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 transition-colors select-none group whitespace-nowrap`}
+        className={`px-3 py-2 ${alignClass} font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 transition-colors select-none group whitespace-nowrap`}
       >
         <div className={`flex items-center gap-1 ${align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""}`}>
           {label}
@@ -374,8 +497,6 @@ export default function OffersManagementPage() {
     );
   };
 
-  // EditOfferRow is inlined directly in the table body below to avoid remount focus loss
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -383,7 +504,7 @@ export default function OffersManagementPage() {
       <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">
               Offers Management
@@ -408,6 +529,28 @@ export default function OffersManagementPage() {
               <Plus size={16} />
               New Offer
             </button>
+          </div>
+        </div>
+
+        {/* Summary cards */}
+        <div className="mb-6 flex flex-wrap gap-3">
+          <div className="flex items-center gap-3 bg-white/85 border border-blue-100 rounded-xl shadow-sm px-4 py-2.5 min-w-[170px]">
+            <span className="shrink-0 w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+              <CheckCircle2 size={16} />
+            </span>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Accepted Offers</p>
+              <p className="text-sm font-bold text-blue-800">{acceptedCount}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 bg-white/85 border border-emerald-100 rounded-xl shadow-sm px-4 py-2.5 min-w-[170px]">
+            <span className="shrink-0 w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <PoundSterling size={16} />
+            </span>
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Accepted Total</p>
+              <p className="text-sm font-bold text-emerald-800">{formatCurrency(acceptedTotal)}</p>
+            </div>
           </div>
         </div>
 
@@ -549,21 +692,36 @@ export default function OffersManagementPage() {
 
         {/* Filters */}
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {[
-            { val: search,          set: setSearch,          ph: "Quick search…" },
-            { val: filterClaimId,   set: setFilterClaimId,   ph: "Filter Claim ID" },
-            { val: filterClaimant,  set: setFilterClaimant,  ph: "Filter Claimant" },
-            { val: filterStatus,    set: setFilterStatus,    ph: "Filter Status" },
-          ].map(({ val, set, ph }) => (
-            <input
-              key={ph}
-              type="text"
-              value={val}
-              onChange={(e) => set(e.target.value)}
-              placeholder={ph}
-              className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
-            />
-          ))}
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Quick search…"
+            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+          />
+          <input
+            type="text"
+            value={filterClaimId}
+            onChange={(e) => setFilterClaimId(e.target.value)}
+            placeholder="Filter Claim ID"
+            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+          />
+          <input
+            type="text"
+            value={filterClaimant}
+            onChange={(e) => setFilterClaimant(e.target.value)}
+            placeholder="Filter Claimant"
+            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+          />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm text-gray-700"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
           <div className="text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center">
             {filtered.length} / {offers.length}
           </div>
@@ -586,28 +744,34 @@ export default function OffersManagementPage() {
           </div>
         ) : (
           <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
-            <div className="overflow-x-auto">
+            <div ref={scrollContainerRef} className="overflow-x-auto overflow-y-auto max-h-[70vh]">
               <table className="min-w-full divide-y divide-gray-300 text-xs">
-                <thead className="bg-green-50/70">
+                <thead className="bg-green-50 sticky top-0 z-20 shadow-sm">
                   <tr>
-                    <SortHeader label="Status"   sortKey="status"        align="center" />
+                    <SortHeader label="Status"    sortKey="status"        align="center" />
                     <SortHeader label="Claim ID"  sortKey="claim_id" />
                     <SortHeader label="Claimant"  sortKey="claimant_name" />
                     <SortHeader label="Type"      sortKey="claim_type"    align="center" />
-                    <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Offer 1</th>
-                    <th className="px-3 py-2 text-left  font-semibold text-green-800 border-r border-gray-400">O1 Date</th>
-                    <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Offer 2</th>
-                    <th className="px-3 py-2 text-left  font-semibold text-green-800 border-r border-gray-400">O2 Date</th>
-                    <th className="px-3 py-2 text-right font-semibold text-green-800 border-r border-gray-400">Offer 3</th>
-                    <th className="px-3 py-2 text-left  font-semibold text-green-800 border-r border-gray-400">O3 Date</th>
+                    <SortHeader label="Offer 1"   sortKey="offer1"        align="right" />
+                    <SortHeader label="O1 Date"   sortKey="offer1_date" />
+                    <SortHeader label="Offer 2"   sortKey="offer2"        align="right" />
+                    <SortHeader label="O2 Date"   sortKey="offer2_date" />
+                    <SortHeader label="Final Offer"   sortKey="offer3"        align="right" />
+                    <SortHeader label="Final Offer Date"   sortKey="offer3_date" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filtered.map((offer) => {
                     const isEditingThisRow = editKey?.claimId === offer.claim_id;
+                    const isRecentlyUpdated = recentlyUpdatedClaimId === offer.claim_id;
                     return (
                       <>
-                        <tr key={offer.claim_id} className="hover:bg-green-50/30 transition-colors">
+                        <tr
+                          key={offer.claim_id}
+                          className={`transition-colors duration-700 ${
+                            isRecentlyUpdated ? "bg-yellow-100" : "hover:bg-green-50/30"
+                          }`}
+                        >
                           {/* Global status */}
                           <td className="px-3 py-1.5 text-center border-r border-gray-300">
                             <GlobalStatusBadge status={deriveGlobalStatus(offer)} />
@@ -630,82 +794,97 @@ export default function OffersManagementPage() {
                           <ReadOfferPair offer={offer} num={3} />
                         </tr>
 
-                        {/* Inline edit row — inlined (not a sub-component) to preserve input focus */}
+                        {/* Inline edit row - REDESIGNED */}
                         {isEditingThisRow && editKey && (
-                          <tr className="bg-green-50/80 border-b border-green-200">
-                            <td colSpan={10} className="px-4 py-3">
-                              <div className="flex flex-wrap items-end gap-4">
-                                <p className="text-xs font-bold text-green-800 uppercase tracking-wide w-full mb-0.5">
-                                  Editing Offer {editKey.num} — {offer.claim_id}
-                                </p>
-                                {/* Amount */}
-                                <div className="flex flex-col gap-1 min-w-[120px]">
-                                  <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Amount (£)</label>
-                                  <input
-                                    type="number"
-                                    value={editForm.amount}
-                                    onChange={(e) => setEditForm((p) => ({ ...p, amount: e.target.value }))}
-                                    placeholder="0"
-                                    autoFocus
-                                    className="px-2 py-1.5 border border-green-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
-                                  />
+                          <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b-2 border-green-200">
+                            <td colSpan={10} className="px-6 py-4">
+                              <div className="flex items-center gap-6">
+                                {/* Offer number badge */}
+                                <div className="shrink-0">
+                                  <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold text-sm">
+                                    {editKey.num}
+                                  </span>
                                 </div>
-                                {/* Date */}
-                                <div className="flex flex-col gap-1">
-                                  <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Offer Date</label>
+
+                                {/* Amount input */}
+                                <div className="flex-1 max-w-[200px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                                    Amount (£)
+                                  </label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">£</span>
+                                    <input
+                                      type="number"
+                                      value={editForm.amount}
+                                      onChange={(e) => setEditForm((p) => ({ ...p, amount: e.target.value }))}
+                                      placeholder="0.00"
+                                      autoFocus
+                                      className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Date input */}
+                                <div className="flex-1 max-w-[200px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                                    Date
+                                  </label>
                                   <input
                                     type="date"
                                     value={editForm.date}
                                     onChange={(e) => setEditForm((p) => ({ ...p, date: e.target.value }))}
-                                    className="px-2 py-1.5 border border-green-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white shadow-sm"
                                   />
                                 </div>
-                                {/* Status pills */}
-                                <div className="flex flex-col gap-1">
-                                  <label className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Is this offer…</label>
-                                  <div className="flex gap-2">
-                                    {(["rejected", "accepted", "paid"] as const).map((s) => (
-                                      <label
-                                        key={s}
-                                        className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-1.5 rounded-full border transition-all select-none ${
-                                          editForm.offerStatus === s
-                                            ? s === "paid"
-                                              ? "bg-emerald-600 text-white border-emerald-600 shadow"
-                                              : s === "accepted"
-                                              ? "bg-blue-600 text-white border-blue-600 shadow"
-                                              : "bg-red-500 text-white border-red-500 shadow"
-                                            : "bg-white text-gray-600 border-gray-300 hover:border-green-400"
-                                        }`}
-                                      >
-                                        <input
-                                          type="radio"
-                                          name={`offer-status-${offer.claim_id}-${editKey.num}`}
-                                          value={s}
-                                          checked={editForm.offerStatus === s}
-                                          onChange={() => setEditForm((p) => ({ ...p, offerStatus: s }))}
-                                          className="sr-only"
-                                        />
-                                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                                      </label>
-                                    ))}
+
+                                {/* Status selector - redesigned as modern toggle pills */}
+                                <div className="flex-1">
+                                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                                    Status
+                                  </label>
+                                  <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                                    {(["rejected", "accepted", "paid"] as const).map((s) => {
+                                      const isActive = editForm.offerStatus === s;
+                                      return (
+                                        <button
+                                          key={s}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => setEditForm((p) => ({ ...p, offerStatus: s }))}
+                                          className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
+                                            isActive
+                                              ? s === "paid"
+                                                ? "bg-emerald-500 text-white shadow-sm"
+                                                : s === "accepted"
+                                                ? "bg-blue-500 text-white shadow-sm"
+                                                : "bg-red-500 text-white shadow-sm"
+                                              : "text-gray-600 hover:text-gray-900 hover:bg-white"
+                                          }`}
+                                        >
+                                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 </div>
-                                {/* Save / Cancel */}
-                                <div className="flex items-center gap-2 ml-auto">
-                                  {saveError && <span className="text-red-600 text-xs max-w-xs">{saveError}</span>}
+
+                                {/* Action buttons */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {saveError && (
+                                    <span className="text-red-600 text-xs max-w-[200px] bg-red-50 px-2 py-1 rounded">{saveError}</span>
+                                  )}
                                   <button
                                     onClick={cancelEdit}
                                     disabled={saving}
-                                    className="flex items-center gap-1.5 px-4 py-1.5 border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 rounded-lg text-xs font-semibold disabled:opacity-40 transition"
+                                    className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 rounded-lg text-xs font-semibold disabled:opacity-40 transition-all"
                                   >
-                                    <X size={13} /> Cancel
+                                    <X size={14} /> Cancel
                                   </button>
                                   <button
                                     onClick={() => handleSaveEdit(offer)}
                                     disabled={saving}
-                                    className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition shadow"
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition-all shadow-sm hover:shadow"
                                   >
-                                    {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                                     Save
                                   </button>
                                 </div>
