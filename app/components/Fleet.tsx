@@ -109,6 +109,12 @@ const formatGBP = (amount?: number | null) => {
   }).format(amount);
 };
 
+// Ownership mapping for display
+const OWNERSHIP_DISPLAY: Record<string, string> = {
+  "GO GREEN": "GG",
+  "OTHER": "OTHER",
+};
+
 export default function FleetComponent() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [availableLongHireIds, setAvailableLongHireIds] = useState<Set<number>>(
@@ -233,6 +239,10 @@ export default function FleetComponent() {
       }
     }
 
+    // Map "GG" to "GO GREEN" for edit mode
+    let ownershipValue = vehicle.ownership || "";
+    if (ownershipValue === "GG") ownershipValue = "GO GREEN";
+
     setEditData({
       model: vehicle.model || "",
       name: vehicle.name || "",
@@ -240,7 +250,7 @@ export default function FleetComponent() {
       mot_date: md,
       current_miles: vehicle.current_miles ? String(vehicle.current_miles) : "",
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
-      ownership: vehicle.ownership || "",
+      ownership: ownershipValue,
       ownership_amount:
         vehicle.ownership_amount !== null && vehicle.ownership_amount !== undefined
           ? String(vehicle.ownership_amount)
@@ -265,6 +275,10 @@ export default function FleetComponent() {
   const saveEdit = async (id: number) => {
     setSaving(true);
     try {
+      // Map "GO GREEN" back to "GG" for storage
+      let ownershipValue = editData.ownership.trim() || null;
+      if (ownershipValue === "GO GREEN") ownershipValue = "GG";
+
       const payload = {
         model: editData.model.trim(),
         name: editData.name.trim(),
@@ -272,7 +286,7 @@ export default function FleetComponent() {
         mot_date: editData.mot_date ? new Date(editData.mot_date).toISOString() : null,
         current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
-        ownership: editData.ownership.trim() || null,
+        ownership: ownershipValue,
         ownership_amount: editData.ownership_amount ? parseFloat(editData.ownership_amount) : null,
       };
 
@@ -961,13 +975,15 @@ export default function FleetComponent() {
                               {v.last_miles_in ?? "—"}
                             </td>
                             <td className="px-2 py-1 align-middle">
-                              <input
-                                type="text"
-                                placeholder="Owner"
+                              <select
                                 value={editData.ownership}
                                 onChange={(e) => setEditData((p) => ({ ...p, ownership: e.target.value }))}
-                                className="w-[70px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                              />
+                                className="w-[90px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                              >
+                                <option value="">Select Owner</option>
+                                <option value="GO GREEN">GO Green (GG)</option>
+                                <option value="OTHER">Other</option>
+                              </select>
                             </td>
                             <td className="px-2 py-1 align-middle">
                               <input
@@ -1184,7 +1200,9 @@ export default function FleetComponent() {
 
                             <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.current_miles ?? "—"}</td>
                             <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.last_miles_in ?? "—"}</td>
-                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.ownership || "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">
+                              {v.ownership === "GG" ? "GG" : (v.ownership || "—")}
+                            </td>
                             <td className="px-2 py-1 text-gray-700 align-middle font-medium text-[10px]">
                               {formatGBP(v.ownership_amount)}
                             </td>
