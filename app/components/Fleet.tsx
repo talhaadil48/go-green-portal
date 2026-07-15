@@ -535,7 +535,6 @@ export default function FleetComponent() {
         <div className="mb-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-             
               <p className="mt-1 text-sm text-gray-600">
                 Manage hire and long hire fleet
               </p>
@@ -767,105 +766,105 @@ export default function FleetComponent() {
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[11px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
                     <th
                       onClick={() => handleSort("reg_no")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Reg No.
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("name")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Make
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("model")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Model
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] select-none"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] select-none whitespace-nowrap"
                     >
                       Attributes
                     </th>
                     <th
                       onClick={() => handleSort("service_time")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
-                        Service Time
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                      <div className="flex items-center gap-0.5">
+                        Service
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("last_service_miles")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Last Service
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("mot_date")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
-                        MOT Date
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                      <div className="flex items-center gap-0.5">
+                        MOT
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("current_miles")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
-                        Curr Miles
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                      <div className="flex items-center gap-0.5">
+                        Miles
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("last_miles_in")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
-                        Last Miles In
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                      <div className="flex items-center gap-0.5">
+                        Miles In
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("ownership")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
-                        Ownership
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                      <div className="flex items-center gap-0.5">
+                        Owner
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleSort("ownership_amount")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      className="text-left px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Amount
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
-                    <th className="text-right px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] whitespace-nowrap">
+                    <th className="text-right px-2 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
@@ -879,109 +878,120 @@ export default function FleetComponent() {
                     const claimLinkHref = isLong ? `/long-claims/${v.current_holder_claim_id}` : `/claim/${v.current_holder_claim_id}`;
 
                     return (
-                      <tr key={v.id} className="hover:bg-gray-50/60 transition text-xs">
+                      <tr key={v.id} className={`${editingId === v.id ? 'bg-emerald-50/50' : 'hover:bg-gray-50/60'} transition text-[11px]`}>
                         {editingId === v.id ? (
+                          // EDIT MODE ROW
                           <>
-                            <td className="px-3 py-1.5 align-middle">
-                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
+                            <td className="px-2 py-1 align-middle">
+                              <span className="inline-flex px-1.5 py-0.5 bg-gray-100 text-gray-500 font-mono text-[10px] font-semibold tracking-wider rounded">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 value={editData.name}
                                 onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
-                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-full min-w-[80px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                                placeholder="Make"
                               />
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 value={editData.model}
                                 onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
-                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-full min-w-[70px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
+                                placeholder="Model"
                               />
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <div className="flex flex-wrap gap-1 max-w-[150px]">
+                            <td className="px-2 py-1 align-middle">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
                                 {AVAILABLE_ATTRIBUTES.map((attr) => (
-                                  <label key={attr} className="flex items-center space-x-1 text-[10px] text-gray-700 cursor-pointer whitespace-nowrap">
+                                  <label 
+                                    key={attr} 
+                                    className="flex items-center gap-0.5 text-[9px] text-gray-700 cursor-pointer whitespace-nowrap hover:bg-gray-100 px-1 py-0.5 rounded transition"
+                                  >
                                     <input
                                       type="checkbox"
                                       checked={editData.attributes.includes(attr)}
-                                      onChange={() => setEditData((prev) => ({
-                                        ...prev,
-                                        attributes: handleAttributeToggle(prev.attributes, attr)
-                                      }))}
-                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-2.5 w-2.5"
+                                      onChange={() => {
+                                        setEditData((prev) => ({
+                                          ...prev,
+                                          attributes: prev.attributes.includes(attr)
+                                            ? prev.attributes.filter((a) => a !== attr)
+                                            : [...prev.attributes, attr]
+                                        }));
+                                      }}
+                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3 w-3"
                                     />
-                                    <span>{ATTRIBUTE_MAPPING[attr].label}</span>
+                                    <span className="hidden sm:inline text-[9px]">{ATTRIBUTE_MAPPING[attr]?.label || attr}</span>
+                                    <span className="sm:hidden text-[9px]">{ATTRIBUTE_MAPPING[attr]?.symbol || attr}</span>
                                   </label>
                                 ))}
                               </div>
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 type="date"
                                 value={editData.service_time}
                                 onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
-                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-[90px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                               />
                             </td>
-                            <td className="px-3 py-1.5 text-gray-500 align-middle">
+                            <td className="px-2 py-1 text-gray-500 align-middle text-[10px]">
                               {v.last_service_miles ?? "—"}
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 type="date"
                                 value={editData.mot_date}
                                 onChange={(e) => setEditData((p) => ({ ...p, mot_date: e.target.value }))}
-                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-[90px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                               />
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 type="number"
                                 placeholder="Miles"
                                 value={editData.current_miles}
                                 onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
-                                className="w-[80px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-[60px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                               />
                             </td>
-                            <td className="px-3 py-1.5 text-gray-500 align-middle">
+                            <td className="px-2 py-1 text-gray-500 align-middle text-[10px]">
                               {v.last_miles_in ?? "—"}
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 type="text"
-                                placeholder="Ownership"
+                                placeholder="Owner"
                                 value={editData.ownership}
                                 onChange={(e) => setEditData((p) => ({ ...p, ownership: e.target.value }))}
-                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-[70px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                               />
                             </td>
-                            <td className="px-3 py-1.5 align-middle">
+                            <td className="px-2 py-1 align-middle">
                               <input
                                 type="number"
                                 step="0.01"
-                                placeholder="Amount"
+                                placeholder="0.00"
                                 value={editData.ownership_amount}
                                 onChange={(e) => setEditData((p) => ({ ...p, ownership_amount: e.target.value }))}
-                                className="w-[100px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                className="w-[65px] px-1.5 py-0.5 border border-emerald-400 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                               />
                             </td>
-                            <td className="px-3 py-1.5 text-right align-middle">
-                              <div className="flex justify-end gap-1">
+                            <td className="px-2 py-1 text-right align-middle">
+                              <div className="flex justify-end gap-0.5">
                                 <button
                                   onClick={() => saveEdit(v.id)}
                                   disabled={saving}
-                                  className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
+                                  className="p-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded transition disabled:opacity-50 shadow-sm"
                                   title="Save Changes"
                                 >
                                   {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                 </button>
                                 <button
                                   onClick={cancelEdit}
-                                  className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
+                                  className="p-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition shadow-sm"
                                   title="Cancel"
                                 >
                                   <X size={12} />
@@ -990,27 +1000,28 @@ export default function FleetComponent() {
                             </td>
                           </>
                         ) : (
+                          // VIEW MODE ROW
                           <>
-                            <td className="px-3 py-2 align-middle">
-                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
+                            <td className="px-2 py-1 align-middle">
+                              <span className="inline-flex px-1.5 py-0.5 bg-gray-100 text-gray-900 font-mono text-[10px] font-semibold tracking-wider rounded">
                                 {v.reg_no || "—"}
                               </span>
                             </td>
-                            <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.model || "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle cursor-default">
+                            <td className="px-2 py-1 font-medium text-gray-900 align-middle text-[11px]">{v.name || "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[11px]">{v.model || "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle cursor-default">
                               {v.attributes && v.attributes.length > 0 ? (
-                                <div className="relative group flex flex-wrap gap-1 items-center">
-                                  {v.attributes.map((attr) => {
+                                <div className="relative group flex flex-wrap gap-0.5 items-center">
+                                  {v.attributes.slice(0, 6).map((attr) => {
                                     const mapped = ATTRIBUTE_MAPPING[attr];
                                     const sharedClasses =
-                                      "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
+                                      "inline-flex items-center justify-center w-4 h-4 shrink-0 leading-none";
 
                                     if (mapped?.type === "circle") {
                                       return (
                                         <span
                                           key={attr}
-                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[9px] font-bold`}
+                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[8px] font-bold`}
                                           title={mapped.label}
                                         >
                                           {mapped.symbol}
@@ -1032,7 +1043,7 @@ export default function FleetComponent() {
                                       return (
                                         <span
                                           key={attr}
-                                          className={`${sharedClasses} rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold`}
+                                          className={`${sharedClasses} rounded-sm ${mapped.colorClass} text-white text-[8px] font-bold`}
                                           title={mapped.label}
                                         >
                                           {mapped.symbol}
@@ -1044,7 +1055,7 @@ export default function FleetComponent() {
                                       return (
                                         <span
                                           key={attr}
-                                          className={`${sharedClasses} text-yellow-500 text-[16px] leading-none pb-0.5`}
+                                          className={`${sharedClasses} text-yellow-500 text-[14px] leading-none pb-0.5`}
                                           title={mapped.label}
                                         >
                                           ★
@@ -1055,41 +1066,46 @@ export default function FleetComponent() {
                                     return (
                                       <span
                                         key={attr}
-                                        className={`${sharedClasses} text-black text-[10px]`}
+                                        className={`${sharedClasses} text-black text-[8px]`}
                                       >
                                         {attr}
                                       </span>
                                     );
                                   })}
+                                  {v.attributes.length > 6 && (
+                                    <span className="text-[8px] text-gray-400 font-medium">
+                                      +{v.attributes.length - 6}
+                                    </span>
+                                  )}
 
-                                  {/* Custom Tooltip */}
-                                  <div className="absolute left-0 bottom-full mb-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
-                                    <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-2 border border-gray-700">
-                                      <p className="text-gray-400 font-semibold mb-1 uppercase text-[8px] tracking-wider">Attributes</p>
-                                      <div className="flex flex-col gap-1">
+                                  {/* Tooltip */}
+                                  <div className="absolute left-0 bottom-full mb-0.5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
+                                    <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-1.5 border border-gray-700">
+                                      <p className="text-gray-400 font-semibold mb-0.5 uppercase text-[8px] tracking-wider">Attributes</p>
+                                      <div className="flex flex-col gap-0.5">
                                         {v.attributes.map((a) => {
                                           const mapped = ATTRIBUTE_MAPPING[a];
                                           return (
                                             <div
                                               key={a}
-                                              className="flex items-center gap-1.5 text-gray-100 font-medium"
+                                              className="flex items-center gap-1 text-gray-100 font-medium"
                                             >
                                               {mapped?.type === "circle" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[9px] font-bold shrink-0 leading-none">
+                                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[8px] font-bold shrink-0 leading-none">
                                                   {mapped.symbol}
                                                 </span>
                                               ) : mapped?.type === "filled-circle" ? (
                                                 <span
-                                                  className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`}
+                                                  className={`inline-flex w-4 h-4 rounded-full ${mapped.colorClass} shrink-0`}
                                                 />
                                               ) : mapped?.type === "box" ? (
                                                 <span
-                                                  className={`inline-flex items-center justify-center w-5 h-5 rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold shrink-0 leading-none`}
+                                                  className={`inline-flex items-center justify-center w-4 h-4 rounded-sm ${mapped.colorClass} text-white text-[8px] font-bold shrink-0 leading-none`}
                                                 >
                                                   {mapped.symbol}
                                                 </span>
                                               ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">
+                                                <span className="inline-flex items-center justify-center w-4 h-4 text-yellow-500 text-[14px] leading-none shrink-0 pb-0.5">
                                                   ★
                                                 </span>
                                               ) : (
@@ -1102,50 +1118,50 @@ export default function FleetComponent() {
                                         })}
                                       </div>
                                     </div>
-                                    <div className="absolute -bottom-1 left-3 w-2 h-2 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
+                                    <div className="absolute -bottom-0.5 left-3 w-1.5 h-1.5 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
                                   </div>
                                 </div>
                               ) : (
                                 "—"
                               )}
                             </td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">
                               {v.service_time
                                 ? new Date(v.service_time).toLocaleDateString("en-GB")
                                 : "—"}
                             </td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.last_service_miles ?? "—"}</td>
 
                             {/* MOT Date + Doc Actions */}
-                            <td className="px-3 py-2 text-gray-700 align-middle">
-                              <div className="flex items-center gap-2 whitespace-nowrap">
-                                <span>
+                            <td className="px-2 py-1 text-gray-700 align-middle">
+                              <div className="flex items-center gap-1 whitespace-nowrap">
+                                <span className="text-[10px]">
                                   {v.mot_date
                                     ? new Date(v.mot_date).toLocaleDateString("en-GB")
                                     : "—"}
                                 </span>
-                                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
+                                <div className="flex items-center gap-0.5 bg-gray-50 border border-gray-200 rounded px-0.5 py-0.5">
                                   {v.mot_doc && (
                                     <>
                                       <a
                                         href={v.mot_doc}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
+                                        className="p-0.5 hover:bg-blue-100 text-blue-600 rounded transition"
                                         title="View MOT Document"
                                       >
-                                        <FileText size={14} />
+                                        <FileText size={11} />
                                       </a>
                                       <button
                                         onClick={() => confirmDeleteMotDoc(v.id)}
                                         disabled={deletingMotDocId === v.id}
-                                        className="p-1 hover:bg-red-100 text-red-500 rounded transition disabled:opacity-50"
+                                        className="p-0.5 hover:bg-red-100 text-red-500 rounded transition disabled:opacity-50"
                                         title="Delete MOT Document"
                                       >
                                         {deletingMotDocId === v.id ? (
-                                          <Loader2 size={14} className="animate-spin text-red-500" />
+                                          <Loader2 size={11} className="animate-spin text-red-500" />
                                         ) : (
-                                          <Trash2 size={14} />
+                                          <Trash2 size={11} />
                                         )}
                                       </button>
                                     </>
@@ -1153,62 +1169,62 @@ export default function FleetComponent() {
                                   <button
                                     onClick={() => triggerFileInput(v.id)}
                                     disabled={uploadingMotId === v.id}
-                                    className="p-1 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
+                                    className="p-0.5 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
                                     title={v.mot_doc ? "Replace MOT Document" : "Upload MOT Document"}
                                   >
                                     {uploadingMotId === v.id ? (
-                                      <Loader2 size={14} className="animate-spin text-emerald-600" />
+                                      <Loader2 size={11} className="animate-spin text-emerald-600" />
                                     ) : (
-                                      <Upload size={14} />
+                                      <Upload size={11} />
                                     )}
                                   </button>
                                 </div>
                               </div>
                             </td>
 
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.current_miles ?? "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.ownership || "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle font-medium">
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.current_miles ?? "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.last_miles_in ?? "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle text-[10px]">{v.ownership || "—"}</td>
+                            <td className="px-2 py-1 text-gray-700 align-middle font-medium text-[10px]">
                               {formatGBP(v.ownership_amount)}
                             </td>
 
-                            <td className="px-3 py-2 text-right align-middle">
-                              <div className="flex justify-end items-center gap-1">
+                            <td className="px-2 py-1 text-right align-middle">
+                              <div className="flex justify-end items-center gap-0.5">
                                 <button
                                   onClick={() => confirmServiceDone(v.id)}
                                   disabled={syncingId === v.id}
-                                  className="p-1 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded transition"
+                                  className="p-0.5 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded transition"
                                   title="Mark Service Done"
                                 >
                                   {syncingId === v.id ? (
-                                    <Loader2 size={12} className="animate-spin text-orange-600" />
+                                    <Loader2 size={11} className="animate-spin text-orange-600" />
                                   ) : (
-                                    <Wrench size={12} />
+                                    <Wrench size={11} />
                                   )}
                                 </button>
 
                                 <button
                                   onClick={() => startEdit(v)}
-                                  className="p-1 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
+                                  className="p-0.5 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
                                   title="Edit vehicle"
                                 >
-                                  <Pencil size={12} />
+                                  <Pencil size={11} />
                                 </button>
 
                                 {isAvail && (
                                   <button
                                     onClick={() => toggleLongHire(v.id, isLong)}
                                     disabled={isToggling}
-                                    className="p-1 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
+                                    className="p-0.5 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
                                     title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
                                   >
                                     {isToggling ? (
-                                      <Loader2 size={14} className="animate-spin text-purple-600" />
+                                      <Loader2 size={12} className="animate-spin text-purple-600" />
                                     ) : isLong ? (
-                                      <ToggleRight size={16} className="text-emerald-600" />
+                                      <ToggleRight size={14} className="text-emerald-600" />
                                     ) : (
-                                      <ToggleLeft size={16} className="text-gray-400" />
+                                      <ToggleLeft size={14} className="text-gray-400" />
                                     )}
                                   </button>
                                 )}
@@ -1217,23 +1233,23 @@ export default function FleetComponent() {
                                   <Link
                                     target="_blank"
                                     href={claimLinkHref}
-                                    className="p-1 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
+                                    className="p-0.5 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
                                     title="View hire holder"
                                   >
-                                    <ExternalLink size={14} />
+                                    <ExternalLink size={11} />
                                   </Link>
                                 )}
 
                                 <button
                                   onClick={() => confirmDelete(v.id)}
                                   disabled={deleteLoading && deletingId === v.id}
-                                  className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
+                                  className="p-0.5 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
                                   title="Delete vehicle"
                                 >
                                   {deleteLoading && deletingId === v.id ? (
-                                    <Loader2 size={12} className="animate-spin text-red-600" />
+                                    <Loader2 size={11} className="animate-spin text-red-600" />
                                   ) : (
-                                    <Trash2 size={12} />
+                                    <Trash2 size={11} />
                                   )}
                                 </button>
                               </div>
@@ -1261,95 +1277,95 @@ export default function FleetComponent() {
                 </p>
               </div>
             ) : (
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[11px]">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
                     <th
                       onClick={() => handleHistorySort("car_reg")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Car Reg No.
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("claim_id")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Claim ID
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("hire_start")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Hire Start
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("hire_end")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Hire End
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("miles_out")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Miles Out
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                     <th
                       onClick={() => handleHistorySort("miles_in")}
-                      className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
+                      className="text-left px-3 py-1.5 font-semibold text-gray-600 uppercase tracking-wide text-[9px] cursor-pointer hover:bg-gray-100 select-none"
                     >
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         Miles In
-                        <ArrowUpDown size={12} className="text-gray-400" />
+                        <ArrowUpDown size={10} className="text-gray-400" />
                       </div>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {displayedHistory.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50/60 transition text-xs">
-                      <td className="px-4 py-2">
-                        <span className="inline-flex px-2.5 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
+                    <tr key={record.id} className="hover:bg-gray-50/60 transition text-[11px]">
+                      <td className="px-3 py-1">
+                        <span className="inline-flex px-1.5 py-0.5 bg-gray-100 text-gray-900 font-mono text-[10px] font-semibold tracking-wider rounded">
                           {record.car_reg}
                         </span>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-3 py-1">
                         <Link
                           href={`/claim/${record.claim_id}`}
                           className="text-blue-600 hover:text-blue-700 hover:underline font-medium flex items-center gap-1 group"
                         >
                           {record.claim_id}
-                          <ExternalLink size={12} className="opacity-70 group-hover:opacity-100" />
+                          <ExternalLink size={11} className="opacity-70 group-hover:opacity-100" />
                         </Link>
                       </td>
-                      <td className="px-4 py-2 text-gray-600">
+                      <td className="px-3 py-1 text-gray-600 text-[10px]">
                         {new Date(record.hire_start).toLocaleDateString("en-GB")}
                       </td>
-                      <td className="px-4 py-2 text-gray-600">
+                      <td className="px-3 py-1 text-gray-600 text-[10px]">
                         {record.hire_end
                           ? new Date(record.hire_end).toLocaleDateString("en-GB")
                           : "-"
                         }
                       </td>
-                      <td className="px-4 py-2 text-gray-600">
+                      <td className="px-3 py-1 text-gray-600 text-[10px]">
                         {record.miles_out ?? "-"}
                       </td>
-                      <td className="px-4 py-2 text-gray-600">
+                      <td className="px-3 py-1 text-gray-600 text-[10px]">
                         {record.miles_in ?? "-"}
                       </td>
                     </tr>
