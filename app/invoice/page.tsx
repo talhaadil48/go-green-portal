@@ -5,6 +5,7 @@ import { RefreshCw, Plus } from 'lucide-react';
 import InvoiceManagementPage from "../components/InvoiceManagment";
 import ClientsPage from '../components/Client';
 import OffersPage from '../components/Offers';
+import FleetComponent from '../components/Fleet';
 
 export default function InvoicePage() {
   const [activeTab, setActiveTab] = useState<string | null>(null); // null = blank page by default
@@ -75,12 +76,7 @@ export default function InvoicePage() {
           {activeTab === 'fleet' && (
             <>
               <h2 className="text-2xl font-bold text-green-800 mb-6">Fleet Management</h2>
-              <div className="bg-white rounded-xl p-12 text-center border border-green-100">
-                <p className="text-green-700 text-lg">
-                  Fleet page content will go here.<br />
-                  (Create <code className="bg-gray-100 px-1 rounded">../components/Fleet.tsx</code> component)
-                </p>
-              </div>
+              <FleetComponent />
             </>
           )}
 

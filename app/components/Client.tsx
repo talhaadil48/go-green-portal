@@ -37,9 +37,9 @@ function formatCurrency(value: number | string | null | undefined) {
 }
 
 function SortIcon({ direction }: { direction: SortDirection }) {
-  if (direction === "asc") return <ChevronUp size={14} className="inline ml-1 text-green-700" />;
-  if (direction === "desc") return <ChevronDown size={14} className="inline ml-1 text-green-700" />;
-  return <ChevronsUpDown size={14} className="inline ml-1 text-green-400 opacity-60" />;
+  if (direction === "asc") return <ChevronUp size={14} className="inline ml-1 text-white" />;
+  if (direction === "desc") return <ChevronDown size={14} className="inline ml-1 text-white" />;
+  return <ChevronsUpDown size={14} className="inline ml-1 text-green-200 opacity-70" />;
 }
 
 export default function ClientsPage() {
@@ -58,12 +58,12 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
-  
-  // New date filters
+
+  // Date filters
   const [filterHireStart, setFilterHireStart] = useState("");
   const [filterHireEnd, setFilterHireEnd] = useState("");
 
-  // Set default sorting to claim_id ascending
+  // Default sorting to claim_id ascending
   const [sortKey, setSortKey] = useState<SortKey | null>("claim_id");
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
@@ -130,7 +130,6 @@ export default function ClientsPage() {
       );
 
       if (res.data.message) {
-        // Update the state locally instead of fetching all claims again
         setClaims((prevClaims) =>
           prevClaims.map((claim) =>
             claim.claim_id === claimId
@@ -165,9 +164,9 @@ export default function ClientsPage() {
       claim.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase());
 
     // Date filters (matches "YYYY-MM-DD" prefix of the ISO string)
-    const matchesHireStart = 
+    const matchesHireStart =
       !filterHireStart || (claim.hire_start_date && claim.hire_start_date.startsWith(filterHireStart));
-    const matchesHireEnd = 
+    const matchesHireEnd =
       !filterHireEnd || (claim.hire_end_date && claim.hire_end_date.startsWith(filterHireEnd));
 
     return matchesSearch && matchesClaimId && matchesClaimant && matchesHireStart && matchesHireEnd;
@@ -179,6 +178,7 @@ export default function ClientsPage() {
     const aVal = a[sortKey];
     const bVal = b[sortKey];
 
+    // Nulls always sort to the bottom, regardless of direction
     if (aVal === null && bVal === null) return 0;
     if (aVal === null) return 1;
     if (bVal === null) return -1;
@@ -268,7 +268,7 @@ export default function ClientsPage() {
                 placeholder="Filter Claimant Name"
                 className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
               />
-              
+
               <div className="relative w-full">
                 <label className="absolute -top-2.5 left-2 bg-white/90 px-1 text-[11px] font-medium text-green-800 rounded-sm">
                   Hire Start
@@ -317,19 +317,19 @@ export default function ClientsPage() {
               <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
                 <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-green-50 sticky top-0 z-10">
+                    <thead className="sticky top-0 z-10 bg-gradient-to-r from-green-700 to-emerald-700 shadow-md">
                       <tr>
                         {columns.map(({ label, key }) => (
                           <th
                             key={key}
                             onClick={() => handleSort(key)}
-                            className="px-4 py-2.5 text-left text-xs font-bold text-green-900 uppercase tracking-wider cursor-pointer select-none hover:bg-green-100/60 transition-colors"
+                            className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider cursor-pointer select-none hover:bg-white/10 transition-colors whitespace-nowrap"
                           >
                             {label}
                             <SortIcon direction={sortKey === key ? sortDir : null} />
                           </th>
                         ))}
-                        <th className="px-4 py-2.5 text-right text-xs font-bold text-green-900 uppercase tracking-wider w-20">
+                        <th className="px-4 py-3 text-right text-xs font-bold text-white uppercase tracking-wider w-20">
                           Action
                         </th>
                       </tr>

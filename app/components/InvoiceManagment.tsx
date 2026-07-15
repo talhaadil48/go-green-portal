@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, FormEvent } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -12,6 +11,9 @@ import {
   ChevronDown,
   ArrowUpDown,
   Trash2,
+  Banknote,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import api from "@/lib/axios";
 
@@ -49,6 +51,7 @@ type SortConfig = { key: string; direction: "asc" | "desc" } | null;
 type InvoiceStatus = "paid" | "disputed" | "rejected" | "";
 
 const STATUS_OPTIONS: InvoiceStatus[] = ["", "paid", "disputed", "rejected"];
+const PAGE_SIZE = 100;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,8 +116,6 @@ function toMidnightDateTime(dateValue: string) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function InvoiceManagementPage() {
-  const router = useRouter();
-
   const [activeTab, setActiveTab] = useState<"claim" | "longhire">("claim");
 
   const [claimInvoices, setClaimInvoices] = useState<ClaimInvoice[]>([]);
@@ -156,7 +157,6 @@ export default function InvoiceManagementPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
-  const [filterInfo, setFilterInfo] = useState("");
   const [filterSentBy, setFilterSentBy] = useState("");
   const [filterHirer, setFilterHirer] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -176,6 +176,10 @@ export default function InvoiceManagementPage() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+  // ── Pagination state (kept separate per tab so switching tabs doesn't lose place) ──
+  const [claimPage, setClaimPage] = useState(1);
+  const [longHirePage, setLongHirePage] = useState(1);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
   const fetchClaimInvoices = async () => {
@@ -208,6 +212,16 @@ export default function InvoiceManagementPage() {
     fetchClaimInvoices();
     fetchLongHireInvoices();
   }, []);
+
+  // Reset to page 1 whenever the active filters/search change (but NOT on data
+  // updates from editing/marking-paid, so an edited row doesn't "disappear" from view).
+  useEffect(() => {
+    setClaimPage(1);
+  }, [search, filterClaimId, filterClaimant, filterSentBy, filterStatus]);
+
+  useEffect(() => {
+    setLongHirePage(1);
+  }, [search, filterClaimId, filterHirer, filterSentBy]);
 
   // ─── Inline mark-paid handlers ─────────────────────────────────────────────
   const startMarkPaid = (inv: ClaimInvoice) => {
@@ -242,6 +256,8 @@ export default function InvoiceManagementPage() {
       );
       if (!res.data.success) throw new Error(res.data.message || "Failed.");
       const solicitorFee = hireStorageTotal * 0.15;
+      // Optimistic, in-place update only — no refetch, so the row stays exactly
+      // where it is (same page, same sort position context) instead of vanishing.
       setClaimInvoices((prev) =>
         prev.map((item) =>
           item.id === inv.id
@@ -364,7 +380,7 @@ export default function InvoiceManagementPage() {
       });
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
 
-      // NEW: update invoice datetime through dedicated endpoint with fixed 00:00:00 time
+      // Update invoice datetime through dedicated endpoint with fixed 00:00:00 time
       if (editFormData.invoice_date.trim()) {
         const datetimeRes = await api.put(
           `/api/invoice/${invoiceId}/datetime`,
@@ -378,6 +394,8 @@ export default function InvoiceManagementPage() {
         }
       }
 
+      // Optimistic, in-place update only — no refetch of the whole list, so the
+      // page doesn't reset and the row you just edited stays visible right where it was.
       setClaimInvoices((prev) =>
         prev.map((inv) =>
           inv.id === invoiceId
@@ -449,35 +467,45 @@ export default function InvoiceManagementPage() {
     }));
   };
 
+  // Generic sorter used for both tabs. Handles the special derived columns
+  // (hire+storage total, effective status, numeric-looking payment_amount strings)
+  // so every column header reliably sorts.
   const sortData = <T extends Record<string, any>>(data: T[]): T[] => {
     if (!sortConfig) return data;
+    const { key, direction } = sortConfig;
+
+    const getValue = (row: T) => {
+      if (key === "hire_storage_total") {
+        return (row.storage_bill || 0) + (row.rent_bill || 0);
+      }
+      if (key === "status" && "payment_received" in row) {
+        // Use derived/effective status (payment_received + date_received -> "paid")
+        return effectiveStatus(row as unknown as ClaimInvoice) || "";
+      }
+      if (key === "payment_amount") {
+        const v = row[key];
+        return typeof v === "string"
+          ? parseFloat(v.replace(/[^0-9.-]+/g, "")) || 0
+          : v || 0;
+      }
+      if (key === "amount" || key === "payment_received" || key === "solicitor_fee") {
+        return row[key] ?? 0;
+      }
+      return row[key];
+    };
+
     return [...data].sort((a, b) => {
-      let valA = a[sortConfig.key];
-      let valB = b[sortConfig.key];
-      if (sortConfig.key === "hire_storage_total") {
-        valA = (a.storage_bill || 0) + (a.rent_bill || 0);
-        valB = (b.storage_bill || 0) + (b.rent_bill || 0);
-      }
-      if (sortConfig.key === "payment_amount") {
-        valA =
-          typeof valA === "string"
-            ? parseFloat(valA.replace(/[^0-9.-]+/g, "")) || 0
-            : valA || 0;
-        valB =
-          typeof valB === "string"
-            ? parseFloat(valB.replace(/[^0-9.-]+/g, "")) || 0
-            : valB || 0;
-      }
+      const valA = getValue(a);
+      const valB = getValue(b);
+
       if (valA === valB) return 0;
-      if (valA == null) return sortConfig.direction === "asc" ? -1 : 1;
-      if (valB == null) return sortConfig.direction === "asc" ? 1 : -1;
-      if (typeof valA === "string" && typeof valB === "string")
-        return sortConfig.direction === "asc"
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
-      return sortConfig.direction === "asc"
-        ? valA < valB ? -1 : 1
-        : valA > valB ? -1 : 1;
+      if (valA == null || valA === "") return direction === "asc" ? -1 : 1;
+      if (valB == null || valB === "") return direction === "asc" ? 1 : -1;
+
+      if (typeof valA === "string" && typeof valB === "string") {
+        return direction === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return direction === "asc" ? (valA < valB ? -1 : 1) : valA > valB ? -1 : 1;
     });
   };
 
@@ -495,11 +523,9 @@ export default function InvoiceManagementPage() {
       (!filterClaimId || inv.claim_id?.toLowerCase().includes(filterClaimId.toLowerCase())) &&
       (!filterClaimant ||
         inv.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase())) &&
-      (!filterInfo || inv.info?.toLowerCase().includes(filterInfo.toLowerCase())) &&
       (!filterSentBy ||
         inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase())) &&
-      (!filterStatus ||
-        effectiveStatus(inv)?.toLowerCase().includes(filterStatus.toLowerCase()))
+      (!filterStatus || effectiveStatus(inv)?.toLowerCase() === filterStatus.toLowerCase())
     );
   });
 
@@ -522,11 +548,53 @@ export default function InvoiceManagementPage() {
   const sortedClaimInvoices = sortData(filteredClaimInvoices);
   const sortedLongHireInvoices = sortData(filteredLongHireInvoices);
 
+  // ─── Summary totals (based on the currently filtered claim invoices) ──────
+  const summaryTotals = useMemo(() => {
+    let hireStorage = 0;
+    let paymentReceived = 0;
+    let solicitorFees = 0;
+    for (const inv of sortedClaimInvoices) {
+      hireStorage += (inv.rent_bill || 0) + (inv.storage_bill || 0);
+      paymentReceived += inv.payment_received || 0;
+      solicitorFees += inv.solicitor_fee || 0;
+    }
+    const outstanding = paymentReceived - hireStorage;
+    return { hireStorage, paymentReceived, solicitorFees, outstanding };
+  }, [sortedClaimInvoices]);
+
+  // ─── Pagination ─────────────────────────────────────────────────────────────
+  const claimTotalPages = Math.max(1, Math.ceil(sortedClaimInvoices.length / PAGE_SIZE));
+  const longHireTotalPages = Math.max(1, Math.ceil(sortedLongHireInvoices.length / PAGE_SIZE));
+
+  // Clamp page if filters shrink the result set below the current page.
+  useEffect(() => {
+    if (claimPage > claimTotalPages) setClaimPage(claimTotalPages);
+  }, [claimTotalPages, claimPage]);
+
+  useEffect(() => {
+    if (longHirePage > longHireTotalPages) setLongHirePage(longHireTotalPages);
+  }, [longHireTotalPages, longHirePage]);
+
+  const paginatedClaimInvoices = sortedClaimInvoices.slice(
+    (claimPage - 1) * PAGE_SIZE,
+    claimPage * PAGE_SIZE
+  );
+  const paginatedLongHireInvoices = sortedLongHireInvoices.slice(
+    (longHirePage - 1) * PAGE_SIZE,
+    longHirePage * PAGE_SIZE
+  );
+
   const isClaimTab = activeTab === "claim";
   const isLoading = isClaimTab ? loadingClaim : loadingLongHire;
   const error = isClaimTab ? errorClaim : errorLongHire;
   const filteredCount = isClaimTab ? sortedClaimInvoices.length : sortedLongHireInvoices.length;
   const totalCount = isClaimTab ? claimInvoices.length : longHireInvoices.length;
+  const currentPage = isClaimTab ? claimPage : longHirePage;
+  const totalPages = isClaimTab ? claimTotalPages : longHireTotalPages;
+  const setCurrentPage = isClaimTab ? setClaimPage : setLongHirePage;
+  const rowsOnPage = isClaimTab ? paginatedClaimInvoices.length : paginatedLongHireInvoices.length;
+  const rangeStart = filteredCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = (currentPage - 1) * PAGE_SIZE + rowsOnPage;
 
   const SortHeader = ({
     label,
@@ -540,7 +608,7 @@ export default function InvoiceManagementPage() {
     const isActive = sortConfig?.key === sortKey;
     return (
       <th
-        className={`px-3 py-2 text-${align} font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 transition-colors select-none group`}
+        className={`sticky top-0 z-10 bg-green-100 px-3 py-2 text-${align} font-semibold text-green-800 border-r border-b border-gray-400 cursor-pointer hover:bg-green-200/70 transition-colors select-none group`}
         onClick={() => handleSort(sortKey)}
       >
         <div
@@ -572,12 +640,44 @@ export default function InvoiceManagementPage() {
     );
   };
 
+  const PaginationBar = () =>
+    totalPages > 1 ? (
+      <div className="flex items-center justify-between px-4 py-3 border-t border-green-100 bg-green-50/40 text-xs">
+        <span className="text-green-700/80">
+          Showing <span className="font-semibold">{rangeStart}</span>–
+          <span className="font-semibold">{rangeEnd}</span> of{" "}
+          <span className="font-semibold">{filteredCount}</span>
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="p-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            title="Previous page"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-green-700 font-medium px-1">
+            Page {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="p-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            title="Next page"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">
               Invoice Management
@@ -597,6 +697,48 @@ export default function InvoiceManagementPage() {
             </button>
           </div>
         </div>
+
+        {/* Summary boxes (claim invoices only) */}
+        {isClaimTab && (
+          <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+                Hire + Storage
+              </p>
+              <p className="text-lg font-bold text-green-800 mt-0.5">
+                {formatCurrency(summaryTotals.hireStorage)}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+                Payment Received
+              </p>
+              <p className="text-lg font-bold text-green-800 mt-0.5">
+                {formatCurrency(summaryTotals.paymentReceived)}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+                Fees
+              </p>
+              <p className="text-lg font-bold text-green-800 mt-0.5">
+                {formatCurrency(summaryTotals.solicitorFees)}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
+              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+                Outstanding Amount
+              </p>
+              <p
+                className={`text-lg font-bold mt-0.5 ${
+                  summaryTotals.outstanding < 0 ? "text-red-600" : "text-green-800"
+                }`}
+              >
+                {formatCurrency(summaryTotals.outstanding)}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="mb-6 border-b border-green-200">
@@ -772,15 +914,16 @@ export default function InvoiceManagementPage() {
             filterClaimId ||
             filterSentBy ||
             filterStatus ||
-            (isClaimTab ? filterClaimant || filterInfo : filterHirer)
+            (isClaimTab ? filterClaimant : filterHirer)
               ? "No matching invoices"
               : `No ${isClaimTab ? "claim" : "long term hire"} invoices yet`}
           </div>
         ) : (
           <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-300 text-xs">
-                <thead className="bg-green-50/70">
+            {/* Scrollable body with a sticky header — header always stays visible while scrolling */}
+            <div className="overflow-auto max-h-[65vh]">
+              <table className="min-w-full divide-y divide-gray-300 text-xs border-collapse">
+                <thead>
                   <tr>
                     {isClaimTab ? (
                       <>
@@ -791,10 +934,10 @@ export default function InvoiceManagementPage() {
                         <SortHeader label="Date Sent" sortKey="invoice_datetime" />
                         <SortHeader label="Sent By" sortKey="user_name" />
                         <SortHeader label="Hire + Storage" sortKey="hire_storage_total" align="right" />
-                        <SortHeader label="Solicitor Fee" sortKey="solicitor_fee" align="right" />
+                        <SortHeader label="Fees" sortKey="solicitor_fee" align="right" />
                         <SortHeader label="Payment Received" sortKey="payment_received" align="right" />
                         <SortHeader label="Date Received" sortKey="date_received" />
-                        <th className="px-3 py-2 text-center font-semibold text-green-800">
+                        <th className="sticky top-0 z-10 bg-green-100 px-3 py-2 text-center font-semibold text-green-800 border-b border-gray-400">
                           Actions
                         </th>
                       </>
@@ -806,7 +949,7 @@ export default function InvoiceManagementPage() {
                         <SortHeader label="Sent By" sortKey="user_name" />
                         <SortHeader label="Amount" sortKey="amount" align="right" />
                         <SortHeader label="Payment Date" sortKey="payment_date" />
-                        <th className="px-3 py-2 text-center font-semibold text-green-800">
+                        <th className="sticky top-0 z-10 bg-green-100 px-3 py-2 text-center font-semibold text-green-800 border-b border-gray-400">
                           Actions
                         </th>
                       </>
@@ -815,7 +958,7 @@ export default function InvoiceManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isClaimTab
-                    ? sortedClaimInvoices.map((inv) => {
+                    ? paginatedClaimInvoices.map((inv) => {
                         const isEditing = editingId === inv.id;
                         const isMarkingPaid = markingPaidId === inv.id;
                         const canMarkPaid =
@@ -960,67 +1103,17 @@ export default function InvoiceManagementPage() {
                               </span>
                             </td>
 
-                            {/* Payment Received — inline mark-paid lives here */}
-                            <td className="px-3 py-2 border-r border-gray-300">
-                              {canMarkPaid && !isEditing ? (
-                                isMarkingPaid ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="date"
-                                      value={markPaidDate}
-                                      onChange={(e) => {
-                                        setMarkPaidDate(e.target.value);
-                                        setMarkPaidError(null);
-                                      }}
-                                      autoFocus
-                                      className={`px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white w-32 ${
-                                        markPaidError ? "border-red-400" : "border-emerald-300"
-                                      }`}
-                                    />
-                                    <button
-                                      onClick={() => confirmMarkPaid(inv)}
-                                      disabled={markPaidSaving || !markPaidDate}
-                                      title="Confirm"
-                                      className="text-emerald-600 hover:text-emerald-800 disabled:opacity-40"
-                                    >
-                                      {markPaidSaving ? (
-                                        <Loader2 size={14} className="animate-spin" />
-                                      ) : (
-                                        <Check size={15} />
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={cancelMarkPaid}
-                                      title="Cancel"
-                                      className="text-slate-400 hover:text-red-500"
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    onClick={() => startMarkPaid(inv)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors whitespace-nowrap"
-                                  >
-                                    £ Mark Paid
-                                  </button>
-                                )
-                              ) : (
-                                <span
-                                  className={`block text-right font-medium ${
-                                    inv.payment_received ? "text-green-700" : "text-slate-400"
-                                  }`}
-                                >
-                                  {inv.payment_received != null
-                                    ? formatCurrency(inv.payment_received)
-                                    : "—"}
-                                </span>
-                              )}
-                              {isMarkingPaid && markPaidError && (
-                                <p className="text-red-500 text-[10px] mt-0.5">
-                                  {markPaidError}
-                                </p>
-                              )}
+                            {/* Payment Received — plain display now, action moved to Actions column */}
+                            <td className="px-3 py-2 border-r border-gray-300 text-right">
+                              <span
+                                className={`font-medium ${
+                                  inv.payment_received ? "text-green-700" : "text-slate-400"
+                                }`}
+                              >
+                                {inv.payment_received != null
+                                  ? formatCurrency(inv.payment_received)
+                                  : "—"}
+                              </span>
                             </td>
 
                             {/* Date Received */}
@@ -1037,7 +1130,7 @@ export default function InvoiceManagementPage() {
                             </td>
 
                             {/* Actions */}
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-3 py-2 text-center min-w-[140px]">
                               {isEditing ? (
                                 <div className="flex items-center justify-center gap-2">
                                   <button
@@ -1061,20 +1154,70 @@ export default function InvoiceManagementPage() {
                                     <X size={16} />
                                   </button>
                                 </div>
+                              ) : isMarkingPaid ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="date"
+                                      value={markPaidDate}
+                                      onChange={(e) => {
+                                        setMarkPaidDate(e.target.value);
+                                        setMarkPaidError(null);
+                                      }}
+                                      autoFocus
+                                      className={`px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white w-28 ${
+                                        markPaidError ? "border-red-400" : "border-emerald-300"
+                                      }`}
+                                    />
+                                    <button
+                                      onClick={() => confirmMarkPaid(inv)}
+                                      disabled={markPaidSaving || !markPaidDate}
+                                      title="Confirm"
+                                      className="text-emerald-600 hover:text-emerald-800 disabled:opacity-40"
+                                    >
+                                      {markPaidSaving ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                      ) : (
+                                        <Check size={15} />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={cancelMarkPaid}
+                                      title="Cancel"
+                                      className="text-slate-400 hover:text-red-500"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                  {markPaidError && (
+                                    <p className="text-red-500 text-[10px]">{markPaidError}</p>
+                                  )}
+                                </div>
                               ) : (
-                                <button
-                                  onClick={() => startEditing(inv)}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Edit invoice"
-                                >
-                                  <Edit2 size={16} />
-                                </button>
+                                <div className="flex items-center justify-center gap-3">
+                                  <button
+                                    onClick={() => startEditing(inv)}
+                                    className="text-green-600 hover:text-green-800"
+                                    title="Edit invoice"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  {canMarkPaid && (
+                                    <button
+                                      onClick={() => startMarkPaid(inv)}
+                                      className="text-emerald-600 hover:text-emerald-800"
+                                      title="Mark as paid"
+                                    >
+                                      <Banknote size={16} />
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
                         );
                       })
-                    : sortedLongHireInvoices.map((inv) => {
+                    : paginatedLongHireInvoices.map((inv) => {
                         const isEditingLH = editingLongHireId === inv.id;
                         return (
                           <tr
@@ -1189,6 +1332,9 @@ export default function InvoiceManagementPage() {
                 </tbody>
               </table>
             </div>
+
+            <PaginationBar />
+
             {saveError && (
               <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
                 {saveError}
