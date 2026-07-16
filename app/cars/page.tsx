@@ -889,10 +889,10 @@ export default function VehiclesPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto max-h-[70vh]">
               <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="bg-gray-50/80 border-b border-gray-200">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     <th
                       onClick={() => handleSort("reg_no")}
                       className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
@@ -1351,7 +1351,7 @@ export default function VehiclesPage() {
             </div>
           )
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto max-h-[70vh]">
             {historyLoading ? (
               <div className="flex items-center justify-center py-24">
                 <Loader2 className="animate-spin text-emerald-600" size={32} />
@@ -1365,8 +1365,8 @@ export default function VehiclesPage() {
               </div>
             ) : (
               <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="bg-gray-50/80 border-b border-gray-200">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-50 border-b border-gray-200">
                     <th
                       onClick={() => handleHistorySort("car_reg")}
                       className="text-left px-4 py-2.5 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none"
