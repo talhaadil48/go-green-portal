@@ -299,7 +299,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     for (const id in documentsData["documents"]) {
       const docVal = documentsData["documents"][id];
       let userName = undefined;
-      
+
       // Check if docVal is the new object format { url, user_name }
       if (typeof docVal === "object" && docVal !== null) {
         userName = docVal.user_name;
@@ -365,7 +365,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       if (doc.formType === "document") {
         const docVal = documentsData["documents"]?.[docId];
         const existingUrl = typeof docVal === "object" && docVal !== null ? docVal.url : docVal;
-        
+
         if (existingUrl) {
           const a = document.createElement("a");
           a.href = existingUrl;
@@ -377,7 +377,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         }
         return;
       }
-      
+
       // For generated documents, generate PDF and download
       let blob: Blob;
       let filename: string;
@@ -528,7 +528,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         if (doc.formType === "document") {
           const docVal = documentsData["documents"]?.[docId];
           const existingUrl = typeof docVal === "object" && docVal !== null ? docVal.url : docVal;
-          
+
           if (!existingUrl) {
             uploadErrors.push(doc.name || docId);
             setStatus({
@@ -809,7 +809,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          Invoice 
+          Invoice
         </h3>
         {invoicesLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -821,16 +821,20 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         ) : invoices.length > 0 ? (
           <div className="space-y-4">
             {invoices.map((invoice, index) => {
-              const invoiceDate = new Date(invoice.invoice_datetime);
-              const formattedDate = invoiceDate.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              });
-              const formattedTime = invoiceDate.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+              const formattedDate = invoice.invoice_datetime
+                ? new Date(invoice.invoice_datetime).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })
+                : "";
+
+              const formattedTime = invoice.invoice_datetime
+                ? new Date(invoice.invoice_datetime).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+                : "";
               return (
                 <div key={invoice.id} className="flex gap-4">
                   {/* Timeline dot and line */}
