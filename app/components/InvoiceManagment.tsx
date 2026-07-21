@@ -657,7 +657,7 @@ export default function InvoiceManagementPage() {
 
     window.open(`/claim/${encodeURIComponent(claimId)}`, "_blank");
   };
-   const SortHeader = ({
+  const SortHeader = ({
     label,
     sortKey,
     align = "left",
@@ -674,10 +674,10 @@ export default function InvoiceManagementPage() {
       >
         <div
           className={`flex items-center gap-1 ${align === "right"
-              ? "justify-end"
-              : align === "center"
-                ? "justify-center"
-                : "justify-start"
+            ? "justify-end"
+            : align === "center"
+              ? "justify-center"
+              : "justify-start"
             }`}
         >
           {label}
@@ -807,8 +807,8 @@ export default function InvoiceManagementPage() {
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSortConfig(null); }}
                 className={`pb-3 px-1 text-lg font-medium transition-colors ${activeTab === tab
-                    ? "text-green-700 border-b-4 border-green-600"
-                    : "text-green-600/70 hover:text-green-700"
+                  ? "text-green-700 border-b-4 border-green-600"
+                  : "text-green-600/70 hover:text-green-700"
                   }`}
               >
                 {tab === "claim" ? "Claim Invoices" : "Long Term Hire"}
@@ -1184,7 +1184,7 @@ export default function InvoiceManagementPage() {
                                 }`}
                             >
                               {inv.payment_received != null
-                                ? formatCurrency(inv.payment_received)
+                                ? formatCurrency(inv.payment_received * 0.85)
                                 : "—"}
                             </span>
                           </td>

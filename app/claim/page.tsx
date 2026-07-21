@@ -48,6 +48,7 @@ type SortColumn =
 
 type SortDirection = "asc" | "desc" | null;
 
+
 const COUNCIL_OPTIONS = [
     { value: "", label: "All Councils" },
     { value: "None", label: "None" },
@@ -57,6 +58,7 @@ const COUNCIL_OPTIONS = [
     { value: "Ashfield", label: "Ashfield" },
     { value: "Lichfield District", label: "Lichfield District" },
     { value: "North West Leicestershire", label: "North West Leicestershire" },
+    { value: "Watford", label: "Watford" },
 ];
 
 const STATUS_COLORS: Record<string, { color: string; number: number; label: string; badgeBg: string; badgeText: string }> = {
