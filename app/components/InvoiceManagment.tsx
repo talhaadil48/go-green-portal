@@ -171,7 +171,7 @@ export default function InvoiceManagementPage() {
     payment_amount: "",
     payment_date: "",
     solicitor_fee: "",
-    invoice_date: "",
+    invoice_datetime: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -389,7 +389,7 @@ export default function InvoiceManagementPage() {
       payment_amount: inv.payment_amount || "",
       payment_date: inv.payment_date ? inv.payment_date.slice(0, 10) : "",
       solicitor_fee: inv.solicitor_fee?.toString() || "",
-      invoice_date: hasRealDate(inv.invoice_datetime)
+      invoice_datetime: hasRealDate(inv.invoice_datetime)
         ? (inv.invoice_datetime as string).slice(0, 10)
         : "",
     });
@@ -408,7 +408,7 @@ export default function InvoiceManagementPage() {
       payment_amount: "",
       payment_date: "",
       solicitor_fee: "",
-      invoice_date: "",
+      invoice_datetime: "",
     });
     setSaveError(null);
   };
@@ -434,11 +434,11 @@ export default function InvoiceManagementPage() {
       if (!res.data.success) throw new Error(res.data.message || "Update failed");
 
       // Update invoice datetime through dedicated endpoint with fixed 00:00:00 time
-      if (editFormData.invoice_date.trim()) {
+      if (editFormData.invoice_datetime.trim()) {
         const datetimeRes = await api.put(
           `/api/invoice/${invoiceId}/datetime`,
           {
-            invoice_datetime: toMidnightDateTime(editFormData.invoice_date.trim()),
+            invoice_datetime: toMidnightDateTime(editFormData.invoice_datetime.trim()),
           },
           { headers: { requiresAuth: true } }
         );
@@ -455,8 +455,8 @@ export default function InvoiceManagementPage() {
             ? {
               ...inv,
               ...payload,
-              invoice_datetime: editFormData.invoice_date
-                ? toMidnightDateTime(editFormData.invoice_date)
+              invoice_datetime: editFormData.invoice_datetime
+                ? toMidnightDateTime(editFormData.invoice_datetime)
                 : inv.invoice_datetime,
             }
             : inv
@@ -1092,11 +1092,11 @@ export default function InvoiceManagementPage() {
                             {isEditing ? (
                               <input
                                 type="date"
-                                value={editFormData.invoice_date}
+                                value={editFormData.invoice_datetime}
                                 onChange={(e) =>
                                   setEditFormData((p) => ({
                                     ...p,
-                                    invoice_date: e.target.value,
+                                    invoice_datetime: e.target.value,
                                   }))
                                 }
                                 className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"

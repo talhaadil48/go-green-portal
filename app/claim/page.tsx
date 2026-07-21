@@ -17,7 +17,6 @@ interface Claim {
     invoice_id: string | null;
     info: string | null;
     invoice_datetime: string | null;
-    invoice_date: string | null;
     pay_date: string | null;
     hire_start_date: string | null;
     recently_deleted: boolean;
@@ -43,7 +42,7 @@ type SortColumn =
     | "pay_date"
     | "hire_end_date"
     | "count"
-    | "invoice_date"
+    | "invoice_datetime"
     | "council"
     | "status";
 
@@ -157,7 +156,7 @@ export default function ClaimsDashboard() {
     const [editHireEndDate, setEditHireEndDate] = useState("");
 
     const [editingField, setEditingField] = useState<
-        "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date" | null
+        "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_datetime" | "hire_start_date" | "hire_end_date" | null
     >(null);
     const [savingClaimId, setSavingClaimId] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -183,25 +182,40 @@ export default function ClaimsDashboard() {
     };
 
     // Determine stage based on dates
+    // Determine stage based on dates - only for non-closed claims
+    const isValidDate = (dateStr: string | null | undefined): boolean => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+        if (d.getFullYear() <= 1971) return false; // catches epoch/placeholder dates
+        return true;
+    };
+
     const getStageFromDates = (claim: Claim): string => {
-        // Check each stage in order (highest priority first)
-        if (claim.invoice_date) {
+        // If claim is closed, return "closed"
+        if (isClaimClosed(claim)) {
+            return "closed";
+        }
+
+        // Check each stage in priority order (highest priority first)
+        if (isValidDate(claim.invoice_datetime)) {
             return "invoice sent";
         }
-        if (claim.hire_end_date) {
+        if (isValidDate(claim.hire_end_date)) {
             return "hire end";
         }
-        if (claim.pay_date) {
+        if (isValidDate(claim.pay_date)) {
             return "client paid";
         }
-        if (claim.hire_start_date) {
+        if (isValidDate(claim.hire_start_date)) {
             return "hire start";
         }
-        if (claim.claim_start_date) {
+        if (isValidDate(claim.claim_start_date)) {
             return "claim created";
         }
         return "claim created";
     };
+
 
     // Get stage number
     const getStageNumber = (claim: Claim): number => {
@@ -345,12 +359,12 @@ export default function ClaimsDashboard() {
                     return sortDirection === "asc" ? comparison : -comparison;
                 }
 
-                if (["claim_start_date", "hire_start_date", "pay_date", "hire_end_date", "invoice_date"].includes(sortColumn as string)) {
-                    let field: "claim_start_date" | "hire_start_date" | "pay_date" | "hire_end_date" | "invoice_date" = "claim_start_date";
+                if (["claim_start_date", "hire_start_date", "pay_date", "hire_end_date", "invoice_datetime"].includes(sortColumn as string)) {
+                    let field: "claim_start_date" | "hire_start_date" | "pay_date" | "hire_end_date" | "invoice_datetime" = "claim_start_date";
                     if (sortColumn === "hire_start_date") field = "hire_start_date";
                     if (sortColumn === "pay_date") field = "pay_date";
                     if (sortColumn === "hire_end_date") field = "hire_end_date";
-                    if (sortColumn === "invoice_date") field = "invoice_date";
+                    if (sortColumn === "invoice_datetime") field = "invoice_datetime";
                     const sentinel = sortDirection === "asc" ? Infinity : -Infinity;
                     aVal = a[field] ? new Date(a[field]!).getTime() : sentinel;
                     bVal = b[field] ? new Date(b[field]!).getTime() : sentinel;
@@ -486,7 +500,7 @@ export default function ClaimsDashboard() {
 
     const startEditing = (
         claim: Claim,
-        field: "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date"
+        field: "name" | "council" | "claim_type" | "claim_start_date" | "pay_date" | "invoice_datetime" | "hire_start_date" | "hire_end_date"
     ) => {
         if (savingClaimId) return;
         setEditingClaimId(claim.claim_id);
@@ -506,8 +520,8 @@ export default function ClaimsDashboard() {
         } else if (field === "pay_date") {
             setEditPayDate(claim.pay_date ? claim.pay_date.slice(0, 10) : "");
             setTimeout(() => dateInputRef.current?.focus(), 10);
-        } else if (field === "invoice_date") {
-            setEditInvoiceDate(claim.invoice_date ? claim.invoice_date.slice(0, 10) : "");
+        } else if (field === "invoice_datetime") {
+            setEditInvoiceDate(claim.invoice_datetime ? claim.invoice_datetime.slice(0, 10) : "");
             setTimeout(() => dateInputRef.current?.focus(), 10);
         } else if (field === "hire_start_date") {
             setEditHireStartDate(claim.hire_start_date ? claim.hire_start_date.slice(0, 10) : "");
@@ -583,7 +597,7 @@ export default function ClaimsDashboard() {
                 else if (editingField === "claim_type") payload.claim_type = editTypeValue.trim();
                 else if (editingField === "claim_start_date") payload.claim_start_date = editClaimStartDate || null;
                 else if (editingField === "pay_date") payload.pay_date = editPayDate || null;
-                else if (editingField === "invoice_date") payload.invoice_date = editInvoiceDate || null;
+                else if (editingField === "invoice_datetime") payload.invoice_datetime = editInvoiceDate || null;
 
                 await api.put(
                     `/api/claims/${claim_id}`,
@@ -599,7 +613,7 @@ export default function ClaimsDashboard() {
                             if (editingField === "claim_type") return { ...c, claim_type: editTypeValue.trim() };
                             if (editingField === "claim_start_date") return { ...c, claim_start_date: editClaimStartDate || null };
                             if (editingField === "pay_date") return { ...c, pay_date: editPayDate || null };
-                            if (editingField === "invoice_date") return { ...c, invoice_date: editInvoiceDate || null };
+                            if (editingField === "invoice_datetime") return { ...c, invoice_datetime: editInvoiceDate || null };
                         }
                         return c;
                     })
@@ -683,7 +697,7 @@ export default function ClaimsDashboard() {
         // For the breakdown, if "claim created" is selected, include both Stage 1 and 2
         let filteredForTypes;
         if (selectedStage === "claim created") {
-            filteredForTypes = activeClaims.filter(c => 
+            filteredForTypes = activeClaims.filter(c =>
                 getStageFromDates(c) === "claim created" || getStageFromDates(c) === "hire start"
             );
         } else if (selectedStage) {
@@ -734,7 +748,7 @@ export default function ClaimsDashboard() {
 
     const renderDateCell = (
         claim: Claim,
-        field: "claim_start_date" | "pay_date" | "invoice_date" | "hire_start_date" | "hire_end_date",
+        field: "claim_start_date" | "pay_date" | "invoice_datetime" | "hire_start_date" | "hire_end_date",
         editValue: string,
         setEditValue: (v: string) => void,
         isVehicleDamageBlocked: boolean = false
