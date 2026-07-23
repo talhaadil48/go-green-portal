@@ -928,7 +928,10 @@ export default function ClaimsDashboard() {
 
                                 return (
                                     <tr key={claim.claim_id} className={`${rowBgColor} ${hoverBgColor} transition-colors`}>
-                                        <td className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-left" onClick={() => router.push(`/claim/${claim.claim_id}`)}>
+                                        <td
+                                            className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap text-left"
+                                            onClick={() => window.open(`/claim/${claim.claim_id}`, "_blank")}
+                                        >
                                             {claim.claim_id.toUpperCase()}
                                         </td>
                                         <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap">
