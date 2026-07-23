@@ -20,7 +20,9 @@ import {
   History,
   X,
   Clock,
-  Edit3
+  Edit3,
+  ChevronRight,
+  Layers
 } from 'lucide-react';
 
 interface SummaryData {
@@ -444,44 +446,53 @@ const styles = `
     background: #a12c22;
   }
 
-  /* ── Modal Styles ── */
-  .sr-modal-overlay {
+  /* ── NEW MODAL STYLES ── */
+  .history-modal-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 28, 19, 0.6);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    padding: 20px;
+    padding: 24px;
+    animation: fadeIn 0.25s ease-out;
   }
 
-  .sr-modal-content {
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .history-modal {
     background: var(--sr-white);
     border-radius: var(--sr-r);
     width: 100%;
-    max-width: 1200px; 
-    height: 90vh; 
-    max-height: 95vh;
+    max-width: 900px;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     overflow: hidden;
   }
 
-  .sr-modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #e0e6e3;
+  .history-modal-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid #e8edeb;
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: var(--sr-bg);
+    flex-shrink: 0;
   }
 
-  .sr-modal-title {
+  .history-modal-title {
     font-family: 'Sora', sans-serif;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: var(--sr-text-head);
     display: flex;
@@ -489,80 +500,231 @@ const styles = `
     gap: 12px;
   }
 
-  .sr-modal-body {
-    padding: 24px;
-    overflow-y: auto;
-    display: grid;
-    /* Updated to 3 columns per row */
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px; 
-    align-content: start;
-  }
-  
-  @media (max-width: 1024px) {
-    .sr-modal-body {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .sr-modal-body {
-      grid-template-columns: 1fr; 
-    }
-  }
-
-  .sr-history-item {
-    background: var(--sr-white);
-    border: 1px solid #e0e6e3;
-    border-radius: 6px;
-    padding: 8px 12px; 
+  .history-modal-title .icon-wrapper {
     display: flex;
-    flex-direction: column;
-    gap: 6px; 
-  }
-
-  .sr-history-meta {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-size: 11px; 
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--sr-em);
+    border-radius: 8px;
+    color: white;
+  }
+
+  .history-close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
     color: var(--sr-text-faint);
-  }
-  
-  .sr-history-user {
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-weight: 600;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .history-close-btn:hover {
+    background: var(--sr-bg);
     color: var(--sr-text-head);
   }
 
-  .sr-history-form {
-    display: inline-block;
+  .history-modal-body {
+    padding: 24px 28px;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .history-timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .history-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--sr-em-border);
+  }
+
+  .history-item {
+    position: relative;
+    margin-bottom: 24px;
+    padding-left: 20px;
+  }
+
+  .history-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .history-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sr-em);
+    border: 2px solid var(--sr-white);
+    box-shadow: 0 0 0 2px var(--sr-em);
+  }
+
+  .history-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-bottom: 6px;
+  }
+
+  .history-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--sr-text-head);
+    font-size: 14px;
+  }
+
+  .history-user .user-avatar {
+    width: 24px;
+    height: 24px;
+    background: var(--sr-em-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sr-em);
+  }
+
+  .history-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--sr-text-faint);
+  }
+
+  .history-form-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--sr-em-pale);
     color: var(--sr-em);
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 10px; 
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
   }
 
-  .sr-history-fields {
+  .history-fields {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 2px;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 32px;
   }
 
-  .sr-field-tag {
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    color: #4b5563;
-    font-size: 9px; 
-    padding: 2px 5px;
+  .history-field-tag {
+    background: #f3f6f5;
+    border: 1px solid #e0e6e3;
+    color: var(--sr-text-muted);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .history-field-tag::before {
+    content: '•';
+    color: var(--sr-em);
+    font-weight: 700;
+  }
+
+  .history-empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--sr-text-faint);
+  }
+
+  .history-empty-state .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  .history-empty-state h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    color: var(--sr-text-head);
+    margin-bottom: 8px;
+  }
+
+  .history-empty-state p {
+    font-size: 14px;
+  }
+
+  .history-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+  }
+
+  .history-loading .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--sr-em-border);
+    border-top: 3px solid var(--sr-em);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .history-loading p {
+    color: var(--sr-text-faint);
+    font-size: 14px;
+  }
+
+  .history-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--sr-danger-pale);
+    border: 1px solid var(--sr-danger-border);
+    border-radius: 8px;
+    color: var(--sr-danger);
+    font-size: 14px;
+  }
+
+  .history-item-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    background: var(--sr-bg);
     border-radius: 4px;
-    font-family: 'Roboto Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--sr-text-faint);
+    padding: 0 6px;
+    margin-right: 2px;
   }
 `;
 
@@ -573,7 +735,9 @@ const fmt = (d: string | null | undefined): string => {
     return new Intl.DateTimeFormat('en-GB', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     }).format(new Date(d));
   } catch {
     return "—";
@@ -581,7 +745,7 @@ const fmt = (d: string | null | undefined): string => {
 };
 
 /** 
- * Claim History Modal 
+ * Claim History Modal - Completely Redesigned
  */
 function ClaimHistoryModal({ claimId, onClose }: { claimId: string; onClose: () => void }) {
   const [history, setHistory] = useState<ClaimChange[]>([]);
@@ -629,76 +793,104 @@ function ClaimHistoryModal({ claimId, onClose }: { claimId: string; onClose: () 
     return formName;
   };
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   return (
-    <div className="sr-modal-overlay" onClick={onClose}>
-      <div className="sr-modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="sr-modal-header">
-          <div className="sr-modal-title">
-            <History size={24} color="var(--sr-em)" />
-            Claim History
+    <div className="history-modal-overlay" onClick={onClose}>
+      <div className="history-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="history-modal-header">
+          <div className="history-modal-title">
+            <span className="icon-wrapper">
+              <Layers size={18} />
+            </span>
+            Change History
+            <span style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: 'var(--sr-text-faint)',
+              fontFamily: 'Inter, sans-serif',
+              marginLeft: '4px'
+            }}>
+              #{claimId}
+            </span>
           </div>
-          <button onClick={onClose} className='action-btn' style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--sr-text-faint)' }}>
-            <X size={24} />
-          </button>
+          
         </div>
 
-        <div className="sr-modal-body">
+        <div className="history-modal-body">
           {loading && (
-            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: '20px' }}>
-              <Loader2 className="animate-spin" size={24} color="var(--sr-em)" />
+            <div className="history-loading">
+              <div className="spinner" />
+              <p>Loading change history...</p>
             </div>
           )}
 
           {error && (
-            <div style={{ gridColumn: '1 / -1', color: 'var(--sr-danger)', textAlign: 'center', fontSize: '14px', padding: '20px' }}>
+            <div className="history-error">
+              <AlertCircle size={18} />
               {error}
             </div>
           )}
 
           {!loading && !error && history.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--sr-text-faint)', fontSize: '13px', padding: '20px' }}>
-              No history found for this claim.
+            <div className="history-empty-state">
+              <div className="empty-icon">📋</div>
+              <h3>No changes recorded</h3>
+              <p>This claim hasn't been modified yet.</p>
             </div>
           )}
 
-          {!loading && !error && history.map((item, index) => (
-            <div key={item.id} className="sr-history-item">
-              <div className="sr-history-meta">
-                <div className="sr-history-user">
-                  <span style={{ 
-                    color: 'var(--sr-text-faint)', 
-                    background: 'var(--sr-bg)', 
-                    padding: '2px 4px', 
-                    borderRadius: '4px',
-                    marginRight: '4px'
-                  }}>
-                    #{index + 1}
-                  </span>
-                  <User size={10} />
-                  {item.user_name}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Clock size={10} />
-                  {fmt(item.date)}
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Edit3 size={10} color="var(--sr-text-faint)" />
-                <span className="sr-history-form">{formatFormName(item.form)}</span>
-              </div>
+          {!loading && !error && history.length > 0 && (
+            <div className="history-timeline">
+              {history.map((item, index) => (
+                <div key={item.id} className="history-item">
+                  <div className="history-item-header">
+                    <div className="history-user">
+                      <span className="user-avatar">
+                        <User size={12} />
+                      </span>
+                      <span>{item.user_name}</span>
+                      <span style={{
+                        fontSize: '11px',
+                        color: 'var(--sr-text-faint)',
+                        fontWeight: 400
+                      }}>
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <div className="history-date">
+                      <Clock size={12} />
+                      {fmt(item.date)}
+                    </div>
+                  </div>
 
-              {item.fields && item.fields.length > 0 && (
-                <div className="sr-history-fields">
-                  {item.fields.map(field => (
-                    <span key={field} className="sr-field-tag">
-                      {prettyField(field)}
+                  <div style={{ paddingLeft: '32px' }}>
+                    <span className="history-form-badge">
+                      <Edit3 size={10} />
+                      {formatFormName(item.form)}
                     </span>
-                  ))}
+                  </div>
+
+                  {item.fields && item.fields.length > 0 && (
+                    <div className="history-fields">
+                      {item.fields.map(field => (
+                        <span key={field} className="history-field-tag">
+                          {prettyField(field)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
