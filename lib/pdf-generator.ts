@@ -436,7 +436,7 @@ Website: www.gogreenhire.co.uk`;
     try {
       const termsResponse = await fetch("/t.pdf");
       if (!termsResponse.ok) {
-        console.warn("Could not load /terms.pdf – skipping append");
+        console.warn("Could not load /t.pdf – skipping append");
       } else {
         const termsArrayBuffer = await termsResponse.arrayBuffer();
         const termsPdfDoc = await PDFDocument.load(termsArrayBuffer);
@@ -446,21 +446,23 @@ Website: www.gogreenhire.co.uk`;
 
         const copiedPages = await mainPdfDoc.copyPages(
           termsPdfDoc,
-          termsPdfDoc.getPageIndices(),
+          termsPdfDoc.getPageIndices()
         );
 
-        copiedPages.forEach((page) => {
-          mainPdfDoc.addPage(page);
+        // Insert before the last page
+        const insertIndex = Math.max(0, mainPdfDoc.getPageCount() - 1);
+
+        copiedPages.forEach((page, i) => {
+          mainPdfDoc.insertPage(insertIndex + i, page);
         });
 
         const finalPdfBytes = await mainPdfDoc.save();
         return new Blob([finalPdfBytes], { type: "application/pdf" });
       }
     } catch (err) {
-      console.error("Failed to append terms.pdf:", err);
+      console.error("Failed to insert t.pdf:", err);
     }
   }
-
   return pdf.output("blob");
 }
 
@@ -1076,7 +1078,6 @@ async function generateStoragePDF(
 
 
 
-
 async function generateRentalPDF(
   pdf,
   formData,
@@ -1209,6 +1210,16 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   pdf.text(up(data.hire_vehicle_model), margin + half + 30, y + 3);
 
+  // NEW: Rate/Day field moved here - next to Make/Model
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Rate/Day", margin + half + 65, y + 3);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(
+    data.hire_vehicle_rate_per_day ? `£${data.hire_vehicle_rate_per_day}` : "—",
+    margin + half + 80,
+    y + 3,
+  );
+
   y += 7.5;
 
   pdf.setTextColor(80, 80, 80);
@@ -1239,18 +1250,119 @@ async function generateRentalPDF(
   pdf.setTextColor(0, 0, 0);
   pdf.text(up(data.hire_vehicle_fuel_in), margin + half + 80, y + 1);
 
-  y += Math.max(addrHeight, 5) + 3;
+  y += Math.max(addrHeight, 8.5) + 3;
+
+  pdf.setDrawColor(100, 100, 100);
+  pdf.setLineWidth(0.2);
+  pdf.line(margin, y, pageWidth - margin, y);
+  y += 4; // ─── 3. Change of Hire Vehicle ──────────────────────
+  // (moved up from the end of page 1 so it directly follows
+  // the main Hire Vehicle details, and renumbered to 3.
+  // All subsequent sections are renumbered accordingly.)
+  const changeVehicleHistory = Array.isArray(data.change_vehicle_history)
+    ? data.change_vehicle_history
+    : [];
+  const hasChangeVehicle = changeVehicleHistory.length > 0;
+
+  // Always show the section header
+  y = checkNewPage(y, 12);
+
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(0, 0, 0);
+  pdf.text("3. Change of Hire Vehicle", margin, y);
+  y += 3.5;
+
+  if (hasChangeVehicle) {
+    const multiple = changeVehicleHistory.length > 1;
+
+    changeVehicleHistory.forEach((vehicle, index) => {
+      y = checkNewPage(y, 12);
+
+      if (multiple) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(0, 128, 0);
+        pdf.text(`Vehicle ${index + 1}`, margin, y);
+        y += 2.6;
+      }
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Reg", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_reg), margin + 20, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Make", margin + col4, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_make), margin + col4 + 20, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Model", margin + col4 * 2, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.vehicle_model), margin + col4 * 2 + 20, y);
+
+      y += 3;
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date Out", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(vehicle.date_out), margin + 25, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Date In", margin + half, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(formatDate(vehicle.date_in), margin + half + 25, y);
+
+      y += 3;
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Fuel Out", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.fuel_out), margin + 25, y);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Fuel In", margin + half, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(up(vehicle.fuel_in), margin + half + 25, y);
+
+      y += 3;
+
+      // Rate/Day field for each change-of-vehicle entry
+      pdf.setTextColor(80, 80, 80);
+      pdf.text("Rate/Day", margin, y);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(
+        vehicle.rate_per_day ? `£${vehicle.rate_per_day}` : "—",
+        margin + 25,
+        y,
+      );
+
+      y += 4;
+    });
+  } else {
+    // Show message when no vehicles were changed
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text("No vehicles were changed during the hire period.", margin + 4, y);
+    y += 6;
+  }
 
   pdf.setDrawColor(100, 100, 100);
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
 
-  // ─── 3. Driver's Details ────────────────────────────
+  // ─── 4. Driver's Details ────────────────────────────
   y = checkNewPage(y, 16);
+  pdf.setTextColor(0, 0, 0);
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
-  pdf.text("3. Driver's Details", margin, y);
+  pdf.text("4. Driver's Details", margin, y);
   y += 3;
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(6.5);
@@ -1293,11 +1405,11 @@ async function generateRentalPDF(
 
   y = checkNewPage(y, 16);
 
-  // ─── 4. Additional Driver's Details ─────────────────
+  // ─── 5. Additional Driver's Details ─────────────────
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("4. Additional Driver's Details", margin, y);
+  pdf.text("5. Additional Driver's Details", margin, y);
   y += 3.5;
 
   if (!hasAdditionalDriver) {
@@ -1350,12 +1462,12 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
 
-  // ─── 5. Hire Agreement Terms ────────────────────────
+  // ─── 6. Hire Agreement Terms ────────────────────────
   y = checkNewPage(y, 18);
   pdf.setFontSize(8);
   pdf.setTextColor(0, 0, 0);
   pdf.setFont("helvetica", "bold");
-  pdf.text("5. Hire Agreement Terms", margin, y);
+  pdf.text("6. Hire Agreement Terms", margin, y);
   y += 3;
 
   pdf.setFont("helvetica", "normal");
@@ -1370,28 +1482,30 @@ async function generateRentalPDF(
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(6.5);
 
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Daily Rate", margin, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 30, y);
+  // Daily Rate field REMOVED
+  // pdf.setTextColor(80, 80, 80);
+  // pdf.text("Daily Rate", margin, y);
+  // pdf.setTextColor(0, 0, 0);
+  // pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 30, y);
 
   pdf.setTextColor(80, 80, 80);
-  pdf.text("Policy Excess", margin + half, y);
+  pdf.text("Policy Excess", margin, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + half + 30, y);
+  pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + 30, y);
+
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Deposit", margin + half, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + half + 30, y);
   y += 3;
 
+  // Refuelling Charge field - adjusted position to align with the layout
   pdf.setTextColor(80, 80, 80);
-  pdf.text("Deposit", margin, y);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + 30, y);
-
-  pdf.setTextColor(80, 80, 80);
-  pdf.text("Refuelling Charge", margin + half, y);
+  pdf.text("Refuelling Charge", margin, y);
   pdf.setTextColor(0, 0, 0);
   pdf.text(
     data.refuelling_charge ? `£${data.refuelling_charge}` : "—",
-    margin + half + 30,
+    margin + 30,
     y,
   );
   y += 4;
@@ -1421,8 +1535,7 @@ async function generateRentalPDF(
   pdf.setLineWidth(0.2);
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
-
-  // ─── 6. Hirer's Own Insurance ────────────────────────
+  // ─── 7. Hirer's Own Insurance ────────────────────────
   const hasOwnInsurance = !!(
     data.insurance_company?.trim() ||
     data.policy_no?.trim() ||
@@ -1439,7 +1552,7 @@ async function generateRentalPDF(
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("6. Hirer's Own Insurance (if applicable)", margin, y);
+  pdf.text("7. Hirer's Own Insurance (if applicable)", margin, y);
   y += 3.5;
 
   if (!hasOwnInsurance) {
@@ -1516,13 +1629,13 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
 
-  // ─── 7. Insurance Proposal + 8. Medical ─────────────
+  // ─── 8. Insurance Proposal + 9. Medical ─────────────
   y = checkNewPage(y, 24);
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("7. Insurance Proposal", margin, y);
-  pdf.text("8. Medical Declaration", margin + half + 8, y);
+  pdf.text("8. Insurance Proposal", margin, y);
+  pdf.text("9. Medical Declaration", margin + half + 8, y);
   y += 3.5;
 
   pdf.setFont("helvetica", "normal");
@@ -1577,11 +1690,11 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
 
-  // ─── 9. Additional Driver Authorization ─────────────
+  // ─── 10. Additional Driver Authorization ────────────
   y = checkNewPage(y, 8);
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
-  pdf.text("9. Additional Driver Authorization", margin, y);
+  pdf.text("10. Additional Driver Authorization", margin, y);
   y += 3;
 
   pdf.setFont("helvetica", "normal");
@@ -1619,12 +1732,12 @@ async function generateRentalPDF(
   pdf.text(dpLines, margin, y);
   y += dpLines.length * 2.2 + 3;
 
-  // ─── 10. Declaration ────────────────────────────────
+  // ─── 11. Declaration ────────────────────────────────
   y = checkNewPage(y, 18);
   pdf.setFontSize(8);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("10. Declaration", margin, y);
+  pdf.text("11. Declaration", margin, y);
   y += 3;
 
   pdf.setFont("helvetica", "normal");
@@ -1664,92 +1777,12 @@ async function generateRentalPDF(
   pdf.line(margin, y, pageWidth - margin, y);
   y += 4;
 
-  // ─── 11. Change of Hire Vehicle ──────────────────────
-  const changeVehicleHistory = Array.isArray(data.change_vehicle_history)
-    ? data.change_vehicle_history
-    : [];
-  const hasChangeVehicle = changeVehicleHistory.length > 0;
-
-  if (hasChangeVehicle) {
-    y = checkNewPage(y, 12);
-
-    pdf.setFontSize(8);
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("11. Change of Hire Vehicle", margin, y);
-    y += 3.5;
-
-    const multiple = changeVehicleHistory.length > 1;
-
-    changeVehicleHistory.forEach((vehicle, index) => {
-      y = checkNewPage(y, 8);
-
-      if (multiple) {
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(0, 128, 0);
-        pdf.text(`Vehicle ${index + 1}`, margin, y);
-        y += 2.6;
-      }
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(6.5);
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Reg", margin, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.vehicle_reg), margin + 20, y);
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Make", margin + col4, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.vehicle_make), margin + col4 + 20, y);
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Model", margin + col4 * 2, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.vehicle_model), margin + col4 * 2 + 20, y);
-
-      y += 3;
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Date Out", margin, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(vehicle.date_out), margin + 25, y);
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Date In", margin + half, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(vehicle.date_in), margin + half + 25, y);
-
-      y += 3;
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Fuel Out", margin, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.fuel_out), margin + 25, y);
-
-      pdf.setTextColor(80, 80, 80);
-      pdf.text("Fuel In", margin + half, y);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(up(vehicle.fuel_in), margin + half + 25, y);
-
-      y += 4;
-    });
-
-    pdf.setDrawColor(100, 100, 100);
-    pdf.setLineWidth(0.2);
-    pdf.line(margin, y, pageWidth - margin, y);
-    y += 4;
-  }
-
   // ─── 12. Parking Fines & Congestion Charges ─────────
-  // (moved here from the old Hire Invoice page)
   y = checkNewPage(y, 16);
   pdf.setFontSize(7);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("11. Parking Fines & Congestion Charges", margin, y);
+  pdf.text("12. Parking Fines & Congestion Charges", margin, y);
   y += 3;
 
   pdf.setFont("helvetica", "normal");
@@ -1767,12 +1800,11 @@ async function generateRentalPDF(
   y += congestionLines.length * 2.2 + 3;
 
   // ─── 13. Statement of Liability ──────────────────────
-  // (moved here from the old Hire Invoice page)
   y = checkNewPage(y, 22);
   pdf.setFontSize(7);
   pdf.setFont("helvetica", "bold");
   pdf.setTextColor(0, 0, 0);
-  pdf.text("12. Statement of Liability", margin, y);
+  pdf.text("13. Statement of Liability", margin, y);
   y += 3;
 
   pdf.setFont("helvetica", "normal");
@@ -1830,7 +1862,6 @@ async function generateRentalPDF(
   invoiceY = drawDocumentHeader(invoiceY);
 
   y = invoiceY;
-
 
   // ─── Day In / Day Out / Total Days panel ────────────
   const invoiceDateOut = String(data.hire_vehicle_date_out || "");
@@ -2059,6 +2090,8 @@ async function generateRentalPDF(
 
   return y;
 }
+
+
 
 async function generateClaimPDF(
   pdf: jsPDF,
