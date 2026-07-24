@@ -8,9 +8,14 @@ interface DocumentManagerProps {
   claimId: string;
 }
 
+type DocCategory = "client" | "GG";
+
+const CATEGORIES: DocCategory[] = ["client", "GG"];
+
 interface DocumentData {
   url: string;
   user_name?: string;
+  category?: string | null;
 }
 
 interface DocumentsMap {
@@ -90,6 +95,19 @@ function normalizeS3Url(rawUrl: string): string {
   return u.toString();
 }
 
+/**
+ * Normalize a document's category. If the backend didn't send one (null,
+ * undefined, empty string, or anything unrecognized), default to "client".
+ */
+function normalizeCategory(cat?: string | null): DocCategory {
+  if (cat === "GG") return "GG";
+  return "client";
+}
+
+function getDocData(doc: string | DocumentData): DocumentData {
+  return typeof doc === "string" ? { url: doc } : doc;
+}
+
 export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<DocumentsMap>({});
   const [loading, setLoading] = useState(true);
@@ -99,9 +117,11 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [singleDocName, setSingleDocName] = useState("");
+  const [uploadCategory, setUploadCategory] = useState<DocCategory>("client");
   const [uploading, setUploading] = useState(false);
   const [sourceType, setSourceType] = useState<"file" | "camera" | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [categoryUpdating, setCategoryUpdating] = useState<string | null>(null);
 
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
@@ -267,6 +287,9 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
           // Store as-is (backend behavior), UI will normalize when opening
           url: results[i].fileUrl,
           user_name: originalUserName,
+          // Category chosen at upload time. Backend may omit this for older
+          // docs — normalizeCategory() treats missing/unknown as "client".
+          category: uploadCategory,
         };
       }
 
@@ -297,6 +320,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
       setFileNames([]);
       setSingleDocName("");
       setSourceType(null);
+      setUploadCategory("client");
     } catch (err: any) {
       setError(err.message || "Failed to upload document(s).");
       console.error(err);
@@ -328,16 +352,111 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     }
   };
 
+  const handleCategoryChange = async (docKey: string, newCategory: DocCategory) => {
+    const previous = { ...documents };
+    const existing = getDocData(documents[docKey]);
+    const updatedDoc: DocumentData = { ...existing, category: newCategory };
+    const updated = { ...documents, [docKey]: updatedDoc };
+
+    setDocuments(updated);
+    setCategoryUpdating(docKey);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      const putRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documents: updated,
+            user_name: username,
+          }),
+        }
+      );
+
+      if (!putRes.ok) throw new Error("Failed to update category");
+      setSuccessMsg(`"${docKey}" moved to ${newCategory}.`);
+    } catch (err: any) {
+      setDocuments(previous);
+      setError("Failed to update category – changes reverted.");
+      console.error("Category update error:", err);
+    } finally {
+      setCategoryUpdating(null);
+    }
+  };
+
   const handleClearForm = () => {
     setSelectedFiles([]);
     setFileNames([]);
     setSingleDocName("");
     setSourceType(null);
+    setUploadCategory("client");
     setError(null);
     setSuccessMsg(null);
   };
 
   const isMultiple = selectedFiles.length > 1;
+
+  // Group documents by category (missing/unknown category defaults to "client")
+  const groupedDocuments = CATEGORIES.reduce((acc, cat) => {
+    acc[cat] = Object.entries(documents).filter(
+      ([, docData]) => normalizeCategory(getDocData(docData).category) === cat
+    );
+    return acc;
+  }, {} as Record<DocCategory, [string, string | DocumentData][]>);
+
+  const renderDocRow = (name: string, docData: string | DocumentData) => {
+    const data = getDocData(docData);
+    const openUrl = normalizeS3Url(data.url);
+    const uploader = data.user_name ? data.user_name.toUpperCase() : "__";
+    const currentCategory = normalizeCategory(data.category);
+
+    return (
+      <div
+        key={name}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition group"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-green-900 truncate">{name}</p>
+          <p className="text-xs text-gray-500 mt-1">Uploaded by: {uploader}</p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <select
+            value={currentCategory}
+            disabled={categoryUpdating === name}
+            onChange={(e) =>
+              handleCategoryChange(name, e.target.value as DocCategory)
+            }
+            className="text-xs border border-green-200 rounded-lg px-2 py-2 bg-white text-green-800 focus:ring-2 focus:ring-green-400 focus:border-green-400 disabled:opacity-60"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat === "GG" ? "GG" : "Client"}
+              </option>
+            ))}
+          </select>
+
+          <a
+            href={openUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
+          >
+            Open
+          </a>
+          <button
+            onClick={() => handleDelete(name)}
+            className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-10">
@@ -456,6 +575,33 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
             </div>
           </div>
 
+          {selectedFiles.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Category
+              </label>
+              <div className="flex gap-3">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setUploadCategory(cat)}
+                    className={`px-5 py-2 rounded-full text-sm font-medium border transition ${
+                      uploadCategory === cat
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-white text-green-700 border-green-200 hover:bg-green-50"
+                    }`}
+                  >
+                    {cat === "GG" ? "GG" : "Client"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Applies to all files in this upload.
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row justify-end gap-4">
             <button
               type="button"
@@ -488,64 +634,41 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
         )}
       </div>
 
-      <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6 md:p-8">
-        <h2 className="text-2xl font-bold text-green-800 mb-6">
-          Current Documents ({Object.keys(documents).length})
-        </h2>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+        </div>
+      ) : Object.keys(documents).length === 0 ? (
+        <div className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6 md:p-8 text-center py-16 text-gray-600">
+          No documents uploaded for this claim yet.
+          <br />
+          <span className="text-sm">Use the form above to add documents.</span>
+        </div>
+      ) : (
+        CATEGORIES.map((cat) => (
+          <div
+            key={cat}
+            className="bg-white/90 backdrop-blur-sm border border-green-100 rounded-2xl shadow-lg p-6 md:p-8"
+          >
+            <h2 className="text-2xl font-bold text-green-800 mb-6">
+              {cat === "GG" ? "GG Documents" : "Client Documents"} (
+              {groupedDocuments[cat].length})
+            </h2>
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+            {groupedDocuments[cat].length === 0 ? (
+              <p className="text-gray-500 text-sm py-6 text-center">
+                No {cat === "GG" ? "GG" : "client"} documents yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {groupedDocuments[cat].map(([name, docData]) =>
+                  renderDocRow(name, docData)
+                )}
+              </div>
+            )}
           </div>
-        ) : Object.keys(documents).length === 0 ? (
-          <div className="text-center py-16 text-gray-600">
-            No documents uploaded for this claim yet.
-            <br />
-            <span className="text-sm">Use the form above to add documents.</span>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {Object.entries(documents).map(([name, docData]) => {
-              const rawUrl = typeof docData === "string" ? docData : docData.url;
-              const openUrl = normalizeS3Url(rawUrl);
-
-              const uploader =
-                typeof docData === "object" && docData.user_name
-                  ? docData.user_name.toUpperCase()
-                  : "__";
-
-              return (
-                <div
-                  key={name}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-green-900 truncate">{name}</p>
-                    <p className="text-xs text-gray-500 mt-1">Uploaded by: {uploader}</p>
-                  </div>
-
-                  <div className="flex gap-3 flex-shrink-0">
-                    <a
-                      href={openUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
-                    >
-                      Open
-                    </a>
-                    <button
-                      onClick={() => handleDelete(name)}
-                      className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        ))
+      )}
     </div>
   );
 }
