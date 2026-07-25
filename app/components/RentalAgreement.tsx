@@ -610,12 +610,92 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     return true;
   };
 
+  // ══════════════════════════════════════════════════════════════════
+  // ─── NEW: Overlapping hire-date validation ───
+  // ══════════════════════════════════════════════════════════════════
+
+  /**
+   * Returns true if [startA, endA] overlaps at all with [startB, endB].
+   * Inclusive on both ends, matching the examples in the spec:
+   *   existing: 12 Dec -> 18 Dec
+   *   10 Dec -> 13 Dec  => overlap (true)
+   *   19 Dec -> 25 Dec  => no overlap (false)
+   */
+  const datesOverlap = (
+    startA: string,
+    endA: string,
+    startB: string,
+    endB: string
+  ): boolean => {
+    if (!startA || !endA || !startB || !endB) return false;
+    const aStart = new Date(startA).getTime();
+    const aEnd = new Date(endA).getTime();
+    const bStart = new Date(startB).getTime();
+    const bEnd = new Date(endB).getTime();
+    if ([aStart, aEnd, bStart, bEnd].some((t) => isNaN(t))) return false;
+    // Overlap unless one range ends strictly before the other starts
+    return aStart <= bEnd && bStart <= aEnd;
+  };
+
+  /**
+   * Validates that the main Hire Vehicle date range does not overlap with
+   * any Change of Hire Vehicle date range, and that Change of Hire Vehicle
+   * date ranges don't overlap with each other, within this same submission.
+   *
+   * Returns null if valid, or an error message string if an overlap is found.
+   */
+  const validateNoOverlappingHireDates = (): string | null => {
+    type Candidate = { label: string; dateOut: string; dateIn: string };
+
+    const candidates: Candidate[] = [];
+
+    if (formData.hire_vehicle_date_out && formData.hire_vehicle_date_in) {
+      candidates.push({
+        label: "Hire Vehicle",
+        dateOut: String(formData.hire_vehicle_date_out),
+        dateIn: String(formData.hire_vehicle_date_in),
+      });
+    }
+
+    (formData.change_vehicle_history as ChangeVehicleRecord[]).forEach((v, i) => {
+      if (v.date_out && v.date_in) {
+        candidates.push({
+          label: `Change of Hire Vehicle #${i + 1}`,
+          dateOut: v.date_out,
+          dateIn: v.date_in,
+        });
+      }
+    });
+
+    if (candidates.length < 2) return null;
+
+    for (let i = 0; i < candidates.length; i++) {
+      for (let j = i + 1; j < candidates.length; j++) {
+        const a = candidates[i];
+        const b = candidates[j];
+        if (datesOverlap(a.dateOut, a.dateIn, b.dateOut, b.dateIn)) {
+          return `Hire dates overlap between "${a.label}" (${a.dateOut} to ${a.dateIn}) and "${b.label}" (${b.dateOut} to ${b.dateIn}). Please adjust the dates so they do not overlap.`;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     if (!validateNumericFields()) {
+      setLoading(false);
+      return;
+    }
+
+    // ─── NEW: overlap validation runs only on Submit, not while selecting dates ───
+    const overlapError = validateNoOverlappingHireDates();
+    if (overlapError) {
+      setError(overlapError);
       setLoading(false);
       return;
     }
@@ -1603,16 +1683,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
                       />
                     </div>
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Time:</label>
-                      <input
-                        type="text"
-                        name="insurance_time"
-                        value={formData.insurance_time}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 transition"
-                      />
-                    </div> */}
                   </div>
                 </div>
               </section>
