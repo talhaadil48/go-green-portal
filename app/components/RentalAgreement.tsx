@@ -610,17 +610,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     return true;
   };
 
-  // ══════════════════════════════════════════════════════════════════
-  // ─── NEW: Overlapping hire-date validation ───
-  // ══════════════════════════════════════════════════════════════════
 
-  /**
-   * Returns true if [startA, endA] overlaps at all with [startB, endB].
-   * Inclusive on both ends, matching the examples in the spec:
-   *   existing: 12 Dec -> 18 Dec
-   *   10 Dec -> 13 Dec  => overlap (true)
-   *   19 Dec -> 25 Dec  => no overlap (false)
-   */
   const datesOverlap = (
     startA: string,
     endA: string,
@@ -628,15 +618,20 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     endB: string
   ): boolean => {
     if (!startA || !endA || !startB || !endB) return false;
+
     const aStart = new Date(startA).getTime();
     const aEnd = new Date(endA).getTime();
     const bStart = new Date(startB).getTime();
     const bEnd = new Date(endB).getTime();
-    if ([aStart, aEnd, bStart, bEnd].some((t) => isNaN(t))) return false;
-    // Overlap unless one range ends strictly before the other starts
-    return aStart <= bEnd && bStart <= aEnd;
-  };
 
+    if ([aStart, aEnd, bStart, bEnd].some((t) => isNaN(t))) return false;
+
+    // End date is treated as exclusive.
+    // Example:
+    // 19→22 and 22→26 => NOT overlapping.
+    // 19→22 and 21→24 => overlapping.
+    return aStart < bEnd && bStart < aEnd;
+  };
   /**
    * Validates that the main Hire Vehicle date range does not overlap with
    * any Change of Hire Vehicle date range, and that Change of Hire Vehicle
@@ -1111,11 +1106,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   setChangeVehicleSuggestions([]);
                                 }}
                                 disabled={vehicle.fromApi}
-                                className={`px-2 py-2 text-white text-xs rounded-lg transition ${
-                                  vehicle.fromApi
+                                className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
                                     ? "bg-green-400 cursor-not-allowed"
                                     : "bg-green-500 hover:bg-green-600"
-                                }`}
+                                  }`}
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
@@ -1139,9 +1133,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                   }}
                                   placeholder="Search by reg..."
                                   disabled={vehicle.fromApi}
-                                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${
-                                    vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
-                                  }`}
+                                  className={`flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition ${vehicle.fromApi ? "bg-gray-50 cursor-not-allowed" : ""
+                                    }`}
                                 />
                                 {!vehicle.fromApi && (
                                   <button
@@ -1205,7 +1198,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                           />
                         </div>
 
-                       
+
                         {/* Rate Per Day for this vehicle */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Rate Per Day</label>
