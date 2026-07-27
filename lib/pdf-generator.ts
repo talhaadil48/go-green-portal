@@ -1854,7 +1854,7 @@ async function generateRentalPDF(
   // subtotal / VAT / total). No liability text, no parking
   // fines text, no signatures on this page.
   // ════════════════════════════════════════════════════════════
-  pdf.addPage();
+pdf.addPage();
 
 // Re-draw the identical branded header used on page 1.
 let invoiceY = addGradientHeader(true);
@@ -2034,13 +2034,14 @@ y += 2;
 
 // ─── Global charges table ───
 const cdwPerDay = Number(data.cdw_per_day || 0);
-const cdwCharge = mainHireDays * cdwPerDay;
+// Calculate CDW based on total days across all vehicles
+const cdwCharge = totalInvoiceDays * cdwPerDay;
 
 const globalChargesRows = [
   ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
   ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
   [
-    `CDW (£${cdwPerDay.toFixed(2)}/day × ${mainHireDays} days)`,
+    `CDW (£${cdwPerDay.toFixed(2)}/day × ${totalInvoiceDays} days)`,
     `£${cdwCharge.toFixed(2)}`,
   ],
   ["Refuelling", `£${Number(data.refuelling_total || 0).toFixed(2)}`],
