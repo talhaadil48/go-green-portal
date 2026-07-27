@@ -95,7 +95,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   // NEW STATE: View Only mode
   const [isViewOnly, setIsViewOnly] = useState(false);
 
@@ -117,7 +117,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
-  
+
   // Heartbeat interval ref
   const heartbeatIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -484,11 +484,11 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
                   </p>
                 </div>
 
-              
+
               </div>
             </div>
 
-          
+
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
@@ -599,7 +599,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
         `}</style>
       )}
 
-      {/* Sticky Header: Customer Info + optional banners, always visible while scrolling (offset below the 80px navbar) */}
+      {/* Sticky Header: Customer Info + Tabs, always visible while scrolling (offset below the 80px navbar) */}
       <div className="sticky top-18 z-30 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40 backdrop-blur-sm shadow-sm">
         {/* View Only Banner */}
         {isViewOnly && (
@@ -793,25 +793,30 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
             )}
           </div>
         </section>
+
+        {/* Tabs Section — now part of the sticky wrapper so it stays visible while switching between forms */}
+        {(!error || isViewOnly) && claimData && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-3">
+            <div className="flex flex-wrap gap-1.5 p-1 bg-green-100/50 rounded-xl overflow-x-auto scrollbar-hide">
+              {visibleTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => handleTabChange(tab.key)}
+                  className={`tab-btn action-btn flex-1 min-w-[110px] max-w-[140px] py-2.5 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
+                    ? "bg-green-600 text-white shadow-md"
+                    : "text-gray-600 hover:bg-white/70 active:bg-white"
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {(!error || isViewOnly) && claimData && (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
-          <div className="flex flex-wrap gap-1.5 p-1 bg-green-100/50 rounded-xl overflow-x-auto mb-6 scrollbar-hide">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key)}
-                className={`tab-btn action-btn flex-1 min-w-[110px] max-w-[140px] py-2.5 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all whitespace-nowrap ${activeTab === tab.key
-                  ? "bg-green-600 text-white shadow-md"
-                  : "text-gray-600 hover:bg-white/70 active:bg-white"
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 sm:p-8">
             <UnsavedChangesContext.Provider value={{ hasUnsavedChanges, setHasUnsavedChanges, isClosed: isEffectivelyDisabled }}>
               {activeTab === "summary" && <SummaryPage claimId={claimId} />}
@@ -826,7 +831,7 @@ export default function HomePage({ params }: { params: Promise<{ id: string }> }
           </div>
         </main>
       )}
-       <UnsavedChangesDialog
+      <UnsavedChangesDialog
         isOpen={showUnsavedDialog}
         onDiscard={handleConfirmDiscard}
         onCancel={handleCancelDialog}
