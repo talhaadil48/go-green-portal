@@ -1868,8 +1868,8 @@ const invoiceDateOut = String(data.hire_vehicle_date_out || "");
 const invoiceDateIn = String(data.hire_vehicle_date_in || "");
 const mainHireDays = calcInclusiveDays(invoiceDateOut, invoiceDateIn);
 
-// Calculate total days and total vehicle cost across all vehicles
-let totalInvoiceDays = 0;
+// Calculate total days across all vehicles for CDW and totals
+let totalInvoiceDays = mainHireDays;
 let totalVehicleCost = 0;
 
 // Get change vehicle history
@@ -1877,23 +1877,17 @@ const cvHistory = Array.isArray(data.change_vehicle_history)
   ? data.change_vehicle_history
   : [];
 
-// Calculate main vehicle days and cost
-let mainDays = 0;
+// Calculate main vehicle cost
 let mainRate = 0;
 let mainSubtotal = 0;
 
 if (data.hire_vehicle_reg) {
-  mainDays = calcInclusiveDays(
-    String(data.hire_vehicle_date_out || ""),
-    String(data.hire_vehicle_date_in || ""),
-  );
   mainRate = Number(data.hire_vehicle_rate_per_day || 0);
-  mainSubtotal = mainDays * mainRate;
-  totalInvoiceDays += mainDays;
+  mainSubtotal = mainHireDays * mainRate;
   totalVehicleCost += mainSubtotal;
 }
 
-// Calculate change vehicles days and costs
+// Calculate change vehicles costs and add days
 cvHistory.forEach(v => {
   const days = calcInclusiveDays(v.date_out, v.date_in);
   const rate = Number(v.rate_per_day || 0);
@@ -1914,17 +1908,17 @@ pdf.setTextColor(4, 120, 87);
 
 const summaryColW = fullWidth / 3;
 pdf.text(
-  `Total Vehicles: ${cvHistory.length + 1}`,
+  `Day Out: ${formatDate(data.hire_vehicle_date_out)}`,
   margin + 4,
   y + summaryPanelH / 2 + 1.5,
 );
 pdf.text(
-  `Total Days: ${totalInvoiceDays}`,
+  `Day In: ${formatDate(data.hire_vehicle_date_in)}`,
   margin + summaryColW + 4,
   y + summaryPanelH / 2 + 1.5,
 );
 pdf.text(
-  `Total Vehicle Cost: £${totalVehicleCost.toFixed(2)}`,
+  `Total Days: ${totalInvoiceDays}`,
   margin + summaryColW * 2 + 4,
   y + summaryPanelH / 2 + 1.5,
 );
@@ -1934,19 +1928,19 @@ y += summaryPanelH + 6;
 pdf.setFontSize(8);
 pdf.setTextColor(0, 0, 0);
 pdf.setFont("helvetica", "bold");
-pdf.text("Vehicle Charges Breakdown", margin, y);
+pdf.text("Charges Summary", margin, y);
 y += 5;
 
 // ─── Vehicle Charges sub-header ───
 pdf.setFontSize(7);
 pdf.setFont("helvetica", "bold");
 pdf.setTextColor(4, 120, 87);
-pdf.text("Vehicle Details", margin, y);
+pdf.text("Vehicle Charges", margin, y);
 y += 4;
 
-const rowH = 8;
+const rowH = 6;
 
-// ─── Main hire vehicle row with date in/out ───
+// ─── Main hire vehicle row ───
 if (data.hire_vehicle_reg) {
   y = checkNewPage(y, rowH + 2);
 
@@ -1958,45 +1952,38 @@ if (data.hire_vehicle_reg) {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(6.5);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(up(data.hire_vehicle_reg), margin + 3, y + rowH / 2 + 0.5);
+  pdf.text(up(data.hire_vehicle_reg), margin + 3, y + rowH / 2 + 1);
 
   let infoX = margin + 3 + pdf.getTextWidth(up(data.hire_vehicle_reg)) + 3;
   if (data.hire_vehicle_make) {
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(107, 114, 128);
     const makeModel = `${data.hire_vehicle_make} ${data.hire_vehicle_model || ""}`.trim();
-    pdf.text(up(makeModel), infoX, y + rowH / 2 + 0.5);
+    pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
     infoX += pdf.getTextWidth(up(makeModel)) + 3;
   }
 
-  // Show date range
-  pdf.setFontSize(5.5);
-  pdf.setTextColor(75, 85, 99);
-  const dateRange = `${formatDate(data.hire_vehicle_date_out)} → ${formatDate(data.hire_vehicle_date_in)}`;
-  pdf.text(dateRange, infoX, y + rowH / 2 + 0.5);
-  infoX += pdf.getTextWidth(dateRange) + 3;
-
-  if (mainDays > 0) {
+  if (mainHireDays > 0) {
     pdf.setFontSize(5.5);
     pdf.setTextColor(0, 0, 0);
     pdf.text(
-      `(${mainDays} day${mainDays !== 1 ? "s" : ""} × £${mainRate.toFixed(2)}/day)`,
+      `(${mainHireDays} day${mainHireDays !== 1 ? "s" : ""} × £${mainRate.toFixed(2)}/day)`,
       infoX,
-      y + rowH / 2 + 0.5,
+      y + rowH / 2 + 1,
     );
   }
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(6.5);
   pdf.setTextColor(4, 120, 87);
-  pdf.text(`£${mainSubtotal.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 0.5, {
+  pdf.text(`£${mainSubtotal.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
     align: "right",
   });
 
   y += rowH + 2;
 }
 
-// ─── Change vehicle rows with date in/out ───
+// ─── Change vehicle rows ───
 cvHistory.forEach((v, i) => {
   const days = calcInclusiveDays(v.date_out, v.date_in);
   const rate = Number(v.rate_per_day || 0);
@@ -2017,23 +2004,16 @@ cvHistory.forEach((v, i) => {
   pdf.setFontSize(6.5);
   pdf.setTextColor(0, 0, 0);
   const regLabel = v.vehicle_reg || `Vehicle ${i + 1}`;
-  pdf.text(up(regLabel), margin + 3, y + rowH / 2 + 0.5);
+  pdf.text(up(regLabel), margin + 3, y + rowH / 2 + 1);
 
   let infoX = margin + 3 + pdf.getTextWidth(up(regLabel)) + 3;
   if (v.vehicle_make) {
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(107, 114, 128);
     const makeModel = `${v.vehicle_make} ${v.vehicle_model || ""}`.trim();
-    pdf.text(up(makeModel), infoX, y + rowH / 2 + 0.5);
+    pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
     infoX += pdf.getTextWidth(up(makeModel)) + 3;
   }
-
-  // Show date range
-  pdf.setFontSize(5.5);
-  pdf.setTextColor(75, 85, 99);
-  const dateRange = `${formatDate(v.date_out)} → ${formatDate(v.date_in)}`;
-  pdf.text(dateRange, infoX, y + rowH / 2 + 0.5);
-  infoX += pdf.getTextWidth(dateRange) + 3;
 
   if (days > 0) {
     pdf.setFontSize(5.5);
@@ -2041,14 +2021,14 @@ cvHistory.forEach((v, i) => {
     pdf.text(
       `(${days} day${days !== 1 ? "s" : ""} × £${rate.toFixed(2)}/day)`,
       infoX,
-      y + rowH / 2 + 0.5,
+      y + rowH / 2 + 1,
     );
   }
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(6.5);
   pdf.setTextColor(4, 120, 87);
-  pdf.text(`£${sub.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 0.5, {
+  pdf.text(`£${sub.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
     align: "right",
   });
 
@@ -2059,17 +2039,17 @@ y += 2;
 
 // ─── Global charges table ───
 const cdwPerDay = Number(data.cdw_per_day || 0);
-// Calculate CDW based on total days across all vehicles
+// CDW based on total days across ALL vehicles
 const cdwCharge = totalInvoiceDays * cdwPerDay;
 
-// Calculate subtotal properly - vehicle costs + all charges
+// Calculate all charges
 const adminFee = Number(data.admin_fee || 0);
 const deliveryCharge = Number(data.delivery_charge || 0);
 const refuellingTotal = Number(data.refuelling_total || 0);
 
-// Calculate correct subtotal
+// Calculate correct subtotal - sum of ALL vehicle costs + all charges
 const calculatedSubtotal = totalVehicleCost + adminFee + deliveryCharge + cdwCharge + refuellingTotal;
-const vatAmount = calculatedSubtotal * 0.20; // 20% VAT
+const vatAmount = calculatedSubtotal * 0.20;
 const totalCost = calculatedSubtotal + vatAmount;
 
 const globalChargesRows = [
@@ -2100,7 +2080,7 @@ globalChargesRows.forEach((row, i) => {
 
 y = ty + 2;
 
-// ─── Subtotal / VAT / Total rows (using calculated values) ───
+// ─── Subtotal / VAT / Total rows (using CALCULATED values) ───
 const summaryRows = [
   ["Subtotal", `£${calculatedSubtotal.toFixed(2)}`, false],
   ["VAT (20%)", `£${vatAmount.toFixed(2)}`, false],
