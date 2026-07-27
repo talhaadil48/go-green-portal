@@ -1856,240 +1856,245 @@ async function generateRentalPDF(
   // ════════════════════════════════════════════════════════════
   pdf.addPage();
 
-  // Re-draw the identical branded header used on page 1.
-  let invoiceY = addGradientHeader(true);
-  invoiceY += 4;
-  invoiceY = drawDocumentHeader(invoiceY);
+// Re-draw the identical branded header used on page 1.
+let invoiceY = addGradientHeader(true);
+invoiceY += 4;
+invoiceY = drawDocumentHeader(invoiceY);
 
-  y = invoiceY;
+y = invoiceY;
 
-  // ─── Day In / Day Out / Total Days panel ────────────
-  const invoiceDateOut = String(data.hire_vehicle_date_out || "");
-  const invoiceDateIn = String(data.hire_vehicle_date_in || "");
-  const invoiceTotalDays = calcInclusiveDays(invoiceDateOut, invoiceDateIn);
+// ─── Day In / Day Out / Total Days panel ────────────
+const invoiceDateOut = String(data.hire_vehicle_date_out || "");
+const invoiceDateIn = String(data.hire_vehicle_date_in || "");
+const mainHireDays = calcInclusiveDays(invoiceDateOut, invoiceDateIn);
 
-  const summaryPanelH = 10;
-  pdf.setFillColor(240, 253, 244);
-  pdf.setDrawColor(4, 120, 87);
-  pdf.setLineWidth(0.4);
-  pdf.rect(margin, y, fullWidth, summaryPanelH, "FD");
+// Calculate total days across all vehicles
+let totalInvoiceDays = mainHireDays;
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.setTextColor(4, 120, 87);
+// Add days from change vehicles
+const cvHistory = Array.isArray(data.change_vehicle_history)
+  ? data.change_vehicle_history
+  : [];
 
-  const summaryColW = fullWidth / 3;
-  pdf.text(
-    `Day Out: ${formatDate(data.hire_vehicle_date_out)}`,
-    margin + 4,
-    y + summaryPanelH / 2 + 1.5,
-  );
-  pdf.text(
-    `Day In: ${formatDate(data.hire_vehicle_date_in)}`,
-    margin + summaryColW + 4,
-    y + summaryPanelH / 2 + 1.5,
-  );
-  pdf.text(
-    `Total Days: ${invoiceTotalDays}`,
-    margin + summaryColW * 2 + 4,
-    y + summaryPanelH / 2 + 1.5,
-  );
+cvHistory.forEach(v => {
+  const days = calcInclusiveDays(v.date_out, v.date_in);
+  totalInvoiceDays += days;
+});
 
-  y += summaryPanelH + 6;
+const summaryPanelH = 10;
+pdf.setFillColor(240, 253, 244);
+pdf.setDrawColor(4, 120, 87);
+pdf.setLineWidth(0.4);
+pdf.rect(margin, y, fullWidth, summaryPanelH, "FD");
 
-  pdf.setFontSize(8);
-  pdf.setTextColor(0, 0, 0);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("Charges Summary", margin, y);
-  y += 5;
+pdf.setFont("helvetica", "bold");
+pdf.setFontSize(9);
+pdf.setTextColor(4, 120, 87);
 
-  // ─── Vehicle Charges sub-header ───
-  pdf.setFontSize(7);
-  pdf.setFont("helvetica", "bold");
-  pdf.setTextColor(4, 120, 87);
-  pdf.text("Vehicle Charges", margin, y);
-  y += 4;
+const summaryColW = fullWidth / 3;
+pdf.text(
+  `Day Out: ${formatDate(data.hire_vehicle_date_out)}`,
+  margin + 4,
+  y + summaryPanelH / 2 + 1.5,
+);
+pdf.text(
+  `Day In: ${formatDate(data.hire_vehicle_date_in)}`,
+  margin + summaryColW + 4,
+  y + summaryPanelH / 2 + 1.5,
+);
+pdf.text(
+  `Total Days: ${totalInvoiceDays}`,
+  margin + summaryColW * 2 + 4,
+  y + summaryPanelH / 2 + 1.5,
+);
 
-  let totalVehicleCost = 0;
-  const rowH = 6;
+y += summaryPanelH + 6;
 
-  // ─── Main hire vehicle row ───
-  if (data.hire_vehicle_reg) {
-    const mainDays = calcInclusiveDays(
-      String(data.hire_vehicle_date_out || ""),
-      String(data.hire_vehicle_date_in || ""),
-    );
-    const mainRate = Number(data.hire_vehicle_rate_per_day || 0);
-    const mainSubtotal = mainDays * mainRate;
-    totalVehicleCost += mainSubtotal;
+pdf.setFontSize(8);
+pdf.setTextColor(0, 0, 0);
+pdf.setFont("helvetica", "bold");
+pdf.text("Charges Summary", margin, y);
+y += 5;
 
-    y = checkNewPage(y, rowH + 2);
+// ─── Vehicle Charges sub-header ───
+pdf.setFontSize(7);
+pdf.setFont("helvetica", "bold");
+pdf.setTextColor(4, 120, 87);
+pdf.text("Vehicle Charges", margin, y);
+y += 4;
 
-    pdf.setFillColor(240, 253, 244);
-    pdf.rect(margin, y, fullWidth, rowH, "F");
-    pdf.setDrawColor(209, 250, 229);
-    pdf.rect(margin, y, fullWidth, rowH, "S");
+let totalVehicleCost = 0;
+const rowH = 6;
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(up(data.hire_vehicle_reg), margin + 3, y + rowH / 2 + 1);
-
-    let infoX = margin + 3 + pdf.getTextWidth(up(data.hire_vehicle_reg)) + 3;
-    if (data.hire_vehicle_make) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(107, 114, 128);
-      const makeModel = `${data.hire_vehicle_make} ${data.hire_vehicle_model || ""}`.trim();
-      pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
-      infoX += pdf.getTextWidth(up(makeModel)) + 3;
-    }
-
-    if (mainDays > 0) {
-      pdf.setFontSize(5.5);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(
-        `(${mainDays} day${mainDays !== 1 ? "s" : ""} × £${mainRate.toFixed(2)}/day)`,
-        infoX,
-        y + rowH / 2 + 1,
-      );
-    }
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(4, 120, 87);
-    pdf.text(`£${mainSubtotal.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
-      align: "right",
-    });
-
-    y += rowH + 2;
-  }
-
-  // ─── Change vehicle rows ───
-  const cvHistory = Array.isArray(data.change_vehicle_history)
-    ? data.change_vehicle_history
-    : [];
-
-  cvHistory.forEach((v, i) => {
-    const days = calcInclusiveDays(v.date_out, v.date_in);
-    const rate = Number(v.rate_per_day || 0);
-    const sub = days * rate;
-    totalVehicleCost += sub;
-
-    y = checkNewPage(y, rowH + 2);
-
-    pdf.setFillColor(
-      i % 2 === 0 ? 255 : 249,
-      i % 2 === 0 ? 255 : 250,
-      i % 2 === 0 ? 255 : 251,
-    );
-    pdf.rect(margin, y, fullWidth, rowH, "F");
-    pdf.setDrawColor(209, 250, 229);
-    pdf.rect(margin, y, fullWidth, rowH, "S");
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(0, 0, 0);
-    const regLabel = v.vehicle_reg || `Vehicle ${i + 1}`;
-    pdf.text(up(regLabel), margin + 3, y + rowH / 2 + 1);
-
-    let infoX = margin + 3 + pdf.getTextWidth(up(regLabel)) + 3;
-    if (v.vehicle_make) {
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(107, 114, 128);
-      const makeModel = `${v.vehicle_make} ${v.vehicle_model || ""}`.trim();
-      pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
-      infoX += pdf.getTextWidth(up(makeModel)) + 3;
-    }
-
-    if (days > 0) {
-      pdf.setFontSize(5.5);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(
-        `(${days} day${days !== 1 ? "s" : ""} × £${rate.toFixed(2)}/day)`,
-        infoX,
-        y + rowH / 2 + 1,
-      );
-    }
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(4, 120, 87);
-    pdf.text(`£${sub.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
-      align: "right",
-    });
-
-    y += rowH + 2;
-  });
-
-  y += 2;
-
-  // ─── Global charges table ───
-  const cdwPerDay = Number(data.cdw_per_day || 0);
-  const mainHireDays = calcInclusiveDays(
+// ─── Main hire vehicle row ───
+if (data.hire_vehicle_reg) {
+  const mainDays = calcInclusiveDays(
     String(data.hire_vehicle_date_out || ""),
     String(data.hire_vehicle_date_in || ""),
   );
-  const cdwCharge = mainHireDays * cdwPerDay;
+  const mainRate = Number(data.hire_vehicle_rate_per_day || 0);
+  const mainSubtotal = mainDays * mainRate;
+  totalVehicleCost += mainSubtotal;
 
-  const globalChargesRows = [
-    ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
-    ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
-    [
-      `CDW (£${cdwPerDay.toFixed(2)}/day × ${mainHireDays} days)`,
-      `£${cdwCharge.toFixed(2)}`,
-    ],
-    ["Refuelling", `£${Number(data.refuelling_total || 0).toFixed(2)}`],
-  ];
+  y = checkNewPage(y, rowH + 2);
 
-  let ty = y;
-  globalChargesRows.forEach((row, i) => {
-    y = checkNewPage(y, 5);
+  pdf.setFillColor(240, 253, 244);
+  pdf.rect(margin, y, fullWidth, rowH, "F");
+  pdf.setDrawColor(209, 250, 229);
+  pdf.rect(margin, y, fullWidth, rowH, "S");
 
-    pdf.setFillColor(i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 245 : 255);
-    pdf.rect(margin, ty, fullWidth, 5, "F");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(up(data.hire_vehicle_reg), margin + 3, y + rowH / 2 + 1);
 
-    pdf.setTextColor(0, 0, 0);
+  let infoX = margin + 3 + pdf.getTextWidth(up(data.hire_vehicle_reg)) + 3;
+  if (data.hire_vehicle_make) {
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(6.5);
-    pdf.text(row[0], margin + 4, ty + 3.5);
-    pdf.text(row[1], pageWidth - margin - 4, ty + 3.5, { align: "right" });
+    pdf.setTextColor(107, 114, 128);
+    const makeModel = `${data.hire_vehicle_make} ${data.hire_vehicle_model || ""}`.trim();
+    pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
+    infoX += pdf.getTextWidth(up(makeModel)) + 3;
+  }
 
-    ty += 5;
+  if (mainDays > 0) {
+    pdf.setFontSize(5.5);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(
+      `(${mainDays} day${mainDays !== 1 ? "s" : ""} × £${mainRate.toFixed(2)}/day)`,
+      infoX,
+      y + rowH / 2 + 1,
+    );
+  }
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(4, 120, 87);
+  pdf.text(`£${mainSubtotal.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
+    align: "right",
   });
 
-  y = ty + 2;
-
-  // ─── Subtotal / VAT / Total rows ───
-  const summaryRows = [
-    ["Subtotal", `£${Number(data.subtotal || 0).toFixed(2)}`, false],
-    ["VAT (20%)", `£${Number(data.vat || 0).toFixed(2)}`, false],
-    ["TOTAL COST", `£${Number(data.total_cost || 0).toFixed(2)}`, true],
-  ];
-
-  summaryRows.forEach(([label, value, isTotal]) => {
-    y = checkNewPage(y, 7);
-    const sRowH = isTotal ? 7 : 5;
-
-    if (isTotal) {
-      pdf.setFillColor(4, 120, 87);
-    } else {
-      pdf.setFillColor(235, 235, 235);
-    }
-    pdf.rect(margin, y, fullWidth, sRowH, "F");
-
-    pdf.setTextColor(isTotal ? 255 : 0, isTotal ? 255 : 0, isTotal ? 255 : 0);
-    pdf.setFont("helvetica", isTotal ? "bold" : "normal");
-    pdf.setFontSize(isTotal ? 8.5 : 6.5);
-    pdf.text(String(label), margin + 4, y + sRowH / 2 + 1.5);
-    pdf.text(String(value), pageWidth - margin - 4, y + sRowH / 2 + 1.5, {
-      align: "right",
-    });
-
-    y += sRowH;
-  });
-
-  return y;
+  y += rowH + 2;
 }
+
+// ─── Change vehicle rows ───
+cvHistory.forEach((v, i) => {
+  const days = calcInclusiveDays(v.date_out, v.date_in);
+  const rate = Number(v.rate_per_day || 0);
+  const sub = days * rate;
+  totalVehicleCost += sub;
+
+  y = checkNewPage(y, rowH + 2);
+
+  pdf.setFillColor(
+    i % 2 === 0 ? 255 : 249,
+    i % 2 === 0 ? 255 : 250,
+    i % 2 === 0 ? 255 : 251,
+  );
+  pdf.rect(margin, y, fullWidth, rowH, "F");
+  pdf.setDrawColor(209, 250, 229);
+  pdf.rect(margin, y, fullWidth, rowH, "S");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(0, 0, 0);
+  const regLabel = v.vehicle_reg || `Vehicle ${i + 1}`;
+  pdf.text(up(regLabel), margin + 3, y + rowH / 2 + 1);
+
+  let infoX = margin + 3 + pdf.getTextWidth(up(regLabel)) + 3;
+  if (v.vehicle_make) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(107, 114, 128);
+    const makeModel = `${v.vehicle_make} ${v.vehicle_model || ""}`.trim();
+    pdf.text(up(makeModel), infoX, y + rowH / 2 + 1);
+    infoX += pdf.getTextWidth(up(makeModel)) + 3;
+  }
+
+  if (days > 0) {
+    pdf.setFontSize(5.5);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(
+      `(${days} day${days !== 1 ? "s" : ""} × £${rate.toFixed(2)}/day)`,
+      infoX,
+      y + rowH / 2 + 1,
+    );
+  }
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(4, 120, 87);
+  pdf.text(`£${sub.toFixed(2)}`, pageWidth - margin - 4, y + rowH / 2 + 1, {
+    align: "right",
+  });
+
+  y += rowH + 2;
+});
+
+y += 2;
+
+// ─── Global charges table ───
+const cdwPerDay = Number(data.cdw_per_day || 0);
+const cdwCharge = mainHireDays * cdwPerDay;
+
+const globalChargesRows = [
+  ["Admin Fee", `£${Number(data.admin_fee || 0).toFixed(2)}`],
+  ["Delivery Charge", `£${Number(data.delivery_charge || 0).toFixed(2)}`],
+  [
+    `CDW (£${cdwPerDay.toFixed(2)}/day × ${mainHireDays} days)`,
+    `£${cdwCharge.toFixed(2)}`,
+  ],
+  ["Refuelling", `£${Number(data.refuelling_total || 0).toFixed(2)}`],
+];
+
+let ty = y;
+globalChargesRows.forEach((row, i) => {
+  y = checkNewPage(y, 5);
+
+  pdf.setFillColor(i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 245 : 255);
+  pdf.rect(margin, ty, fullWidth, 5, "F");
+
+  pdf.setTextColor(0, 0, 0);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(6.5);
+  pdf.text(row[0], margin + 4, ty + 3.5);
+  pdf.text(row[1], pageWidth - margin - 4, ty + 3.5, { align: "right" });
+
+  ty += 5;
+});
+
+y = ty + 2;
+
+// ─── Subtotal / VAT / Total rows ───
+const summaryRows = [
+  ["Subtotal", `£${Number(data.subtotal || 0).toFixed(2)}`, false],
+  ["VAT (20%)", `£${Number(data.vat || 0).toFixed(2)}`, false],
+  ["TOTAL COST", `£${Number(data.total_cost || 0).toFixed(2)}`, true],
+];
+
+summaryRows.forEach(([label, value, isTotal]) => {
+  y = checkNewPage(y, 7);
+  const sRowH = isTotal ? 7 : 5;
+
+  if (isTotal) {
+    pdf.setFillColor(4, 120, 87);
+  } else {
+    pdf.setFillColor(235, 235, 235);
+  }
+  pdf.rect(margin, y, fullWidth, sRowH, "F");
+
+  pdf.setTextColor(isTotal ? 255 : 0, isTotal ? 255 : 0, isTotal ? 255 : 0);
+  pdf.setFont("helvetica", isTotal ? "bold" : "normal");
+  pdf.setFontSize(isTotal ? 8.5 : 6.5);
+  pdf.text(String(label), margin + 4, y + sRowH / 2 + 1.5);
+  pdf.text(String(value), pageWidth - margin - 4, y + sRowH / 2 + 1.5, {
+    align: "right",
+  });
+
+  y += sRowH;
+});
+
+return y;
+  }
 
 
 
