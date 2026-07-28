@@ -185,32 +185,50 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       String(formData.hire_vehicle_rate_per_day || "")
     );
 
-    // Change vehicle subtotals
-    const changeHistory = (formData.change_vehicle_history as ChangeVehicleRecord[]);
-    const changeSubtotals = changeHistory.map((v) =>
-      computeVehicleSubtotal(v.date_out, v.date_in, v.rate_per_day)
+    // Calculate main vehicle days
+    const mainDays = calculateInclusiveDays(
+      String(formData.hire_vehicle_date_out || ""),
+      String(formData.hire_vehicle_date_in || "")
     );
-    const totalVehicleCost = mainSubtotal + changeSubtotals.reduce((a, b) => a + b, 0);
+
+    // Change vehicle subtotals and total days
+    const changeHistory = (formData.change_vehicle_history as ChangeVehicleRecord[]);
+    let totalDays = mainDays;
+    let totalVehicleCost = mainSubtotal;
+
+    const changeSubtotals = changeHistory.map((v) => {
+      const days = calculateInclusiveDays(v.date_out, v.date_in);
+      const rate = parseNum(v.rate_per_day);
+      const sub = days * rate;
+      totalDays += days; // Add change vehicle days to total
+      totalVehicleCost += sub; // Add change vehicle cost to total
+      return sub;
+    });
 
     const admin = parseNum(formData.admin_fee);
     const delivery = parseNum(formData.delivery_charge);
     const cdwPerDay = parseNum(formData.cdw_per_day);
 
-    // CDW applied across total days from main vehicle only (or you can sum all — kept per original logic)
-    const mainDays = calculateInclusiveDays(
-      String(formData.hire_vehicle_date_out || ""),
-      String(formData.hire_vehicle_date_in || "")
-    );
-    const cdwCharge = mainDays * cdwPerDay;
+    // CDW applied across TOTAL days from ALL vehicles
+    const cdwCharge = totalDays * cdwPerDay;
     const refuelTotal = parseNum(formData.refuelling_total);
 
+    // Subtotal = ALL vehicle costs + ALL charges
     const subtotal = totalVehicleCost + admin + delivery + cdwCharge + refuelTotal;
     const vatAmount = subtotal * 0.2;
     const totalCost = subtotal + vatAmount;
 
-    return { mainSubtotal, changeSubtotals, totalVehicleCost, subtotal, vatAmount, totalCost };
+    return {
+      mainSubtotal,
+      changeSubtotals,
+      totalVehicleCost,
+      totalDays, // Also return total days for display if needed
+      cdwCharge, // Return cdw charge for display
+      subtotal,
+      vatAmount,
+      totalCost
+    };
   };
-
   // ─── Auto-calculate money fields when dependencies change ───
   useEffect(() => {
     const { subtotal, vatAmount, totalCost } = deriveCharges();
@@ -1107,8 +1125,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                                 }}
                                 disabled={vehicle.fromApi}
                                 className={`px-2 py-2 text-white text-xs rounded-lg transition ${vehicle.fromApi
-                                    ? "bg-green-400 cursor-not-allowed"
-                                    : "bg-green-500 hover:bg-green-600"
+                                  ? "bg-green-400 cursor-not-allowed"
+                                  : "bg-green-500 hover:bg-green-600"
                                   }`}
                               >
                                 <Pencil className="h-4 w-4" />
