@@ -48,7 +48,6 @@ type SortColumn =
 
 type SortDirection = "asc" | "desc" | null;
 
-
 const COUNCIL_OPTIONS = [
     { value: "", label: "All Councils" },
     { value: "None", label: "None" },
@@ -123,7 +122,7 @@ export default function ClaimsDashboard() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
-    const [selectedStage, setSelectedStage] = useState("claim created"); // Default to Stage 1
+    const [selectedStage, setSelectedStage] = useState("claim created");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -140,11 +139,12 @@ export default function ClaimsDashboard() {
     const [userName, setUsername] = useState<string | null>(null);
 
     // Updates Modals
-    const [updateModalState, setUpdateModalState] = useState<{ type: 'add' | 'view' | null, claim_id: string | null }>({ type: null, claim_id: null });
+    const [updateModalState, setUpdateModalState] = useState<{ type: 'add' | 'view' | 'edit' | null, claim_id: string | null, update_id?: number | null }>({ type: null, claim_id: null });
     const [updateMessage, setUpdateMessage] = useState("");
     const [updateDate, setUpdateDate] = useState(new Date().toISOString().slice(0, 10));
     const [updatesList, setUpdatesList] = useState<any[]>([]);
     const [addingUpdate, setAddingUpdate] = useState(false);
+    const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
 
     // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
@@ -169,7 +169,6 @@ export default function ClaimsDashboard() {
 
     const isClaimClosed = (claim: Claim) => !!(claim.closed_date && claim.closed_by) || claim.status?.toLowerCase() === "close claim";
 
-    // Helper for count
     const getHireCount = (start: string | null, end: string | null) => {
         if (!start) return null;
         const startDate = new Date(start);
@@ -183,23 +182,19 @@ export default function ClaimsDashboard() {
         return diffDays;
     };
 
-    // Determine stage based on dates
-    // Determine stage based on dates - only for non-closed claims
     const isValidDate = (dateStr: string | null | undefined): boolean => {
         if (!dateStr) return false;
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return false;
-        if (d.getFullYear() <= 1971) return false; // catches epoch/placeholder dates
+        if (d.getFullYear() <= 1971) return false;
         return true;
     };
 
     const getStageFromDates = (claim: Claim): string => {
-        // If claim is closed, return "closed"
         if (isClaimClosed(claim)) {
             return "closed";
         }
 
-        // Check each stage in priority order (highest priority first)
         if (isValidDate(claim.invoice_datetime)) {
             return "invoice sent";
         }
@@ -218,8 +213,6 @@ export default function ClaimsDashboard() {
         return "claim created";
     };
 
-
-    // Get stage number
     const getStageNumber = (claim: Claim): number => {
         const stage = getStageFromDates(claim);
         return STATUS_COLORS[stage]?.number || 0;
@@ -297,16 +290,13 @@ export default function ClaimsDashboard() {
             filtered = filtered.filter((claim) => claim.council === selectedCouncil);
         }
 
-        // Filter by stage based on dates
         if (selectedStage) {
-            // If "claim created" is selected, show BOTH Stage 1 AND Stage 2
             if (selectedStage === "claim created") {
                 filtered = filtered.filter((claim) => {
                     const stage = getStageFromDates(claim);
                     return stage === "claim created" || stage === "hire start";
                 });
             } else {
-                // For other stages, filter normally
                 filtered = filtered.filter((claim) => {
                     const stage = getStageFromDates(claim);
                     return stage === selectedStage;
@@ -454,6 +444,7 @@ export default function ClaimsDashboard() {
         setUpdateModalState({ type: 'add', claim_id });
         setUpdateMessage("");
         setUpdateDate(new Date().toISOString().slice(0, 10));
+        setEditingUpdateId(null);
     };
 
     const openViewUpdates = (claim: Claim) => {
@@ -464,6 +455,14 @@ export default function ClaimsDashboard() {
             return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
         });
         setUpdatesList(sorted);
+        setEditingUpdateId(null);
+    };
+
+    const openEditUpdate = (claim_id: string, update: any) => {
+        setUpdateModalState({ type: 'edit', claim_id, update_id: update.id });
+        setUpdateMessage(update.message || "");
+        setUpdateDate(update.date ? new Date(update.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+        setEditingUpdateId(update.id);
     };
 
     const submitAddUpdate = async (e: FormEvent) => {
@@ -495,6 +494,39 @@ export default function ClaimsDashboard() {
         } catch (err: any) {
             console.error(err);
             alert("Failed to add update. Please try again.");
+        } finally {
+            setAddingUpdate(false);
+        }
+    };
+
+    const submitEditUpdate = async (e: FormEvent) => {
+        e.preventDefault();
+        const claimId = updateModalState.claim_id;
+        const updateId = updateModalState.update_id;
+        if (!claimId || !updateId || !updateMessage.trim()) return;
+
+        setAddingUpdate(true);
+        try {
+            const now = new Date();
+            const [year, month, day] = updateDate.split('-');
+            const finalDate = new Date(Number(year), Number(month) - 1, Number(day), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
+            await api.put(`/api/claims/${claimId}/updates/${updateId}`, {
+                update: {
+                    message: updateMessage.trim(),
+                    date: finalDate.toISOString()
+                }
+            }, { headers: { requiresAuth: true } });
+
+            setUpdateModalState({ type: null, claim_id: null });
+            await fetchClaims();
+        } catch (err: any) {
+            console.error(err);
+            if (err.response?.status === 403) {
+                alert("You can only edit updates you created.");
+            } else {
+                alert("Failed to edit update. Please try again.");
+            }
         } finally {
             setAddingUpdate(false);
         }
@@ -669,7 +701,7 @@ export default function ClaimsDashboard() {
         setSearchTerm("");
         setSelectedType("");
         setSelectedCouncil("");
-        setSelectedStage("claim created"); // Reset to Stage 1 (which shows Stage 1 + 2)
+        setSelectedStage("claim created");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -696,7 +728,6 @@ export default function ClaimsDashboard() {
             getStageFromDates(c) === "invoice sent" && !c.is_disputed
         ).length;
 
-        // For the breakdown, if "claim created" is selected, include both Stage 1 and 2
         let filteredForTypes;
         if (selectedStage === "claim created") {
             filteredForTypes = activeClaims.filter(c =>
@@ -713,7 +744,6 @@ export default function ClaimsDashboard() {
             count: filteredForTypes.filter(c => c.claim_type?.toLowerCase() === type).length,
         }));
 
-        // Exclude "None" from council breakdown
         const councilBreakdown = COUNCIL_OPTIONS
             .slice(1)
             .filter(opt => opt.value !== "None")
@@ -735,7 +765,6 @@ export default function ClaimsDashboard() {
         };
     }, [allClaims, vehiclesCount, selectedStage]);
 
-    // Update the status display in the table
     const getStageBadge = (claim: Claim) => {
         const stage = getStageFromDates(claim);
         const statusData = STATUS_COLORS[stage] || STATUS_COLORS.default;
@@ -844,7 +873,6 @@ export default function ClaimsDashboard() {
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
-                                {/* +1 for Reg column */}
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th className="border-0 bg-transparent p-0" colSpan={1} />
                                 <th
@@ -871,7 +899,6 @@ export default function ClaimsDashboard() {
                                 <th onClick={() => handleSort("claim_type")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Type {getSortArrow("claim_type")}
                                 </th>
-                                {/* ── NEW REG COLUMN ── */}
                                 <th onClick={() => handleSort("latest_vehicle_reg")} className="px-1 py-1 text-left font-semibold text-green-800 border-r border-gray-400 cursor-pointer hover:bg-green-100/50 whitespace-nowrap">
                                     Reg {getSortArrow("latest_vehicle_reg")}
                                 </th>
@@ -1008,8 +1035,6 @@ export default function ClaimsDashboard() {
                                                 </div>
                                             )}
                                         </td>
-
-                                        {/* ── NEW REG CELL ── read-only, shows latest_vehicle_reg */}
                                         <td className="px-1 py-0.5 text-gray-700 border-r border-gray-300 whitespace-nowrap text-center">
                                             {claim.latest_vehicle_reg ? (
                                                 <span className="inline-block px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono font-semibold text-gray-800 tracking-wider uppercase">
@@ -1019,7 +1044,6 @@ export default function ClaimsDashboard() {
                                                 <span className="text-gray-400">—</span>
                                             )}
                                         </td>
-
                                         <td className="px-1 py-0.5 border-r border-gray-300 text-center whitespace-nowrap">
                                             {isVehicleDamage ? (
                                                 <hr className="border-emerald-500 border-[2px]  w-[50%] text-center mx-auto" />
@@ -1518,6 +1542,63 @@ export default function ClaimsDashboard() {
                             </div>
                         )}
 
+                        {updateModalState.type === 'edit' && (
+                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-green-800">Edit Update</h2>
+                                        <button
+                                            onClick={() => setUpdateModalState({ type: null, claim_id: null })}
+                                            className="text-gray-500 hover:text-gray-700"
+                                        >
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+                                    <form onSubmit={submitEditUpdate} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
+                                            <input
+                                                type="date"
+                                                value={updateDate}
+                                                onChange={(e) => setUpdateDate(e.target.value)}
+                                                required
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Message</label>
+                                            <textarea
+                                                value={updateMessage}
+                                                onChange={(e) => setUpdateMessage(e.target.value)}
+                                                placeholder="Edit update..."
+                                                required
+                                                rows={4}
+                                                className="w-full px-4 py-3 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white/70 resize-none"
+                                            />
+                                        </div>
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setUpdateModalState({ type: null, claim_id: null })}
+                                                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={addingUpdate}
+                                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-10 rounded-xl shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2"
+                                            >
+                                                {addingUpdate ? (
+                                                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : "Update"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
                         {updateModalState.type === 'view' && (
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 flex flex-col max-h-[80vh]">
@@ -1539,19 +1620,41 @@ export default function ClaimsDashboard() {
                                                 No updates available for this claim.
                                             </div>
                                         ) : (
-                                            updatesList.map((update, idx) => (
-                                                <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
-                                                            {formatDateTime(update.date)}
-                                                        </span>
-                                                        <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
-                                                            <User size={12} /> {update.user}
-                                                        </span>
+                                            updatesList.map((update, idx) => {
+                                                const isOwnUpdate = update.user?.toLowerCase() === userName?.toLowerCase();
+                                                return (
+                                                    <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30 group">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
+                                                                {formatDateTime(update.date)}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                                                    <User size={12} /> {update.user}
+                                                                </span>
+                                                                {isOwnUpdate && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const claimId = updateModalState.claim_id;
+                                                                            if (claimId) {
+                                                                                openEditUpdate(claimId, update);
+                                                                            }
+                                                                        }}
+                                                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-blue-600 hover:text-blue-800"
+                                                                        title="Edit this update"
+                                                                    >
+                                                                        <Pencil size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.message.toUpperCase()}</p>
+                                                        {!isOwnUpdate && (
+                                                            <p className="text-[10px] text-gray-400 mt-1 italic">Only the creator can edit this update</p>
+                                                        )}
                                                     </div>
-                                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.message.toUpperCase()}</p>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
 

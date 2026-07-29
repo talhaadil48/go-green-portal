@@ -203,11 +203,12 @@ export default function ClaimsPage() {
     const [userName, setUsername] = useState<string | null>(null);
 
     // Updates Modals
-    const [updateModalState, setUpdateModalState] = useState<{ type: 'add' | 'view' | null, claim_id: string | null }>({ type: null, claim_id: null });
+    const [updateModalState, setUpdateModalState] = useState<{ type: 'add' | 'view' | 'edit' | null, claim_id: string | null, update_id?: number | null }>({ type: null, claim_id: null });
     const [updateMessage, setUpdateMessage] = useState("");
     const [updateDate, setUpdateDate] = useState(new Date().toISOString().slice(0, 10));
     const [updatesList, setUpdatesList] = useState<any[]>([]);
     const [addingUpdate, setAddingUpdate] = useState(false);
+    const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
 
     // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
@@ -493,6 +494,7 @@ export default function ClaimsPage() {
         setUpdateModalState({ type: 'add', claim_id });
         setUpdateMessage("");
         setUpdateDate(new Date().toISOString().slice(0, 10));
+        setEditingUpdateId(null);
     };
 
     const openViewUpdates = (claim: Claim) => {
@@ -503,6 +505,14 @@ export default function ClaimsPage() {
             return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
         });
         setUpdatesList(sorted);
+        setEditingUpdateId(null);
+    };
+
+    const openEditUpdate = (claim_id: string, update: any) => {
+        setUpdateModalState({ type: 'edit', claim_id, update_id: update.id });
+        setUpdateMessage(update.message || "");
+        setUpdateDate(update.date ? new Date(update.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+        setEditingUpdateId(update.id);
     };
 
     const submitAddUpdate = async (e: FormEvent) => {
@@ -534,6 +544,39 @@ export default function ClaimsPage() {
         } catch (err: any) {
             console.error(err);
             alert("Failed to add update. Please try again.");
+        } finally {
+            setAddingUpdate(false);
+        }
+    };
+
+    const submitEditUpdate = async (e: FormEvent) => {
+        e.preventDefault();
+        const claimId = updateModalState.claim_id;
+        const updateId = updateModalState.update_id;
+        if (!claimId || !updateId || !updateMessage.trim()) return;
+
+        setAddingUpdate(true);
+        try {
+            const now = new Date();
+            const [year, month, day] = updateDate.split('-');
+            const finalDate = new Date(Number(year), Number(month) - 1, Number(day), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
+            await api.put(`/api/claims/${claimId}/updates/${updateId}`, {
+                update: {
+                    message: updateMessage.trim(),
+                    date: finalDate.toISOString()
+                }
+            }, { headers: { requiresAuth: true } });
+
+            setUpdateModalState({ type: null, claim_id: null });
+            await fetchClaims();
+        } catch (err: any) {
+            console.error(err);
+            if (err.response?.status === 403) {
+                alert("You can only edit updates you created.");
+            } else {
+                alert("Failed to edit update. Please try again.");
+            }
         } finally {
             setAddingUpdate(false);
         }
@@ -1662,7 +1705,67 @@ export default function ClaimsPage() {
                         )}
 
                         {/* ══════════════════════════════════════════════════════════
-                    VIEW UPDATES MODAL
+                    EDIT UPDATE MODAL
+                ══════════════════════════════════════════════════════════ */}
+                        {updateModalState.type === 'edit' && (
+                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-blue-800">Edit Update</h2>
+                                        <button
+                                            onClick={() => setUpdateModalState({ type: null, claim_id: null })}
+                                            className="text-gray-500 hover:text-gray-700"
+                                        >
+                                            <X size={24} />
+                                        </button>
+                                    </div>
+                                    <form onSubmit={submitEditUpdate} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
+                                            <input
+                                                type="date"
+                                                value={updateDate}
+                                                onChange={(e) => setUpdateDate(e.target.value)}
+                                                required
+                                                className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white/70"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Message</label>
+                                            <textarea
+                                                value={updateMessage}
+                                                onChange={(e) => setUpdateMessage(e.target.value)}
+                                                placeholder="Edit update..."
+                                                required
+                                                rows={4}
+                                                className="w-full px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white/70 resize-none"
+                                            />
+                                        </div>
+                                        <div className="flex gap-3 pt-4">
+                                            <button
+                                                type="button"
+                                                onClick={() => setUpdateModalState({ type: null, claim_id: null })}
+                                                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl transition"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={addingUpdate}
+                                                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-10 rounded-xl shadow-lg transition disabled:opacity-60 flex items-center justify-center gap-2"
+                                            >
+                                                {addingUpdate ? (
+                                                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                ) : "Update"}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ══════════════════════════════════════════════════════════
+                    VIEW UPDATES MODAL (with edit button)
                 ══════════════════════════════════════════════════════════ */}
                         {updateModalState.type === 'view' && (
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1685,19 +1788,41 @@ export default function ClaimsPage() {
                                                 No updates available for this claim.
                                             </div>
                                         ) : (
-                                            updatesList.map((update, idx) => (
-                                                <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
-                                                            {formatDateTime(update.date)}
-                                                        </span>
-                                                        <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
-                                                            <User size={12} /> {update.user}
-                                                        </span>
+                                            updatesList.map((update, idx) => {
+                                                const isOwnUpdate = update.user?.toLowerCase() === userName?.toLowerCase();
+                                                return (
+                                                    <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30 group">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
+                                                                {formatDateTime(update.date)}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                                                                    <User size={12} /> {update.user}
+                                                                </span>
+                                                                {isOwnUpdate && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const claimId = updateModalState.claim_id;
+                                                                            if (claimId) {
+                                                                                openEditUpdate(claimId, update);
+                                                                            }
+                                                                        }}
+                                                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-blue-600 hover:text-blue-800"
+                                                                        title="Edit this update"
+                                                                    >
+                                                                        <Pencil size={14} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.message.toUpperCase()}</p>
+                                                        {!isOwnUpdate && (
+                                                            <p className="text-[10px] text-gray-400 mt-1 italic">Only the creator can edit this update</p>
+                                                        )}
                                                     </div>
-                                                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.message.toUpperCase()}</p>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
 

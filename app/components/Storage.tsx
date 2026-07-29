@@ -166,7 +166,7 @@ export function StorageRecoveryAgreement({ claimId }: ClaimProps) {
     try {
  const response = await api.get(`/api/storage-forms/${claimId}`, {
   headers: { requiresAuth: true },
-});;
+});
 
       const data = response.data;
 
