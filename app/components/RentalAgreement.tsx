@@ -505,8 +505,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     // Set default valid_from to today and valid_till to 7 days from now
     const today = new Date();
     const weekLater = new Date(today);
-    weekLater.setDate(today.getDate() + 7);
-
+    weekLater.setDate(today.getDate() + 90);  // ← Change 7 to 90
     setFormData(prev => ({
       ...prev,
       valid_from: today.toISOString().split('T')[0],
@@ -936,8 +935,8 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                               setShowAgreementSelector(false);
                             }}
                             className={`w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition ${selectedAgreementId === agreement.rental_agreement_id
-                                ? 'bg-green-100 border-l-4 border-green-600'
-                                : ''
+                              ? 'bg-green-100 border-l-4 border-green-600'
+                              : ''
                               }`}
                           >
                             <div className="font-medium text-gray-900">
