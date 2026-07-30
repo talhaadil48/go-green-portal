@@ -31,6 +31,18 @@ interface DocumentOption {
   userName?: string;
 }
 
+// Interface for rental agreement from API
+interface RentalAgreement {
+  rental_agreement_id: number;
+  display_id: number;
+  valid_from: string;
+  valid_till: string;
+  hire_vehicle_reg: string;
+  hirer_name: string;
+  total_cost: string;
+  created_at: string;
+}
+
 export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [refNo, setRefNo] = useState<string>("");
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
@@ -52,6 +64,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  
+  // New state for multiple rental agreements
+  const [rentalAgreements, setRentalAgreements] = useState<RentalAgreement[]>([]);
+  const [isLoadingRentalAgreements, setIsLoadingRentalAgreements] = useState(false);
 
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
@@ -67,7 +83,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
     const currentUser = getCurrentUsername();
     setUsername(currentUser);
-  }, []); // empty dependency array → runs once on mount
+  }, []);
 
   // Fetch all form data – allow missing forms (treat as empty)
   useEffect(() => {
@@ -82,7 +98,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           },
           { key: "cancellation", url: `/api/cancellation-forms/${claimId}` },
           { key: "storage-recovery", url: `/api/storage-forms/${claimId}` },
-          { key: "rental-agreement", url: `/api/rental-agreements/${claimId}` },
+          // Note: We'll fetch rental agreements separately now
           { key: "documents", url: `/api/claim-documents/${claimId}` },
         ];
         const results = await Promise.allSettled(
@@ -97,7 +113,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             if (key === "documents") {
               data[key] = result.value.data.documents || {};
             } else if (key === "pre-inspection") {
-              // Handle array of pre-inspection forms
               data[key] = Array.isArray(result.value.data)
                 ? result.value.data
                 : [result.value.data || {}];
@@ -105,13 +120,11 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
               data[key] = result.value.data || {};
             }
           } else {
-            // Even on error (404 etc.) → provide empty object so blank form can be generated
             if (key === "pre-inspection") {
               data[key] = [];
             } else if (key !== "documents") {
               data[key] = {};
             }
-            // documents list remains empty if failed
           }
         });
 
@@ -132,6 +145,74 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     }
   }, [claimId]);
 
+  // ─── NEW: Fetch all rental agreements for this claim ───
+  useEffect(() => {
+    const fetchRentalAgreements = async () => {
+      setIsLoadingRentalAgreements(true);
+      try {
+        const response = await api.get(`/api/claims/${claimId}/rental-agreements`, {
+          headers: { requiresAuth: true },
+        });
+        console.log("Fetched rental agreements:", response.data);
+        
+        const agreements = response.data.rental_agreements || [];
+        // Sort by rental_agreement_id (oldest first) and assign display IDs
+        const sortedAgreements = agreements
+          .sort((a: any, b: any) => a.rental_agreement_id - b.rental_agreement_id)
+          .map((agreement: any, index: number) => ({
+            ...agreement,
+            display_id: index + 1 // Sequential: 1, 2, 3...
+          }));
+        
+        setRentalAgreements(sortedAgreements);
+        
+        // Store each rental agreement in documentsData for PDF generation
+        const rentalData: Record<string, any> = {};
+        sortedAgreements.forEach((agreement: RentalAgreement) => {
+          const key = `rental-agreement-${agreement.rental_agreement_id}`;
+          // We need to fetch full details for each agreement
+          // This will be done lazily when needed
+          rentalData[key] = { 
+            ...agreement,
+            // Placeholder - will be replaced with full data when fetched
+            _needsFetch: true 
+          };
+        });
+        
+        setDocumentsData(prev => ({
+          ...prev,
+          rental_agreements: rentalData
+        }));
+        
+      } catch (err) {
+        console.error("Failed to fetch rental agreements:", err);
+        // If 404, just set empty array
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setRentalAgreements([]);
+        }
+      } finally {
+        setIsLoadingRentalAgreements(false);
+      }
+    };
+
+    if (claimId) {
+      fetchRentalAgreements();
+    }
+  }, [claimId]);
+
+  // ─── Fetch full rental agreement details when needed ───
+  const fetchRentalAgreementDetails = async (agreementId: number) => {
+    try {
+      const response = await api.get(`/api/claims/${claimId}/rental-agreements/${agreementId}`, {
+        headers: { requiresAuth: true },
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to fetch rental agreement ${agreementId}:`, error);
+      return null;
+    }
+  };
+
   // Fetch invoices for this claim
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -141,7 +222,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           headers: { requiresAuth: true },
         });
         if (response.data.success) {
-          // Transform array-of-arrays → array-of-objects
           const rawData = response.data.data || [];
           const formattedInvoices = rawData.map((row: any[]) => ({
             id: row[0],
@@ -185,29 +265,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      ),
-      available: true,
-    },
-    {
-      id: "rental-agreement",
-      name: "Hire Agreement",
-      formType: "rental-agreement",
-      description: "Vehicle rental terms and conditions",
-      userName: documentsData["rental-agreement"]?.user_name,
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7v8a2 2 0 002 2H5a2 2 0 00-2 2v6a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
           />
         </svg>
       ),
@@ -261,6 +318,31 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     },
   ];
 
+  // ─── NEW: Dynamically generate rental agreement document options ───
+  const rentalAgreementDocuments: DocumentOption[] = rentalAgreements.map((agreement) => ({
+    id: `rental-agreement-${agreement.rental_agreement_id}`,
+    name: `Hire Agreement ${agreement.display_id}`,
+    formType: "rental-agreement",
+    description: `Vehicle hire agreement #${agreement.display_id} (${agreement.valid_from || 'N/A'} → ${agreement.valid_till || 'N/A'})`,
+    userName: agreement.user_name || "Unknown",
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 7v8a2 2 0 002 2H5a2 2 0 00-2 2v6a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+        />
+      </svg>
+    ),
+    available: true,
+  }));
+
   // Add dynamic pre-inspection forms from array
   const preInspectionForms: DocumentOption[] = [];
   if (
@@ -272,7 +354,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         id: `pre-inspection-${form.inspection_id || index}`,
         name: `Hire Vehicle Checklist ${index + 1}`,
         formType: "pre-inspection",
-        description: `Vehicle inspection `,
+        description: `Vehicle inspection ${index + 1}`,
         userName: form.user_name,
         icon: (
           <svg
@@ -300,7 +382,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       const docVal = documentsData["documents"][id];
       let userName = undefined;
 
-      // Check if docVal is the new object format { url, user_name }
       if (typeof docVal === "object" && docVal !== null) {
         userName = docVal.user_name;
       }
@@ -331,8 +412,10 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     }
   }
 
+  // ─── Combine all documents - rental agreements sorted by display_id ───
   const allDocuments = [
     ...documents,
+    ...rentalAgreementDocuments, // Now multiple hire agreements
     ...preInspectionForms,
     ...uploadedDocuments,
   ];
@@ -378,6 +461,47 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         return;
       }
 
+      // ─── NEW: Handle rental agreement download ───
+      if (doc.formType === "rental-agreement") {
+        // Extract agreement ID from docId
+        const agreementId = parseInt(docId.replace("rental-agreement-", ""));
+        const agreement = rentalAgreements.find(a => a.rental_agreement_id === agreementId);
+        
+        if (!agreement) {
+          throw new Error("Rental agreement not found");
+        }
+
+        // Fetch full agreement data
+        const formDataObj = await fetchRentalAgreementDetails(agreementId);
+        
+        if (!formDataObj) {
+          throw new Error("Failed to fetch rental agreement data");
+        }
+
+        const pdfData: PDFFormData = {
+          refNo,
+          title: doc.name,
+          formType: "rental-agreement",
+          claimId,
+          data: formDataObj,
+          signatures: extractSignatures("rental-agreement", formDataObj),
+          images: extractImages("rental-agreement", formDataObj),
+        };
+        
+        const blob = await generatePDF(pdfData);
+        const filename = `rental-agreement-${agreement.display_id}-${claimId}.pdf`;
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       // For generated documents, generate PDF and download
       let blob: Blob;
       let filename: string;
@@ -419,7 +543,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
         filename = `${doc.formType}-${claimId}.pdf`;
       }
 
-      // Create download link for generated PDF
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -521,10 +644,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           text: `Processing ${i + 1}/${selectedDocs.length}: ${doc.name || docId} ...`,
         });
 
-        // ─────────────────────────────────────────────────────────────
-        // UPLOADED DOCUMENTS: already have a URL – use it directly,
-        // no fetching or re-uploading needed.
-        // ─────────────────────────────────────────────────────────────
+        // UPLOADED DOCUMENTS: already have a URL
         if (doc.formType === "document") {
           const docVal = documentsData["documents"]?.[docId];
           const existingUrl = typeof docVal === "object" && docVal !== null ? docVal.url : docVal;
@@ -540,18 +660,45 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           uploadedDocs.push({
             name: doc.name || docId,
             url: existingUrl,
-            sizeKb: "—", // size unknown without fetching the file
+            sizeKb: "—",
           });
-          continue; // skip presign / S3 upload entirely
+          continue;
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // GENERATED DOCUMENTS: build PDF blob then upload to S3
-        // ─────────────────────────────────────────────────────────────
+        // ─── NEW: Handle rental agreement PDF generation ───
         let blob: Blob;
         let filename: string;
 
-        if (doc.formType === "pre-inspection") {
+        if (doc.formType === "rental-agreement") {
+          const agreementId = parseInt(docId.replace("rental-agreement-", ""));
+          const agreement = rentalAgreements.find(a => a.rental_agreement_id === agreementId);
+          
+          if (!agreement) {
+            uploadErrors.push(doc.name || docId);
+            continue;
+          }
+
+          const formDataObj = await fetchRentalAgreementDetails(agreementId);
+          
+          if (!formDataObj) {
+            uploadErrors.push(doc.name || docId);
+            continue;
+          }
+
+          const pdfData: PDFFormData = {
+            refNo,
+            title: doc.name,
+            formType: "rental-agreement",
+            claimId,
+            data: formDataObj,
+            signatures: extractSignatures("rental-agreement", formDataObj),
+            images: extractImages("rental-agreement", formDataObj),
+          };
+          
+          blob = await generatePDF(pdfData);
+          filename = `rental-agreement-${agreement.display_id}-${claimId}.pdf`;
+          
+        } else if (doc.formType === "pre-inspection") {
           const inspectionId = docId.replace("pre-inspection-", "");
           let formDataObj = {};
           if (Array.isArray(documentsData["pre-inspection"])) {
@@ -637,7 +784,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
 
       setStatus({ type: "info", text: "Sending email with document links..." });
 
-      // Send links (small JSON payload)
       const sendPayload = {
         email,
         subject,
@@ -652,11 +798,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
       });
       const sendData = await sendResponse.json();
       if (sendResponse.ok && sendData.success) {
-        // Create invoice if info is provided
         if (true) {
           try {
             setStatus({ type: "info", text: "Creating invoice..." });
-            // Fetch claim bill details
             const billResponse = await api.get(`/api/claim-bill/${claimId}`, {
               headers: { requiresAuth: true },
             });
@@ -674,7 +818,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 docs: docsArray,
                 storage_bill: storage,
                 rent_bill: rental,
-                user_name: username || "-", // or fetch actual user name if available
+                user_name: username || "-",
               },
               {
                 headers: { requiresAuth: true },
@@ -685,7 +829,6 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 type: "success",
                 text: `All ${uploadedDocs.length} documents sent and invoice created successfully!`,
               });
-              // Refresh invoices list
               const refreshResponse = await api.get(`/api/invoice/${claimId}`, {
                 headers: { requiresAuth: true },
               });
@@ -794,6 +937,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           Select the documents you want to send (blank forms are allowed)
         </p>
       </div>
+
+      {/* Invoice Section - Unchanged */}
       <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
           <svg
@@ -837,14 +982,12 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
                 : "";
               return (
                 <div key={invoice.id} className="flex gap-4">
-                  {/* Timeline dot and line */}
                   <div className="flex flex-col items-center">
                     <div className="w-3 h-3 rounded-full bg-teal-500 mt-2" />
                     {index < invoices.length - 1 && (
                       <div className="w-0.5 h-16 bg-gray-300 mt-2" />
                     )}
                   </div>
-                  {/* Invoice card */}
                   <div className="flex-1 pb-4">
                     <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-100 rounded-2xl p-4">
                       <div className="flex items-start justify-between mb-3">
@@ -927,6 +1070,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           </div>
         )}
       </div>
+
       {/* Document Selection */}
       <div className="bg-gradient-to-br from-gray-50 to-emerald-50/30 rounded-3xl p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
@@ -966,6 +1110,14 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             </button>
           </div>
         </div>
+        
+        {isLoadingRentalAgreements && (
+          <div className="text-center py-4">
+            <div className="inline-block w-6 h-6 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mr-2" />
+            <span className="text-sm text-gray-600">Loading rental agreements...</span>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
@@ -1100,7 +1252,8 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           </table>
         </div>
       </div>
-      {/* Email Form */}
+
+      {/* Email Form - Unchanged */}
       <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <svg
@@ -1184,6 +1337,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           </div>
         </div>
       </div>
+
       {/* Status + Progress */}
       {status && (
         <div
@@ -1279,6 +1433,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           )}
         </div>
       )}
+
       {/* Send Button */}
       <div className="flex justify-center">
         <button

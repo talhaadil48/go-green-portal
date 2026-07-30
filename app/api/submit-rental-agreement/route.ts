@@ -38,10 +38,15 @@ export async function POST(req: NextRequest) {
           type: "image/png",
         });
 
-        // Use ID from fullData or fallback
-        const claimId = fullData.id || "general";
+        // Use claim_id from fullData or fallback
+        const claimId = fullData.claim_id || "general";
+        
+        // Include rental_agreement_id in folder path for better organization
+        const folderPath = fullData.rental_agreement_id 
+          ? `${claimId}/agreement-${fullData.rental_agreement_id}`
+          : claimId;
 
-        const s3Url = await uploadToS3(file, claimId);
+        const s3Url = await uploadToS3(file, folderPath);
         return s3Url;
       } catch (err) {
         console.error(`S3 upload failed for ${fieldName}:`, err);
@@ -77,6 +82,8 @@ export async function POST(req: NextRequest) {
       "change_vehicle_date_in",
       "declaration_date",
       "liability_date",
+      "valid_from",
+      "valid_till",
       "daily_rate",
       "policy_excess",
       "deposit",
@@ -104,13 +111,24 @@ export async function POST(req: NextRequest) {
         fullData[field] = null;
       }
     });
+
+    // Ensure rental_agreement_id is properly handled
+    // If rental_agreement_id is provided, include it for updates
+    // If not provided, backend will create a new agreement
+    const payload = {
+      ...fullData,
+      // Make sure these are explicitly included
+      claim_id: fullData.claim_id,
+      rental_agreement_id: fullData.rental_agreement_id || undefined,
+    };
+
     // Forward to external backend
     const EXTERNAL_API_URL = `${process.env.NEXT_PUBLIC_API_URL}/post/rental-agreements`;
 
     const externalResponse = await fetch(EXTERNAL_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fullData),
+      body: JSON.stringify(payload),
     });
 
     if (!externalResponse.ok) {
@@ -134,13 +152,17 @@ export async function POST(req: NextRequest) {
         { status: externalResponse.status },
       );
     }
+    
     const externalResult = await externalResponse.json();
 
     return NextResponse.json(
       {
         success: true,
         message: "Rental agreement submitted successfully",
-        data: externalResult, // optional: backend response
+        data: externalResult,
+        // Return the IDs so frontend can refresh properly
+        rental_agreement_id: externalResult?.rental_agreement_id,
+        claim_id: externalResult?.claim_id,
       },
       { status: 200 },
     );
@@ -153,6 +175,154 @@ export async function POST(req: NextRequest) {
         error: error.message,
       },
       { status: 500 },
+    );
+  }
+}
+
+// ─── GET: Get all rental agreements for a claim ───
+export async function GET(req: NextRequest) {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const claimId = searchParams.get("claimId");
+    const agreementId = searchParams.get("agreementId");
+
+    // Forward to external backend
+    const EXTERNAL_API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+    let url: string;
+    
+    if (agreementId && claimId) {
+      // Get specific agreement
+      url = `${EXTERNAL_API_URL}/get/claims/${claimId}/rental-agreements/${agreementId}`;
+    } else if (claimId) {
+      // Get all agreements for claim
+      url = `${EXTERNAL_API_URL}/get/claims/${claimId}/rental-agreements`;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "claimId is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const externalResponse = await fetch(url, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        // Forward any auth headers if needed
+        ...(req.headers.get("authorization") && {
+          Authorization: req.headers.get("authorization")!,
+        }),
+      },
+    });
+
+    if (!externalResponse.ok) {
+      // If 404, return empty array/list
+      if (externalResponse.status === 404) {
+        return NextResponse.json(
+          {
+            success: true,
+            data: agreementId ? null : [],
+            message: agreementId ? "Agreement not found" : "No agreements found",
+          },
+          { status: 200 }
+        );
+      }
+
+      const errorData = await externalResponse.json().catch(() => null);
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData?.detail || "Failed to fetch rental agreements",
+        },
+        { status: externalResponse.status }
+      );
+    }
+
+    const data = await externalResponse.json();
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: data,
+      },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("GET rental agreements error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Server error fetching rental agreements",
+        error: error.message,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ─── OPTIONAL: DELETE a rental agreement ───
+export async function DELETE(req: NextRequest) {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const claimId = searchParams.get("claimId");
+    const agreementId = searchParams.get("agreementId");
+
+    if (!claimId || !agreementId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Both claimId and agreementId are required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const EXTERNAL_API_URL = process.env.NEXT_PUBLIC_API_URL;
+    const url = `${EXTERNAL_API_URL}/delete/claims/${claimId}/rental-agreements/${agreementId}`;
+
+    const externalResponse = await fetch(url, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        ...(req.headers.get("authorization") && {
+          Authorization: req.headers.get("authorization")!,
+        }),
+      },
+    });
+
+    if (!externalResponse.ok) {
+      const errorData = await externalResponse.json().catch(() => null);
+      return NextResponse.json(
+        {
+          success: false,
+          message: errorData?.detail || "Failed to delete rental agreement",
+        },
+        { status: externalResponse.status }
+      );
+    }
+
+    const data = await externalResponse.json();
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Rental agreement deleted successfully",
+        data: data,
+      },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("DELETE rental agreement error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Server error deleting rental agreement",
+        error: error.message,
+      },
+      { status: 500 }
     );
   }
 }
