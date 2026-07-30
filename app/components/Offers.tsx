@@ -32,6 +32,7 @@ interface Offer {
   offer3_status: string | null;
   claim_type: string | null;
   claimant_name: string | null;
+  hire_storage: number | null;
 }
 
 interface ClaimSearchResult {
@@ -46,10 +47,9 @@ type SortKey =
   | "claim_id"
   | "claimant_name"
   | "claim_type"
+  | "hire_storage"
   | "offer1"
   | "offer1_date"
-  | "offer2"
-  | "offer2_date"
   | "offer3"
   | "offer3_date";
 type SortConfig = { key: SortKey; direction: "asc" | "desc" } | null;
@@ -76,19 +76,17 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 /**
- * Walk offer3 → offer2 → offer1 and return the amount + status of the most
+ * Walk offer3 → offer1 and return the amount + status of the most
  * recent offer that has an amount. This is the single source of truth for
  * "current" offer state — used for the status badge, status filter,
  * status sorting, and the summary cards.
  */
 function getCurrentOffer(offer: {
   offer1: number | null; offer1_status: string | null;
-  offer2: number | null; offer2_status: string | null;
   offer3: number | null; offer3_status: string | null;
 }): { amount: number | null; status: string | null } {
   const pairs = [
     { amount: offer.offer3, status: offer.offer3_status },
-    { amount: offer.offer2, status: offer.offer2_status },
     { amount: offer.offer1, status: offer.offer1_status },
   ];
   for (const p of pairs) {
@@ -99,7 +97,6 @@ function getCurrentOffer(offer: {
 
 function deriveGlobalStatus(offer: {
   offer1: number | null; offer1_status: string | null;
-  offer2: number | null; offer2_status: string | null;
   offer3: number | null; offer3_status: string | null;
 }): string {
   return getCurrentOffer(offer).status ?? "";
@@ -371,7 +368,13 @@ export default function OffersManagementPage() {
         return (ra - rb) * dir;
       }
 
-      if (key === "offer1_date" || key === "offer2_date" || key === "offer3_date") {
+      if (key === "hire_storage") {
+        const va = a.hire_storage ?? 0;
+        const vb = b.hire_storage ?? 0;
+        return (va - vb) * dir;
+      }
+
+      if (key === "offer1_date" || key === "offer3_date") {
         const va = a[key] ? new Date(a[key] as string).getTime() : null;
         const vb = b[key] ? new Date(b[key] as string).getTime() : null;
         if (va === vb) return 0;
@@ -380,7 +383,7 @@ export default function OffersManagementPage() {
         return (va - vb) * dir;
       }
 
-      if (key === "offer1" || key === "offer2" || key === "offer3") {
+      if (key === "offer1" || key === "offer3") {
         const va = a[key];
         const vb = b[key];
         if (va === vb) return 0;
@@ -752,10 +755,9 @@ export default function OffersManagementPage() {
                     <SortHeader label="Claim ID"  sortKey="claim_id" />
                     <SortHeader label="Claimant"  sortKey="claimant_name" />
                     <SortHeader label="Type"      sortKey="claim_type"    align="center" />
+                    <SortHeader label="Hire/Storage" sortKey="hire_storage" align="right" />
                     <SortHeader label="Offer 1"   sortKey="offer1"        align="right" />
                     <SortHeader label="O1 Date"   sortKey="offer1_date" />
-                    <SortHeader label="Offer 2"   sortKey="offer2"        align="right" />
-                    <SortHeader label="O2 Date"   sortKey="offer2_date" />
                     <SortHeader label="Final Offer"   sortKey="offer3"        align="right" />
                     <SortHeader label="Final Offer Date"   sortKey="offer3_date" />
                   </tr>
@@ -788,16 +790,19 @@ export default function OffersManagementPage() {
                           <td className="px-3 py-1.5 text-center border-r border-gray-300">
                             <ClaimTypeBadge type={offer.claim_type} />
                           </td>
+                          {/* Hire/Storage */}
+                          <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium text-purple-700">
+                            {formatCurrency(offer.hire_storage)}
+                          </td>
                           {/* Offer pairs — read-only; edit opens the sub-row */}
                           <ReadOfferPair offer={offer} num={1} />
-                          <ReadOfferPair offer={offer} num={2} />
                           <ReadOfferPair offer={offer} num={3} />
                         </tr>
 
                         {/* Inline edit row - REDESIGNED */}
                         {isEditingThisRow && editKey && (
                           <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b-2 border-green-200">
-                            <td colSpan={10} className="px-6 py-4">
+                            <td colSpan={9} className="px-6 py-4">
                               <div className="flex items-center gap-6">
                                 {/* Offer number badge */}
                                 <div className="shrink-0">
