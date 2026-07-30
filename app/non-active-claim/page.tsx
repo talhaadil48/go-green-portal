@@ -1024,8 +1024,13 @@ export default function ClaimsPage() {
                                             </div>
                                         </td>
 
-                                        <td className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap" onClick={() => window.open(`/claim/${claim.claim_id}`, "_blank")}>
-                                            {claim.claim_id.toUpperCase()}
+                                        <td className="px-1 py-0.5 font-medium text-green-800 border-r border-gray-300 cursor-pointer hover:text-green-600 hover:underline whitespace-nowrap">
+                                             <a
+                                                href={`/claim/${claim.claim_id}`}
+                                                className="cursor-pointer hover:text-green-600 hover:underline"
+                                            >
+                                                {claim.claim_id.toUpperCase()}
+                                            </a>
                                         </td>
 
                                         {/* Editable claimant name — allowing wrap */}
