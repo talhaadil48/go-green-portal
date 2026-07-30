@@ -147,17 +147,25 @@ Website: www.gogreenhire.co.uk`;
     );
     return headerHeight + 5;
   };
-  const addSectionHeader = (title: string, y: number): number => {
-    pdf.setFillColor(...colors.light);
-    pdf.roundedRect(margin, y, pageWidth - margin * 2, 6, 1.5, 1.5, "F");
+  const addSectionHeader = (
+    title: string,
+    y: number,
+    showBackground: boolean = true
+  ): number => {
+    if (showBackground) {
+      pdf.setFillColor(...colors.light);
+      pdf.roundedRect(margin, y, pageWidth - margin * 2, 6, 1.5, 1.5, "F");
 
-    pdf.setFillColor(...colors.primary);
-    pdf.rect(margin, y, 2, 6, "F");
+      pdf.setFillColor(...colors.primary);
+      pdf.rect(margin, y, 2, 6, "F");
+    }
 
     pdf.setTextColor(...colors.primaryDark);
     pdf.setFontSize(7);
     pdf.setFont("helvetica", "bold");
-    pdf.text(title, margin + 5, y + 4.5);
+
+    const textX = showBackground ? margin + 5 : margin;
+    pdf.text(title, textX, y + 4.5);
 
     return y + 8;
   };
@@ -848,7 +856,7 @@ async function generateStoragePDF(
 
   // Client Details
   // Client Details
-  yPos = addSectionHeader("CLIENT DETAILS", yPos);
+  yPos = addSectionHeader("CLIENT DETAILS", yPos, false);
 
   const availableWidth = pageWidth - margin * 2;
   const fieldWidth = availableWidth / 3;
@@ -860,7 +868,7 @@ async function generateStoragePDF(
   yPos += 14;
   // Vehicle Information
   yPos = checkNewPage(yPos, 30);
-  yPos = addSectionHeader("VEHICLE INFORMATION", yPos);
+  yPos = addSectionHeader("VEHICLE INFORMATION", yPos, false);
   addField("Make", up(data.vehicle_make), margin, yPos, colWidth);
   addField("Model", up(data.vehicle_model), margin + colWidth, yPos, colWidth);
   addField(
@@ -874,7 +882,7 @@ async function generateStoragePDF(
 
   // Recovery & Storage Details
   yPos = checkNewPage(yPos, 50);
-  yPos = addSectionHeader("RECOVERY & STORAGE DETAILS", yPos);
+  yPos = addSectionHeader("RECOVERY & STORAGE DETAILS", yPos, false);
   addField(
     "Date of Recovery",
     formatDate(data.date_of_recovery),
