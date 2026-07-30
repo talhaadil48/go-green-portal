@@ -55,7 +55,7 @@ export default function InvoicePage() {
         </div>
 
         {/* Sticky Tabs - stays pinned to top of viewport while scrolling */}
-        <div className="sticky top-18 z-50 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 mb-6 bg-emerald-50/95 backdrop-blur-md border-b border-green-200/70 shadow-sm">
+        <div className="sticky top-18 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-2 mb-6 bg-emerald-50/95 backdrop-blur-md border-b border-green-200/70 shadow-sm">
           <div className="flex space-x-10 overflow-x-auto">
             {TABS.map((tab) => (
               <button

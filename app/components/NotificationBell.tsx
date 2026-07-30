@@ -180,7 +180,7 @@ export default function NotificationBell() {
 
       {/* Notifications Dropdown */}
       <div
-        className={`absolute right-0 mt-3 w-80 md:w-96 rounded-2xl bg-white shadow-2xl border border-emerald-100 py-3 z-50 transform transition-all duration-300 origin-top-right ${
+        className={`absolute right-0 mt-3 w-80 md:w-96 rounded-2xl bg-white shadow-2xl border border-emerald-100 py-3 z-100 transform transition-all duration-300 origin-top-right ${
           isOpen
             ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'

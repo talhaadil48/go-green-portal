@@ -790,7 +790,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
     return null;
   };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -818,7 +817,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       liability_signature: signatures.liability_signature || null,
       claim_id: currentClaimId,
       user_name: username,
-      // Include rental_agreement_id if editing existing
       rental_agreement_id: selectedAgreementId || undefined,
     };
 
@@ -842,15 +840,91 @@ export function RentalAgreement({ claimId }: ClaimProps) {
         unsavedChangesContext.setHasUnsavedChanges(false);
       }
 
+      // ✅ Update signatures with the S3 URLs returned from the API
+      if (response.data?.signatures) {
+        const signatureData = response.data.signatures;
+
+        // Update each signature if it has a value
+        if (signatureData.hirer_signature_terms) {
+          setSignatures(prev => ({
+            ...prev,
+            hirer_signature_terms: signatureData.hirer_signature_terms
+          }));
+          setIsHirerTermsFromApi(true);
+        }
+
+        if (signatureData.company_signature) {
+          setSignatures(prev => ({
+            ...prev,
+            company_signature: signatureData.company_signature
+          }));
+          setIsCompanyFromApi(true);
+        }
+
+        if (signatureData.hirer_signature_insurance) {
+          setSignatures(prev => ({
+            ...prev,
+            hirer_signature_insurance: signatureData.hirer_signature_insurance
+          }));
+          setIsHirerInsuranceFromApi(true);
+        }
+
+        if (signatureData.declaration_signature) {
+          setSignatures(prev => ({
+            ...prev,
+            declaration_signature: signatureData.declaration_signature
+          }));
+          setIsDeclarationFromApi(true);
+        }
+
+        if (signatureData.liability_signature) {
+          setSignatures(prev => ({
+            ...prev,
+            liability_signature: signatureData.liability_signature
+          }));
+          setIsLiabilityFromApi(true);
+        }
+      }
+
+      // ✅ If we have complete data, update the form
+      if (response.data?.data) {
+        const completeData = response.data.data;
+
+        // Update form data
+        const updatedFormData = { ...initialFormData };
+        Object.keys(completeData).forEach((key) => {
+          const value = completeData[key];
+          if (value !== null && value !== "" && key in updatedFormData) {
+            updatedFormData[key] = value;
+          }
+        });
+
+        // Handle change_vehicle_history
+        if (completeData.change_vehicle_history) {
+          const vehiclesFromApi = completeData.change_vehicle_history.map((v: ChangeVehicleRecord) => ({
+            ...v,
+            rate_per_day: v.rate_per_day || "",
+            fromApi: !!v.vehicle_reg,
+          }));
+          updatedFormData.change_vehicle_history = vehiclesFromApi;
+          setShowChangeVehicle(true);
+        }
+
+        setFormData(updatedFormData);
+
+        // Update selected agreement ID
+        if (response.data.rental_agreement_id) {
+          setSelectedAgreementId(response.data.rental_agreement_id);
+        }
+      }
+
       // Refresh the agreements list
       await fetchAllRentalAgreements();
 
-      // If new agreement was created, select it
-      if (response.data.rental_agreement_id) {
+      // If we have a rental_agreement_id but no complete data, fetch it
+      if (response.data.rental_agreement_id && !response.data?.data) {
         setSelectedAgreementId(response.data.rental_agreement_id);
-      } else if (selectedAgreementId) {
-        // Refresh the current agreement
-        await fetchRentalAgreementDetails(selectedAgreementId);
+        await fetchRentalAgreementDetails(response.data.rental_agreement_id);
       }
 
     } catch (err: any) {
@@ -870,7 +944,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       setLoading(false);
     }
   };
-
   // ─── Render loading state ───
   if (isLoadingAgreements) {
     return (

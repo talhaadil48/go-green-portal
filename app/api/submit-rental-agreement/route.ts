@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
       fieldName: string,
     ) => {
       if (!dataUrl || dataUrl === "") {
-        return "";
+        return null;
       }
 
-      // ✅ If already an S3 URL → don't touch it
+      // ✅ If already an S3 URL → return it
       if (dataUrl.startsWith("http")) {
         return dataUrl;
       }
@@ -32,16 +32,11 @@ export async function POST(req: NextRequest) {
 
       try {
         const buffer = base64ToBuffer(dataUrl);
-
-        // Create a File object for your lib/s3.ts
         const file = new File([buffer], `${fieldName}.png`, {
           type: "image/png",
         });
 
-        // Use claim_id from fullData or fallback
         const claimId = fullData.claim_id || "general";
-        
-        // Include rental_agreement_id in folder path for better organization
         const folderPath = fullData.rental_agreement_id 
           ? `${claimId}/agreement-${fullData.rental_agreement_id}`
           : claimId;
@@ -50,11 +45,12 @@ export async function POST(req: NextRequest) {
         return s3Url;
       } catch (err) {
         console.error(`S3 upload failed for ${fieldName}:`, err);
-        return ""; // continue even if upload fails
+        // ✅ Return the original data to preserve signature
+        return dataUrl;
       }
     };
 
-    // Upload all signatures to S3
+    // Upload all signatures to S3 and store the URLs
     const signatureFields = [
       "hirer_signature_terms",
       "company_signature",
@@ -63,9 +59,16 @@ export async function POST(req: NextRequest) {
       "liability_signature",
     ];
 
+    // ✅ Store the processed signature URLs
+    const processedSignatures: Record<string, string | null> = {};
+
     for (const field of signatureFields) {
       if (fullData[field]) {
-        fullData[field] = await uploadFieldToS3(fullData[field], field);
+        const uploadedUrl = await uploadFieldToS3(fullData[field], field);
+        // ✅ Store the processed URL
+        processedSignatures[field] = uploadedUrl;
+        // ✅ Update the fullData with the processed URL
+        fullData[field] = uploadedUrl;
       }
     }
 
@@ -112,12 +115,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Ensure rental_agreement_id is properly handled
-    // If rental_agreement_id is provided, include it for updates
-    // If not provided, backend will create a new agreement
     const payload = {
       ...fullData,
-      // Make sure these are explicitly included
       claim_id: fullData.claim_id,
       rental_agreement_id: fullData.rental_agreement_id || undefined,
     };
@@ -155,14 +154,21 @@ export async function POST(req: NextRequest) {
     
     const externalResult = await externalResponse.json();
 
+    // ✅ Return the processed signature URLs along with the response
     return NextResponse.json(
       {
         success: true,
         message: "Rental agreement submitted successfully",
-        data: externalResult,
-        // Return the IDs so frontend can refresh properly
         rental_agreement_id: externalResult?.rental_agreement_id,
         claim_id: externalResult?.claim_id,
+        // ✅ Include the processed signatures with their S3 URLs
+        signatures: processedSignatures,
+        // Also include the full data with S3 URLs for the frontend
+        data: {
+          ...fullData,
+          // Make sure signatures are included in data
+          ...processedSignatures,
+        },
       },
       { status: 200 },
     );
@@ -211,7 +217,6 @@ export async function GET(req: NextRequest) {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
-        // Forward any auth headers if needed
         ...(req.headers.get("authorization") && {
           Authorization: req.headers.get("authorization")!,
         }),
@@ -219,7 +224,6 @@ export async function GET(req: NextRequest) {
     });
 
     if (!externalResponse.ok) {
-      // If 404, return empty array/list
       if (externalResponse.status === 404) {
         return NextResponse.json(
           {
@@ -263,7 +267,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── OPTIONAL: DELETE a rental agreement ───
+// ─── DELETE: Delete a rental agreement ───
 export async function DELETE(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
