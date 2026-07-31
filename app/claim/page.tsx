@@ -48,6 +48,8 @@ type SortColumn =
 
 type SortDirection = "asc" | "desc" | null;
 
+type UpdateType = 'update' | 'followup';
+
 const COUNCIL_OPTIONS = [
     { value: "", label: "All Councils" },
     { value: "None", label: "None" },
@@ -145,6 +147,10 @@ export default function ClaimsDashboard() {
     const [updatesList, setUpdatesList] = useState<any[]>([]);
     const [addingUpdate, setAddingUpdate] = useState(false);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
+    
+    // New states for update type and follow-up days
+    const [updateType, setUpdateType] = useState<UpdateType>('update');
+    const [followUpDays, setFollowUpDays] = useState<number>(1);
 
     // Editing
     const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
@@ -445,6 +451,8 @@ export default function ClaimsDashboard() {
         setUpdateMessage("");
         setUpdateDate(new Date().toISOString().slice(0, 10));
         setEditingUpdateId(null);
+        setUpdateType('update');
+        setFollowUpDays(1);
     };
 
     const openViewUpdates = (claim: Claim) => {
@@ -463,6 +471,8 @@ export default function ClaimsDashboard() {
         setUpdateMessage(update.message || "");
         setUpdateDate(update.date ? new Date(update.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
         setEditingUpdateId(update.id);
+        setUpdateType(update.type || 'update');
+        setFollowUpDays(update.followUpDays || 1);
     };
 
     const submitAddUpdate = async (e: FormEvent) => {
@@ -480,13 +490,17 @@ export default function ClaimsDashboard() {
             const [year, month, day] = updateDate.split('-');
             const finalDate = new Date(Number(year), Number(month) - 1, Number(day), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
 
+            const updateObject: any = {
+                id: nextId,
+                message: updateMessage.trim(),
+                date: finalDate.toISOString(),
+                user: userName || "Unknown User",
+                type: updateType,
+                followUpDays: updateType === 'followup' ? followUpDays : null
+            };
+
             await api.post(`/api/claims/${claimId}/updates`, {
-                update: {
-                    id: nextId,
-                    message: updateMessage.trim(),
-                    date: finalDate.toISOString(),
-                    user: userName || "Unknown User"
-                }
+                update: updateObject
             }, { headers: { requiresAuth: true } });
 
             setUpdateModalState({ type: null, claim_id: null });
@@ -511,11 +525,15 @@ export default function ClaimsDashboard() {
             const [year, month, day] = updateDate.split('-');
             const finalDate = new Date(Number(year), Number(month) - 1, Number(day), now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
 
+            const updateObject: any = {
+                message: updateMessage.trim(),
+                date: finalDate.toISOString(),
+                type: updateType,
+                followUpDays: updateType === 'followup' ? followUpDays : null
+            };
+
             await api.put(`/api/claims/${claimId}/updates/${updateId}`, {
-                update: {
-                    message: updateMessage.trim(),
-                    date: finalDate.toISOString()
-                }
+                update: updateObject
             }, { headers: { requiresAuth: true } });
 
             setUpdateModalState({ type: null, claim_id: null });
@@ -1501,6 +1519,56 @@ export default function ClaimsDashboard() {
                                     </div>
                                     <form onSubmit={submitAddUpdate} className="space-y-4">
                                         <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Update Type</label>
+                                            <div className="flex gap-4">
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        value="update"
+                                                        checked={updateType === 'update'}
+                                                        onChange={() => {
+                                                            setUpdateType('update');
+                                                            setFollowUpDays(1);
+                                                        }}
+                                                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">Update</span>
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        value="followup"
+                                                        checked={updateType === 'followup'}
+                                                        onChange={() => {
+                                                            setUpdateType('followup');
+                                                            setFollowUpDays(1);
+                                                        }}
+                                                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">Follow Up</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {updateType === 'followup' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Follow Up Days</label>
+                                                <div className="flex gap-3">
+                                                    {[1, 3, 5].map((days) => (
+                                                        <label key={days} className="flex items-center gap-2">
+                                                            <input
+                                                                type="radio"
+                                                                value={days}
+                                                                checked={followUpDays === days}
+                                                                onChange={() => setFollowUpDays(days)}
+                                                                className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                            />
+                                                            <span className="text-sm text-gray-700">{days} {days === 1 ? 'day' : 'days'}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
                                             <input
                                                 type="date"
@@ -1557,6 +1625,56 @@ export default function ClaimsDashboard() {
                                         </button>
                                     </div>
                                     <form onSubmit={submitEditUpdate} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Update Type</label>
+                                            <div className="flex gap-4">
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        value="update"
+                                                        checked={updateType === 'update'}
+                                                        onChange={() => {
+                                                            setUpdateType('update');
+                                                            setFollowUpDays(1);
+                                                        }}
+                                                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">Update</span>
+                                                </label>
+                                                <label className="flex items-center gap-2">
+                                                    <input
+                                                        type="radio"
+                                                        value="followup"
+                                                        checked={updateType === 'followup'}
+                                                        onChange={() => {
+                                                            setUpdateType('followup');
+                                                            setFollowUpDays(1);
+                                                        }}
+                                                        className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                    />
+                                                    <span className="text-sm text-gray-700">Follow Up</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {updateType === 'followup' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Follow Up Days</label>
+                                                <div className="flex gap-3">
+                                                    {[1, 3, 5].map((days) => (
+                                                        <label key={days} className="flex items-center gap-2">
+                                                            <input
+                                                                type="radio"
+                                                                value={days}
+                                                                checked={followUpDays === days}
+                                                                onChange={() => setFollowUpDays(days)}
+                                                                className="w-4 h-4 text-green-600 focus:ring-green-500"
+                                                            />
+                                                            <span className="text-sm text-gray-700">{days} {days === 1 ? 'day' : 'days'}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
                                             <input
@@ -1627,9 +1745,16 @@ export default function ClaimsDashboard() {
                                                 return (
                                                     <div key={idx} className="p-4 border border-green-100 rounded-xl bg-green-50/30 group">
                                                         <div className="flex justify-between items-center mb-2">
-                                                            <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
-                                                                {formatDateTime(update.date)}
-                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">
+                                                                    {formatDateTime(update.date)}
+                                                                </span>
+                                                                {update.type && (
+                                                                    <span className={`text-xs font-medium px-2 py-1 rounded ${update.type === 'followup' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                                        {update.type === 'followup' ? `Follow Up ${update.followUpDays ? `(${update.followUpDays}d)` : ''}` : 'Update'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
                                                                     <User size={12} /> {update.user}

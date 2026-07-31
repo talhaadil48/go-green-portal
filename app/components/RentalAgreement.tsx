@@ -1015,12 +1015,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             <div className="font-medium text-gray-900">
                               Agreement #{agreement.display_id}
                             </div>
-                            <div className="text-sm text-gray-600">
-                              {agreement.valid_from || 'N/A'} → {agreement.valid_till || 'N/A'}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {agreement.hire_vehicle_reg || 'No vehicle'} • {agreement.hirer_name || 'No hirer'}
-                            </div>
+                            
                           </button>
                         ))}
                       </div>
@@ -1053,26 +1048,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </div>
           </div>
 
-          {/* ─── Valid From / Valid Till Display ─── */}
-          {rentalAgreements.length > 0 && currentAgreement && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-6">
-                <div>
-                  <span className="text-sm text-gray-600">Valid From:</span>
-                  <span className="ml-2 font-semibold text-green-800">
-                    {currentAgreement.valid_from || 'Not set'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-600">Valid Till:</span>
-                  <span className="ml-2 font-semibold text-green-800">
-                    {currentAgreement.valid_till || 'Not set'}
-                  </span>
-                </div>
-              </div>
 
-            </div>
-          )}
 
           {isFetching ? (
             <div className="min-h-[400px] flex items-center justify-center">
@@ -1080,38 +1056,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-12">
-              {/* ─── Valid From / Till Inputs (for new/editing) ─── */}
-              <section className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
-                <h3 className="text-lg font-semibold text-blue-800 mb-4">Agreement Period</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valid From
-                    </label>
-                    <input
-                      type="date"
-                      name="valid_from"
-                      value={formData.valid_from}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Valid Till
-                    </label>
-                    <input
-                      type="date"
-                      name="valid_till"
-                      value={formData.valid_till}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 transition"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* ─── Rest of the form (unchanged from your original) ─── */}
+            
               {/* Hirer's Details */}
               <div className="space-y-10">
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
