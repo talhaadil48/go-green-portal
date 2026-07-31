@@ -323,7 +323,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     id: `rental-agreement-${agreement.rental_agreement_id}`,
     name: `Hire Agreement ${agreement.display_id}`,
     formType: "rental-agreement",
-    description: `Vehicle hire agreement #${agreement.display_id} (${agreement.valid_from || 'N/A'} → ${agreement.valid_till || 'N/A'})`,
+    description: `Vehicle hire agreement #${agreement.display_id}`,
     userName: agreement.user_name || "Unknown",
     icon: (
       <svg

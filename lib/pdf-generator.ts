@@ -1131,26 +1131,7 @@ async function generateRentalPDF(
     pdf.text(`Invoice ID: ${up(formData.claimId)}`, margin, y);
 
     // ─── VALID FROM / VALID TILL (top right) ───
-    const rightX = pageWidth - margin;
-    let rightY = headerStartY - 5;
-
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("VALID FROM:", rightX, rightY, { align: "right" });
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(4, 120, 87);
-    pdf.text(formatDate(data.valid_from), rightX, rightY + 3.5, { align: "right" });
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text("VALID TILL:", rightX, rightY + 7, { align: "right" });
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(4, 120, 87);
-    pdf.text(formatDate(data.valid_till), rightX, rightY + 10.5, { align: "right" });
-
-    rightY += 14;
-
+    
     if (formData.claimId && formData.claimId.startsWith("S")) {
       let addressY = headerStartY + 14;
 
