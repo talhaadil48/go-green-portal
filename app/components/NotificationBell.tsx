@@ -5,43 +5,55 @@ import { Bell, Info, Trash2, Filter } from 'lucide-react'
 import Cookies from 'js-cookie'
 import api from "@/lib/axios"
 
-// Updated Types based on your requirements
+// Updated Types with type field
 interface Notification {
   notification_id: number
-  created_by: string // Changed to string
+  created_by: string
   title: string
   message: string
   is_read: boolean
-  is_cleared: boolean // Added is_cleared
+  is_cleared: boolean
   created_at: string
+  type: 'update' | 'followup'
 }
 
 type FilterType = '3days' | '7days' | '30days'
+type TabType = 'all' | 'updates' | 'followups'
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [userId, setUserId] = useState<number | null>(null)
-  const [filterType, setFilterType] = useState<FilterType>('3days') // Default to 3 days
+  const [filterType, setFilterType] = useState<FilterType>('3days')
+  const [activeTab, setActiveTab] = useState<TabType>('all') // New state for tabs
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Derived state: Filter notifications based on selected time and cleared status
+  // Derived state: Filter notifications based on selected time, cleared status, and tab
   const filteredNotifications = notifications.filter((notif) => {
     const notifDate = new Date(notif.created_at)
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - notifDate.getTime())
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
+    // Filter by time
+    let timeFilter = true
     if (filterType === '3days') {
-      // Last 3 days AND NOT cleared
-      return diffDays <= 3 && !notif.is_cleared
+      timeFilter = diffDays <= 3 && !notif.is_cleared
     } else if (filterType === '7days') {
-      // Last 7 days (including cleared)
-      return diffDays <= 7
+      timeFilter = diffDays <= 7
     } else if (filterType === '30days') {
-      // Last 30 days (including cleared)
-      return diffDays <= 30
+      timeFilter = diffDays <= 30
     }
+
+    if (!timeFilter) return false
+
+    // Filter by tab
+    if (activeTab === 'updates') {
+      return notif.type === 'update'
+    } else if (activeTab === 'followups') {
+      return notif.type === 'followup'
+    }
+    // 'all' tab shows everything
     return true
   }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
@@ -132,8 +144,6 @@ export default function NotificationBell() {
     e.stopPropagation()
     if (!userId) return
 
-    // Optimistically mark notifications as cleared instead of deleting them
-    // so they still show up in the 7-day and 30-day views.
     setNotifications((prev) => 
       prev.map((notif) => ({ ...notif, is_cleared: true }))
     )
@@ -146,8 +156,31 @@ export default function NotificationBell() {
       )
     } catch (err) {
       console.error("Failed to clear notifications", err)
-      fetchNotifications(userId) // Revert on failure
+      fetchNotifications(userId)
     }
+  }
+
+  // Get counts for each tab
+  const getTabCount = (tab: TabType) => {
+    const baseNotifications = notifications.filter((notif) => {
+      const notifDate = new Date(notif.created_at)
+      const now = new Date()
+      const diffTime = Math.abs(now.getTime() - notifDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (filterType === '3days') {
+        if (diffDays > 3 || notif.is_cleared) return false
+      } else if (filterType === '7days') {
+        if (diffDays > 7) return false
+      } else if (filterType === '30days') {
+        if (diffDays > 30) return false
+      }
+      
+      if (tab === 'updates') return notif.type === 'update'
+      if (tab === 'followups') return notif.type === 'followup'
+      return true
+    })
+    return baseNotifications.length
   }
 
   const formatDate = (dateString: string) => {
@@ -189,17 +222,51 @@ export default function NotificationBell() {
         <div className="flex flex-col gap-2 px-4 pb-3 border-b border-emerald-50">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-emerald-900 text-lg tracking-tight">Notifications</h3>
-            {filteredNotifications.length > 0 && filterType === '3days' && (
+            {filteredNotifications.length > 0 && filterType === '3days' && activeTab === 'all' && (
               <button
                 onClick={handleClearAll}
                 className="text-xs font-medium text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-full transition-colors flex items-center gap-1"
               >
-                <Trash2 size={12} /> Clear 
+                <Trash2 size={12} /> Clear All
               </button>
             )}
           </div>
 
-          {/* Filters */}
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mt-1 bg-emerald-50/50 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
+                activeTab === 'all'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100/50'
+              }`}
+            >
+              All ({getTabCount('all')})
+            </button>
+            <button
+              onClick={() => setActiveTab('updates')}
+              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
+                activeTab === 'updates'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100/50'
+              }`}
+            >
+              Updates ({getTabCount('updates')})
+            </button>
+            <button
+              onClick={() => setActiveTab('followups')}
+              className={`flex-1 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
+                activeTab === 'followups'
+                  ? 'bg-white text-emerald-800 shadow-sm'
+                  : 'text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100/50'
+              }`}
+            >
+              Follow-ups ({getTabCount('followups')})
+            </button>
+          </div>
+
+          {/* Time Filter */}
           <div className="flex items-center gap-2 mt-1">
             <Filter size={14} className="text-emerald-500" />
             <select 
@@ -222,9 +289,9 @@ export default function NotificationBell() {
               </div>
               <p className="text-emerald-800 font-medium">No notifications found</p>
               <p className="text-sm text-emerald-600/70 mt-1">
-                {filterType === '3days' 
-                  ? "You're all caught up for now!" 
-                  : "No history found for this time period."}
+                {activeTab === 'all' && "You're all caught up for now!"}
+                {activeTab === 'updates' && "No updates available for this period."}
+                {activeTab === 'followups' && "No follow-ups available for this period."}
               </p>
             </div>
           ) : (
@@ -242,24 +309,38 @@ export default function NotificationBell() {
                   )}
 
                   <div className="flex-1 min-w-0 ml-2">
-                    <p className="text-sm font-semibold text-emerald-900 mb-0.5 flex justify-between items-start gap-2">
-                      <span>{notif.title}</span>
-                      {notif.is_cleared && (
-                        <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-sm whitespace-nowrap">
-                          Cleared
-                        </span>
-                      )}
-                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-emerald-900">
+                        {notif.title}
+                      </p>
+                      {/* Type Badge */}
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        notif.type === 'update' 
+                          ? 'bg-blue-100 text-blue-700' 
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {notif.type === 'update' ? 'Update' : 'Follow-up'}
+                      </span>
+                    </div>
+                    
                     <p className="text-sm text-emerald-700 leading-snug whitespace-pre-wrap break-words">
                       {notif.message}
                     </p>
+                    
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-[11px] font-medium text-emerald-500 flex items-center gap-1">
                         {formatDate(notif.created_at)}
                       </p>
-                      <p className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        By {notif.created_by.toUpperCase()}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        {notif.is_cleared && (
+                          <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-sm whitespace-nowrap">
+                            Cleared
+                          </span>
+                        )}
+                        <p className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          By {notif.created_by.toUpperCase()}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

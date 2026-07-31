@@ -1131,7 +1131,7 @@ async function generateRentalPDF(
     pdf.text(`Invoice ID: ${up(formData.claimId)}`, margin, y);
 
     // ─── VALID FROM / VALID TILL (top right) ───
-    
+
     if (formData.claimId && formData.claimId.startsWith("S")) {
       let addressY = headerStartY + 14;
 
@@ -1491,12 +1491,18 @@ async function generateRentalPDF(
   pdf.setTextColor(80, 80, 80);
   pdf.text("Policy Excess", margin, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + 30, y);
+  pdf.text(data.policy_excess ? `£${data.policy_excess}` : "—", margin + 25, y);
 
   pdf.setTextColor(80, 80, 80);
-  pdf.text("Deposit", margin + half, y);
+  pdf.text("Deposit", margin + 55, y);
   pdf.setTextColor(0, 0, 0);
-  pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + half + 30, y);
+  pdf.text(data.deposit ? `£${data.deposit}` : "—", margin + 75, y);
+
+  pdf.setTextColor(80, 80, 80);
+  pdf.text("Daily Rate", margin + 105, y);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text(data.daily_rate ? `£${data.daily_rate}` : "—", margin + 130, y);
+
   y += 3;
 
   // Refuelling Charge field - adjusted position to align with the layout
