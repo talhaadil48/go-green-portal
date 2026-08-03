@@ -1751,6 +1751,7 @@ async function generateRentalPDF(
     pdf.line(margin, y, pageWidth - margin, y);
     y += 2;
 
+    //hello
     // ── Liability signature, with Date directly beneath it ──
     if (sigs.liability_signature) {
       y = await addSignature(
