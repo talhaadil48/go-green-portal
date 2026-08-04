@@ -58,6 +58,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [selectedAgreementId, setSelectedAgreementId] = useState<number | null>(null);
   const [isLoadingAgreements, setIsLoadingAgreements] = useState(true);
   const [showAgreementSelector, setShowAgreementSelector] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const initialFormData = {
     // Hirer's Details
@@ -279,6 +280,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   useEffect(() => {
     setCurrentClaimId(claimId);
   }, [claimId]);
+
   // ─── Fetch all rental agreements for this claim ───
   const fetchAllRentalAgreements = async () => {
     setIsLoadingAgreements(true);
@@ -318,6 +320,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       setIsLoadingAgreements(false);
     }
   };
+
   const fetchFreeVehicles = async () => {
     try {
       const response = await api.get(`/api/cars/free`, {
@@ -484,6 +487,80 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     setUsername(currentUser);
   }, []);
 
+  // ─── Handle deleting a rental agreement ───
+  const handleDeleteAgreement = async (agreementId: number) => {
+    // Check if this is the last agreement
+    if (rentalAgreements.length <= 1) {
+      alert("Cannot delete the last rental agreement. You must have at least one agreement.");
+      return;
+    }
+
+    // Confirm deletion
+    const agreement = rentalAgreements.find(a => a.rental_agreement_id === agreementId);
+    const displayId = agreement?.display_id || '';
+
+    if (!confirm(`Are you sure you want to delete Agreement #${displayId}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      await api.delete(
+        `/api/claims/${claimId}/rental-agreements/${agreementId}`,
+        { headers: { requiresAuth: true } }
+      );
+
+      // Remove the agreement from the list
+      const updatedAgreements = rentalAgreements.filter(
+        a => a.rental_agreement_id !== agreementId
+      );
+
+      // Recalculate display IDs
+      const renumberedAgreements = updatedAgreements.map((agreement, index) => ({
+        ...agreement,
+        display_id: index + 1
+      }));
+
+      setRentalAgreements(renumberedAgreements);
+
+      // If we deleted the currently selected agreement, select the latest one or clear form
+      if (selectedAgreementId === agreementId) {
+        if (renumberedAgreements.length > 0) {
+          // Select the most recent agreement (last in array)
+          setSelectedAgreementId(renumberedAgreements[renumberedAgreements.length - 1].rental_agreement_id);
+        } else {
+          // No agreements left, show blank form
+          setSelectedAgreementId(null);
+          setFormData(initialFormData);
+          setSignatures({});
+          setIsHirerTermsFromApi(false);
+          setIsCompanyFromApi(false);
+          setIsHirerInsuranceFromApi(false);
+          setIsDeclarationFromApi(false);
+          setIsLiabilityFromApi(false);
+          setShowAdditionalDriver(null);
+          setShowOwnInsurance(null);
+          setShowChangeVehicle(null);
+          setHireVehicleFromApi(false);
+          setSubmitted(false);
+        }
+      }
+
+      // Show success message
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 3000);
+
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      const message = err?.response?.data?.detail || err?.message || "Failed to delete agreement";
+      setError(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // ─── Handle creating a new rental agreement ───
   const handleCreateNewAgreement = () => {
     // Reset form to initial state
@@ -502,10 +579,10 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     setError(null);
     setSubmitted(false);
 
-    // Set default valid_from to today and valid_till to 7 days from now
+    // Set default valid_from to today and valid_till to 90 days from now
     const today = new Date();
     const weekLater = new Date(today);
-    weekLater.setDate(today.getDate() + 90);  // ← Change 7 to 90
+    weekLater.setDate(today.getDate() + 90);
     setFormData(prev => ({
       ...prev,
       valid_from: today.toISOString().split('T')[0],
@@ -790,6 +867,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
     return null;
   };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -944,6 +1022,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       setLoading(false);
     }
   };
+
   // ─── Render loading state ───
   if (isLoadingAgreements) {
     return (
@@ -999,25 +1078,48 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                   {showAgreementSelector && (
                     <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-20 max-h-80 overflow-y-auto">
                       <div className="p-2">
-                        {rentalAgreements.map((agreement) => (
-                          <button
-                            key={agreement.rental_agreement_id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAgreementId(agreement.rental_agreement_id);
-                              setShowAgreementSelector(false);
-                            }}
-                            className={`w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition ${selectedAgreementId === agreement.rental_agreement_id
-                              ? 'bg-green-100 border-l-4 border-green-600'
-                              : ''
+                        {rentalAgreements.map((agreement) => {
+                          const isLast = rentalAgreements.length <= 1;
+                          return (
+                            <div
+                              key={agreement.rental_agreement_id}
+                              className={`flex items-center justify-between w-full px-4 py-3 rounded-lg hover:bg-green-50 transition ${
+                                selectedAgreementId === agreement.rental_agreement_id
+                                  ? 'bg-green-100 border-l-4 border-green-600'
+                                  : ''
                               }`}
-                          >
-                            <div className="font-medium text-gray-900">
-                              Agreement #{agreement.display_id}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAgreementId(agreement.rental_agreement_id);
+                                  setShowAgreementSelector(false);
+                                }}
+                                className="flex-1 text-left"
+                              >
+                                <div className="font-medium text-gray-900">
+                                  Agreement #{agreement.display_id}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAgreement(agreement.rental_agreement_id);
+                                }}
+                                disabled={isDeleting || isLast}
+                                className={`ml-2 p-1.5 rounded-lg transition ${
+                                  isLast
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+                                }`}
+                                title={isLast ? "Cannot delete the last agreement" : "Delete this agreement"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
-                            
-                          </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1047,8 +1149,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
               />
             </div>
           </div>
-
-
 
           {isFetching ? (
             <div className="min-h-[400px] flex items-center justify-center">
@@ -1637,7 +1737,6 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                 </div>
               </section>
 
-              {/* ─── The rest continues with all your existing sections ─── */}
               {/* Additional Driver question */}
               <section className="space-y-6 mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-blue-50 p-6 rounded-xl border border-blue-200">
