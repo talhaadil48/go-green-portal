@@ -108,6 +108,14 @@ function getDocData(doc: string | DocumentData): DocumentData {
   return typeof doc === "string" ? { url: doc } : doc;
 }
 
+/**
+ * Sanitize a user-entered document name the same way the upload flow does,
+ * so renamed keys stay consistent with uploaded ones.
+ */
+function sanitizeDocName(name: string): string {
+  return name.trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
+}
+
 export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<DocumentsMap>({});
   const [loading, setLoading] = useState(true);
@@ -122,6 +130,11 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
   const [sourceType, setSourceType] = useState<"file" | "camera" | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [categoryUpdating, setCategoryUpdating] = useState<string | null>(null);
+
+  // --- Rename state ---
+  const [editingDocKey, setEditingDocKey] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   useEffect(() => {
     const getCurrentUsername = (): string | null => {
@@ -255,8 +268,7 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
 
       // Merge logic preserving user_name if it exists
       for (let i = 0; i < results.length; i++) {
-        let desiredName =
-          names[i].trim().replace(/[^a-zA-Z0-9._-\s]/g, "_") || "document";
+        let desiredName = sanitizeDocName(names[i]);
 
         const [base, ext] = desiredName.includes(".")
           ? [
@@ -387,6 +399,92 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     }
   };
 
+  // --- Rename handlers ---
+
+  const startEditing = (docKey: string) => {
+    setEditingDocKey(docKey);
+    setEditNameValue(docKey);
+    setError(null);
+    setSuccessMsg(null);
+  };
+
+  const cancelEditing = () => {
+    setEditingDocKey(null);
+    setEditNameValue("");
+  };
+
+  const handleRename = async (oldKey: string) => {
+    const sanitized = sanitizeDocName(editNameValue);
+
+    // No-op if unchanged
+    if (sanitized === oldKey) {
+      cancelEditing();
+      return;
+    }
+
+    // Prevent clobbering another existing document (client-side check only —
+    // there's no server-side uniqueness check with this simple flow)
+    if (documents[sanitized]) {
+      setError(`A document named "${sanitized}" already exists. Choose a different name.`);
+      return;
+    }
+
+    const existingDoc = getDocData(documents[oldKey]);
+
+    // No optimistic update — just show the row as "renaming" until the
+    // server confirms both steps, then apply the change in one go.
+    setRenaming(oldKey);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      // Step 1: upsert just the new key. The backend uses jsonb `||` merge,
+      // so sending only the new key adds it without disturbing anything else.
+      const putRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/post/claim-documents/${claimId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documents: { [sanitized]: existingDoc },
+            user_name: username,
+          }),
+        }
+      );
+
+      if (!putRes.ok) throw new Error("Failed to save new document name");
+
+      // Step 2: delete the old key via the existing delete endpoint.
+      await api.delete(`/api/claim-documents/${claimId}/${oldKey}`, {
+        headers: { requiresAuth: true },
+      });
+
+      // Both steps confirmed — now, and only now, update local state.
+      setDocuments((prev) => {
+        const next = { ...prev };
+        delete next[oldKey];
+        next[sanitized] = existingDoc;
+        return next;
+      });
+
+      setSuccessMsg(`Renamed "${oldKey}" to "${sanitized}".`);
+      cancelEditing();
+    } catch (err: any) {
+      setError(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to rename document."
+      );
+      console.error("Rename error:", err);
+      // Best-effort: if step 1 succeeded but step 2 failed, the doc now
+      // exists under BOTH the old and new name server-side. Re-sync from
+      // the server so the UI reflects reality.
+      fetchDocuments();
+    } finally {
+      setRenaming(null);
+    }
+  };
+
   const handleClearForm = () => {
     setSelectedFiles([]);
     setFileNames([]);
@@ -412,25 +510,76 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
     const openUrl = normalizeS3Url(data.url);
     const uploader = data.user_name ? data.user_name.toUpperCase() : "__";
     const currentCategory = normalizeCategory(data.category);
+    const isEditing = editingDocKey === name;
+    const isRenaming = renaming === name;
 
     return (
       <div
         key={name}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition group"
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-green-50/60 rounded-xl border border-green-100 hover:bg-green-50 transition-all duration-200 group ${
+          isRenaming ? "opacity-70" : "opacity-100"
+        }`}
       >
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-green-900 truncate">{name}</p>
+          {isRenaming ? (
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <p className="font-semibold text-green-900 truncate">
+                Renaming to "{editNameValue.trim() ? sanitizeDocName(editNameValue) : name}"...
+              </p>
+            </div>
+          ) : isEditing ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename(name);
+                  if (e.key === "Escape") cancelEditing();
+                }}
+                autoFocus
+                className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm font-semibold text-green-900 focus:ring-2 focus:ring-green-400 focus:border-green-400 bg-white transition"
+              />
+              <button
+                type="button"
+                onClick={() => handleRename(name)}
+                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg transition"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditing}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded-lg transition"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="font-semibold text-green-900 truncate">{name.toUpperCase()}</p>
+              <button
+                type="button"
+                onClick={() => startEditing(name)}
+                title="Rename document"
+                className="text-xs text-green-600 hover:text-green-800 opacity-0 group-hover:opacity-100 transition flex-shrink-0"
+              >
+                ✎ Rename
+              </button>
+            </div>
+          )}
           <p className="text-xs text-gray-500 mt-1">Uploaded by: {uploader}</p>
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
           <select
             value={currentCategory}
-            disabled={categoryUpdating === name}
+            disabled={categoryUpdating === name || isEditing || isRenaming}
             onChange={(e) =>
               handleCategoryChange(name, e.target.value as DocCategory)
             }
-            className="text-xs border border-green-200 rounded-lg px-2 py-2 bg-white text-green-800 focus:ring-2 focus:ring-green-400 focus:border-green-400 disabled:opacity-60"
+            className="text-xs border border-green-200 rounded-lg px-2 py-2 bg-white text-green-800 focus:ring-2 focus:ring-green-400 focus:border-green-400 disabled:opacity-60 transition"
           >
             {CATEGORIES.map((cat) => (
               <option key={cat} value={cat}>
@@ -443,13 +592,18 @@ export default function DocumentManager({ claimId }: DocumentManagerProps) {
             href={openUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
+            aria-disabled={isRenaming}
+            onClick={(e) => isRenaming && e.preventDefault()}
+            className={`px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition ${
+              isRenaming ? "pointer-events-none opacity-60" : ""
+            }`}
           >
             Open
           </a>
           <button
             onClick={() => handleDelete(name)}
-            className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition"
+            disabled={isEditing || isRenaming}
+            className="px-5 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-lg transition disabled:opacity-60"
           >
             Delete
           </button>
