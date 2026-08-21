@@ -34,10 +34,10 @@ interface Vehicle {
   is_available?: boolean;
   current_holder_claim_id?: string | null;
   service_time?: string | null;
-  last_miles_in?: number | null;
   last_service_miles?: number | null;
   mot_date?: string | null;
   mot_doc?: string | null;
+  road_tax?: string | null;
   current_miles?: number | null;
   attributes?: string[];
 }
@@ -62,14 +62,114 @@ type SortField =
   | "model"
   | "available"
   | "service_time"
-  | "last_miles_in"
   | "last_service_miles"
   | "mot_date"
+  | "road_tax"
   | "current_miles";
 
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
 type TabType = "all" | "normal" | "long" | "history" | "normal_avail" | "long_avail";
+
+export interface DateStatus {
+  isExpired: boolean;
+  isWarning: boolean;
+  daysRemaining?: number;
+}
+
+export const checkDateStatus = (dateStr?: string | null): DateStatus => {
+  if (!dateStr) return { isExpired: false, isWarning: false };
+  try {
+    const target = new Date(dateStr);
+    if (isNaN(target.getTime())) return { isExpired: false, isWarning: false };
+
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+
+    const diffMs = targetMidnight - todayMidnight;
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      return { isExpired: true, isWarning: false, daysRemaining: diffDays };
+    } else if (diffDays <= 7) {
+      return { isExpired: false, isWarning: true, daysRemaining: diffDays };
+    }
+  } catch {
+    return { isExpired: false, isWarning: false };
+  }
+  return { isExpired: false, isWarning: false };
+};
+
+export interface VehicleAlertInfo {
+  motStatus: DateStatus;
+  roadTaxStatus: DateStatus;
+  isServiceDue: boolean;
+  alertType: "combined" | "expired" | "warning" | "service" | null;
+  rowBgClass: string;
+}
+
+export const getVehicleAlertStatus = (v: Vehicle): VehicleAlertInfo => {
+  const motStatus = checkDateStatus(v.mot_date);
+  const roadTaxStatus = checkDateStatus(v.road_tax);
+
+  const hasExpired = motStatus.isExpired || roadTaxStatus.isExpired;
+  const hasWarning = motStatus.isWarning || roadTaxStatus.isWarning;
+  const hasDateAlert = hasExpired || hasWarning;
+
+  const currentMiles = v.current_miles ?? 0;
+  const lastServiceMiles = v.last_service_miles ?? 0;
+  const isServiceDue = (currentMiles - lastServiceMiles) > 7000;
+
+  if (hasDateAlert && isServiceDue) {
+    return {
+      motStatus,
+      roadTaxStatus,
+      isServiceDue,
+      alertType: "combined",
+      rowBgClass: "bg-purple-50 hover:bg-purple-100/70 border-l-4 border-l-purple-600",
+    };
+  }
+
+  if (hasExpired) {
+    return {
+      motStatus,
+      roadTaxStatus,
+      isServiceDue,
+      alertType: "expired",
+      rowBgClass: "bg-red-50 hover:bg-red-100/70 border-l-4 border-l-red-600",
+    };
+  }
+
+  if (hasWarning) {
+    return {
+      motStatus,
+      roadTaxStatus,
+      isServiceDue,
+      alertType: "warning",
+      rowBgClass: "bg-amber-50 hover:bg-amber-100/70 border-l-4 border-l-amber-500",
+    };
+  }
+
+  if (isServiceDue) {
+    return {
+      motStatus,
+      roadTaxStatus,
+      isServiceDue,
+      alertType: "service",
+      rowBgClass: "bg-blue-50 hover:bg-blue-100/70 border-l-4 border-l-blue-600",
+    };
+  }
+
+  return {
+    motStatus,
+    roadTaxStatus,
+    isServiceDue,
+    alertType: null,
+    rowBgClass: "hover:bg-gray-50/60",
+  };
+};
+
 const ATTRIBUTE_MAPPING: Record<
   string,
   {
@@ -120,7 +220,9 @@ export default function VehiclesPage() {
     model: "",
     name: "",
     service_time: "",
+    last_service_miles: "",
     mot_date: "",
+    road_tax: "",
     current_miles: "",
     attributes: [] as string[]
   });
@@ -246,11 +348,22 @@ export default function VehiclesPage() {
       }
     }
 
+    let rt = "";
+    if (vehicle.road_tax) {
+      try {
+        rt = new Date(vehicle.road_tax).toISOString().split("T")[0];
+      } catch (e) {
+        rt = "";
+      }
+    }
+
     setEditData({
       model: vehicle.model || "",
       name: vehicle.name || "",
       service_time: st,
+      last_service_miles: vehicle.last_service_miles ? String(vehicle.last_service_miles) : "",
       mot_date: md,
+      road_tax: rt,
       current_miles: vehicle.current_miles ? String(vehicle.current_miles) : "",
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
@@ -258,7 +371,16 @@ export default function VehiclesPage() {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditData({ model: "", name: "", service_time: "", mot_date: "", current_miles: "", attributes: [] });
+    setEditData({ 
+      model: "", 
+      name: "", 
+      service_time: "", 
+      last_service_miles: "",
+      mot_date: "", 
+      road_tax: "", 
+      current_miles: "", 
+      attributes: [] 
+    });
   };
 
   const saveEdit = async (id: number) => {
@@ -268,7 +390,9 @@ export default function VehiclesPage() {
         model: editData.model.trim(),
         name: editData.name.trim(),
         service_time: editData.service_time ? new Date(editData.service_time).toISOString() : null,
+        last_service_miles: editData.last_service_miles ? parseInt(editData.last_service_miles, 10) : null,
         mot_date: editData.mot_date ? new Date(editData.mot_date).toISOString() : null,
+        road_tax: editData.road_tax ? new Date(editData.road_tax).toISOString() : null,
         current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
@@ -484,13 +608,16 @@ export default function VehiclesPage() {
       valA = a.service_time ? new Date(a.service_time).getTime() : 0;
       valB = b.service_time ? new Date(b.service_time).getTime() : 0;
     }
-    else if (sortField === "last_miles_in") { valA = a.last_miles_in || 0; valB = b.last_miles_in || 0; }
     else if (sortField === "last_service_miles") { valA = a.last_service_miles || 0; valB = b.last_service_miles || 0; }
-    else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
     else if (sortField === "mot_date") {
       valA = a.mot_date ? new Date(a.mot_date).getTime() : 0;
       valB = b.mot_date ? new Date(b.mot_date).getTime() : 0;
     }
+    else if (sortField === "road_tax") {
+      valA = a.road_tax ? new Date(a.road_tax).getTime() : 0;
+      valB = b.road_tax ? new Date(b.road_tax).getTime() : 0;
+    }
+    else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
     else if (sortField === "available") {
       valA = checkIsAvail(a) ? 1 : 0;
       valB = checkIsAvail(b) ? 1 : 0;
@@ -889,465 +1016,533 @@ export default function VehiclesPage() {
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto max-h-[70vh]">
-              <table className="w-full text-[13px]">
-                <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th
-                      onClick={() => handleSort("reg_no")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Reg No.
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("name")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Make
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("model")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Model
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] select-none"
-                    >
-                      Attributes
-                    </th>
-                    <th
-                      onClick={() => handleSort("service_time")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Service Time
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("last_service_miles")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Service
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("mot_date")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        MOT Date
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("current_miles")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Curr Miles
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("last_miles_in")}
-                      className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Miles In
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort("available")}
-                      className="text-center px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        Available
-                        <ArrowUpDown size={12} className="text-gray-400" />
-                      </div>
-                    </th>
-                    <th className="text-right px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] whitespace-nowrap">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {displayed.map((v) => {
-                    const isLong = v.is_long_hire;
-                    const isAvail = checkIsAvail(v);
-                    const isToggling = togglingLongHireId === v.id;
-                    const hasClaim = !!v.current_holder_claim_id;
-                    const claimLinkHref = isLong ? `/long-claims/${v.current_holder_claim_id}` : `/claim/${v.current_holder_claim_id}`;
+            <div>
+              {/* Status Alert Legend */}
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 px-3.5 py-2 mb-3 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 shadow-sm">
+                <span className="font-bold text-gray-500 uppercase tracking-wider text-[10px]">Alert Key:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shrink-0"></span>
+                  <span className="text-[11px]"><strong>Red:</strong> MOT / Tax Expired</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block shrink-0"></span>
+                  <span className="text-[11px]"><strong>Amber:</strong> MOT / Tax Due (≤ 7 Days)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block shrink-0"></span>
+                  <span className="text-[11px]"><strong>Blue:</strong> Service Due (&gt; 7,000 mi)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block shrink-0"></span>
+                  <span className="text-[11px]"><strong>Purple:</strong> Date Alert + Service Due</span>
+                </div>
+              </div>
 
-                    return (
-                      <tr key={v.id} className="hover:bg-gray-50/60 transition text-xs">
-                        {editingId === v.id ? (
-                          <>
-                            <td className="px-3 py-1.5 align-middle">
-                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
-                                {v.reg_no || "—"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <input
-                                value={editData.name}
-                                onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
-                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <input
-                                value={editData.model}
-                                onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
-                                className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                {AVAILABLE_ATTRIBUTES.map((attr) => (
-                                  <label key={attr} className="flex items-center space-x-1 text-[10px] text-gray-700 cursor-pointer whitespace-nowrap">
-                                    <input
-                                      type="checkbox"
-                                      checked={editData.attributes.includes(attr)}
-                                      onChange={() => setEditData((prev) => ({
-                                        ...prev,
-                                        attributes: handleAttributeToggle(prev.attributes, attr)
-                                      }))}
-                                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-2.5 w-2.5"
-                                    />
-                                    <span>{ATTRIBUTE_MAPPING[attr].label}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <input
-                                type="date"
-                                value={editData.service_time}
-                                onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
-                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 text-gray-500 align-middle">
-                              {v.last_service_miles ?? "—"}
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <input
-                                type="date"
-                                value={editData.mot_date}
-                                onChange={(e) => setEditData((p) => ({ ...p, mot_date: e.target.value }))}
-                                className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 align-middle">
-                              <input
-                                type="number"
-                                placeholder="Miles"
-                                value={editData.current_miles}
-                                onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
-                                className="w-[80px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 text-gray-500 align-middle">
-                              {v.last_miles_in ?? "—"}
-                            </td>
-                            <td className="px-3 py-1.5 text-center align-middle">-</td>
-                            <td className="px-3 py-1.5 text-right align-middle">
-                              <div className="flex justify-end gap-1">
-                                <button
-                                  onClick={() => saveEdit(v.id)}
-                                  disabled={saving}
-                                  className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
-                                  title="Save Changes"
-                                >
-                                  {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                                </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
-                                  title="Cancel"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="px-3 py-2 align-middle">
-                              <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
-                                {v.reg_no || "—"}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.model || "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle cursor-default">
-                              {v.attributes && v.attributes.length > 0 ? (
-                                <div className="relative group flex flex-wrap gap-1 items-center">
-                                  {v.attributes.map((attr) => {
-                                    const mapped = ATTRIBUTE_MAPPING[attr];
-                                    const sharedClasses =
-                                      "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto max-h-[70vh]">
+                <table className="w-full text-[13px]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th
+                        onClick={() => handleSort("reg_no")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Reg No.
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("name")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Make
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("model")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Model
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] select-none"
+                      >
+                        Attributes
+                      </th>
+                      <th
+                        onClick={() => handleSort("service_time")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Service Time
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("last_service_miles")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Last Service
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("mot_date")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          MOT Date
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("road_tax")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Road Tax
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("current_miles")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Curr Miles
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => handleSort("available")}
+                        className="text-center px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Available
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] whitespace-nowrap">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {displayed.map((v) => {
+                      const isLong = v.is_long_hire;
+                      const isAvail = checkIsAvail(v);
+                      const isToggling = togglingLongHireId === v.id;
+                      const hasClaim = !!v.current_holder_claim_id;
+                      const claimLinkHref = isLong ? `/long-claims/${v.current_holder_claim_id}` : `/claim/${v.current_holder_claim_id}`;
+                      const alertStatus = getVehicleAlertStatus(v);
 
-                                    if (mapped?.type === "circle") {
+                      return (
+                        <tr
+                          key={v.id}
+                          className={`${
+                            editingId === v.id ? "bg-emerald-50/50" : alertStatus.rowBgClass
+                          } transition text-xs`}
+                        >
+                          {editingId === v.id ? (
+                            <>
+                              <td className="px-3 py-1.5 align-middle">
+                                <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
+                                  {v.reg_no || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  value={editData.name}
+                                  onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
+                                  className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  value={editData.model}
+                                  onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
+                                  className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                  {AVAILABLE_ATTRIBUTES.map((attr) => (
+                                    <label key={attr} className="flex items-center space-x-1 text-[10px] text-gray-700 cursor-pointer whitespace-nowrap">
+                                      <input
+                                        type="checkbox"
+                                        checked={editData.attributes.includes(attr)}
+                                        onChange={() => setEditData((prev) => ({
+                                          ...prev,
+                                          attributes: handleAttributeToggle(prev.attributes, attr)
+                                        }))}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-2.5 w-2.5"
+                                      />
+                                      <span>{ATTRIBUTE_MAPPING[attr].label}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  type="date"
+                                  value={editData.service_time}
+                                  onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
+                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  type="number"
+                                  placeholder="Last Service Miles"
+                                  value={editData.last_service_miles}
+                                  onChange={(e) => setEditData((p) => ({ ...p, last_service_miles: e.target.value }))}
+                                  className="w-[100px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  type="date"
+                                  value={editData.mot_date}
+                                  onChange={(e) => setEditData((p) => ({ ...p, mot_date: e.target.value }))}
+                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  type="date"
+                                  value={editData.road_tax}
+                                  onChange={(e) => setEditData((p) => ({ ...p, road_tax: e.target.value }))}
+                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 align-middle">
+                                <input
+                                  type="number"
+                                  placeholder="Miles"
+                                  value={editData.current_miles}
+                                  onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
+                                  className="w-[80px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 text-center align-middle">-</td>
+                              <td className="px-3 py-1.5 text-right align-middle">
+                                <div className="flex justify-end gap-1">
+                                  <button
+                                    onClick={() => saveEdit(v.id)}
+                                    disabled={saving}
+                                    className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
+                                    title="Save Changes"
+                                  >
+                                    {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                  </button>
+                                  <button
+                                    onClick={cancelEdit}
+                                    className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
+                                    title="Cancel"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2 align-middle">
+                                <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
+                                  {v.reg_no || "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
+                              <td className="px-3 py-2 text-gray-700 align-middle">{v.model || "—"}</td>
+                              <td className="px-3 py-2 text-gray-700 align-middle cursor-default">
+                                {v.attributes && v.attributes.length > 0 ? (
+                                  <div className="relative group flex flex-wrap gap-1 items-center">
+                                    {v.attributes.map((attr) => {
+                                      const mapped = ATTRIBUTE_MAPPING[attr];
+                                      const sharedClasses =
+                                        "inline-flex items-center justify-center w-5 h-5 shrink-0 leading-none";
+
+                                      if (mapped?.type === "circle") {
+                                        return (
+                                          <span
+                                            key={attr}
+                                            className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[9px] font-bold`}
+                                            title={mapped.label}
+                                          >
+                                            {mapped.symbol}
+                                          </span>
+                                        );
+                                      }
+
+                                      if (mapped?.type === "filled-circle") {
+                                        return (
+                                          <span
+                                            key={attr}
+                                            className={`${sharedClasses} rounded-full ${mapped.colorClass}`}
+                                            title={mapped.label}
+                                          />
+                                        );
+                                      }
+
+                                      if (mapped?.type === "box") {
+                                        return (
+                                          <span
+                                            key={attr}
+                                            className={`${sharedClasses} rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold`}
+                                            title={mapped.label}
+                                          >
+                                            {mapped.symbol}
+                                          </span>
+                                        );
+                                      }
+
+                                      if (mapped?.type === "star") {
+                                        return (
+                                          <span
+                                            key={attr}
+                                            className={`${sharedClasses} text-yellow-500 text-[16px] leading-none pb-0.5`}
+                                            title={mapped.label}
+                                          >
+                                            ★
+                                          </span>
+                                        );
+                                      }
+
                                       return (
                                         <span
                                           key={attr}
-                                          className={`${sharedClasses} rounded-full border border-black text-black bg-white text-[9px] font-bold`}
-                                          title={mapped.label}
+                                          className={`${sharedClasses} text-black text-[10px]`}
                                         >
-                                          {mapped.symbol}
+                                          {attr}
                                         </span>
                                       );
-                                    }
+                                    })}
 
-                                    if (mapped?.type === "filled-circle") {
-                                      return (
-                                        <span
-                                          key={attr}
-                                          className={`${sharedClasses} rounded-full ${mapped.colorClass}`}
-                                          title={mapped.label}
-                                        />
-                                      );
-                                    }
+                                    {/* Custom Tooltip */}
+                                    <div className="absolute left-0 bottom-full mb-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
+                                      <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-2 border border-gray-700">
+                                        <p className="text-gray-400 font-semibold mb-1 uppercase text-[8px] tracking-wider">Attributes</p>
+                                        <div className="flex flex-col gap-1">
+                                          {v.attributes.map((a) => {
+                                            const mapped = ATTRIBUTE_MAPPING[a];
+                                            return (
+                                              <div
+                                                key={a}
+                                                className="flex items-center gap-1.5 text-gray-100 font-medium"
+                                              >
+                                                {mapped?.type === "circle" ? (
+                                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[9px] font-bold shrink-0 leading-none">
+                                                    {mapped.symbol}
+                                                  </span>
+                                                ) : mapped?.type === "filled-circle" ? (
+                                                  <span
+                                                    className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`}
+                                                  />
+                                                ) : mapped?.type === "box" ? (
+                                                  <span
+                                                    className={`inline-flex items-center justify-center w-5 h-5 rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold shrink-0 leading-none`}
+                                                  >
+                                                    {mapped.symbol}
+                                                  </span>
+                                                ) : mapped?.type === "star" ? (
+                                                  <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">
+                                                    ★
+                                                  </span>
+                                                ) : (
+                                                  <span>{a}</span>
+                                                )}
 
-                                    if (mapped?.type === "box") {
-                                      return (
-                                        <span
-                                          key={attr}
-                                          className={`${sharedClasses} rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold`}
-                                          title={mapped.label}
-                                        >
-                                          {mapped.symbol}
-                                        </span>
-                                      );
-                                    }
-
-                                    if (mapped?.type === "star") {
-                                      return (
-                                        <span
-                                          key={attr}
-                                          className={`${sharedClasses} text-yellow-500 text-[16px] leading-none pb-0.5`}
-                                          title={mapped.label}
-                                        >
-                                          ★
-                                        </span>
-                                      );
-                                    }
-
-                                    return (
-                                      <span
-                                        key={attr}
-                                        className={`${sharedClasses} text-black text-[10px]`}
-                                      >
-                                        {attr}
-                                      </span>
-                                    );
-                                  })}
-
-                                  {/* Custom Tooltip */}
-                                  <div className="absolute left-0 bottom-full mb-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 w-max max-w-xs pointer-events-none">
-                                    <div className="bg-gray-800 text-white text-[10px] rounded-lg shadow-xl p-2 border border-gray-700">
-                                      <p className="text-gray-400 font-semibold mb-1 uppercase text-[8px] tracking-wider">Attributes</p>
-                                      <div className="flex flex-col gap-1">
-                                        {v.attributes.map((a) => {
-                                          const mapped = ATTRIBUTE_MAPPING[a];
-                                          return (
-                                            <div
-                                              key={a}
-                                              className="flex items-center gap-1.5 text-gray-100 font-medium"
-                                            >
-                                              {mapped?.type === "circle" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-gray-200 bg-gray-800 text-[9px] font-bold shrink-0 leading-none">
-                                                  {mapped.symbol}
-                                                </span>
-                                              ) : mapped?.type === "filled-circle" ? (
-                                                <span
-                                                  className={`inline-flex w-5 h-5 rounded-full ${mapped.colorClass} shrink-0`}
-                                                />
-                                              ) : mapped?.type === "box" ? (
-                                                <span
-                                                  className={`inline-flex items-center justify-center w-5 h-5 rounded-sm ${mapped.colorClass} text-white text-[9px] font-bold shrink-0 leading-none`}
-                                                >
-                                                  {mapped.symbol}
-                                                </span>
-                                              ) : mapped?.type === "star" ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 text-yellow-500 text-[16px] leading-none shrink-0 pb-0.5">
-                                                  ★
-                                                </span>
-                                              ) : (
-                                                <span>{a}</span>
-                                              )}
-
-                                              <span>{mapped?.label || a}</span>
-                                            </div>
-                                          );
-                                        })}
+                                                <span>{mapped?.label || a}</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
                                       </div>
+                                      <div className="absolute -bottom-1 left-3 w-2 h-2 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
                                     </div>
-                                    <div className="absolute -bottom-1 left-3 w-2 h-2 bg-gray-800 border-b border-r border-gray-700 transform rotate-45"></div>
+                                  </div>
+                                ) : (
+                                  "—"
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                {v.service_time
+                                  ? new Date(v.service_time).toLocaleDateString("en-GB")
+                                  : "—"}
+                              </td>
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                <span className={alertStatus.isServiceDue ? "text-blue-700 font-bold" : ""}>
+                                  {v.last_service_miles ?? "—"}
+                                </span>
+                              </td>
+
+                              {/* MOT Date + Doc Actions */}
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                <div className="flex items-center gap-2 whitespace-nowrap">
+                                  <span className={
+                                    alertStatus.motStatus.isExpired
+                                      ? "text-red-700 font-bold"
+                                      : alertStatus.motStatus.isWarning
+                                      ? "text-amber-700 font-bold"
+                                      : ""
+                                  }>
+                                    {v.mot_date
+                                      ? new Date(v.mot_date).toLocaleDateString("en-GB")
+                                      : "—"}
+                                  </span>
+                                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
+                                    {v.mot_doc && (
+                                      <>
+                                        <a
+                                          href={v.mot_doc}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
+                                          title="View MOT Document"
+                                        >
+                                          <FileText size={14} />
+                                        </a>
+                                        <button
+                                          onClick={() => confirmDeleteMotDoc(v.id)}
+                                          disabled={deletingMotDocId === v.id}
+                                          className="p-1 hover:bg-red-100 text-red-500 rounded transition disabled:opacity-50"
+                                          title="Delete MOT Document"
+                                        >
+                                          {deletingMotDocId === v.id ? (
+                                            <Loader2 size={14} className="animate-spin text-red-500" />
+                                          ) : (
+                                            <Trash2 size={14} />
+                                          )}
+                                        </button>
+                                      </>
+                                    )}
+                                    <button
+                                      onClick={() => triggerFileInput(v.id)}
+                                      disabled={uploadingMotId === v.id}
+                                      className="p-1 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
+                                      title={v.mot_doc ? "Replace MOT Document" : "Upload MOT Document"}
+                                    >
+                                      {uploadingMotId === v.id ? (
+                                        <Loader2 size={14} className="animate-spin text-emerald-600" />
+                                      ) : (
+                                        <Upload size={14} />
+                                      )}
+                                    </button>
                                   </div>
                                 </div>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">
-                              {v.service_time
-                                ? new Date(v.service_time).toLocaleDateString("en-GB")
-                                : "—"}
-                            </td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_service_miles ?? "—"}</td>
+                              </td>
 
-                            {/* MOT Date + Doc Actions */}
-                            <td className="px-3 py-2 text-gray-700 align-middle">
-                              <div className="flex items-center gap-2 whitespace-nowrap">
-                                <span>
-                                  {v.mot_date
-                                    ? new Date(v.mot_date).toLocaleDateString("en-GB")
+                              {/* Road Tax Date */}
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                <span className={
+                                  alertStatus.roadTaxStatus.isExpired
+                                    ? "text-red-700 font-bold"
+                                    : alertStatus.roadTaxStatus.isWarning
+                                    ? "text-amber-700 font-bold"
+                                    : ""
+                                }>
+                                  {v.road_tax
+                                    ? new Date(v.road_tax).toLocaleDateString("en-GB")
                                     : "—"}
                                 </span>
-                                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-1 py-0.5">
-                                  {v.mot_doc && (
-                                    <>
-                                      <a
-                                        href={v.mot_doc}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="p-1 hover:bg-blue-100 text-blue-600 rounded transition"
-                                        title="View MOT Document"
-                                      >
-                                        <FileText size={14} />
-                                      </a>
-                                      <button
-                                        onClick={() => confirmDeleteMotDoc(v.id)}
-                                        disabled={deletingMotDocId === v.id}
-                                        className="p-1 hover:bg-red-100 text-red-500 rounded transition disabled:opacity-50"
-                                        title="Delete MOT Document"
-                                      >
-                                        {deletingMotDocId === v.id ? (
-                                          <Loader2 size={14} className="animate-spin text-red-500" />
-                                        ) : (
-                                          <Trash2 size={14} />
-                                        )}
-                                      </button>
-                                    </>
-                                  )}
+                              </td>
+
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                <span className={alertStatus.isServiceDue ? "text-blue-700 font-bold" : ""}>
+                                  {v.current_miles ?? "—"}
+                                </span>
+                              </td>
+
+                              <td className="px-3 py-2 text-center align-middle">
+                                <span
+                                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${isAvail
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-rose-100 text-rose-700"
+                                    }`}
+                                >
+                                  {isAvail ? "Yes" : "No"}
+                                </span>
+                              </td>
+
+                              <td className="px-3 py-2 text-right align-middle">
+                                <div className="flex justify-end items-center gap-1">
                                   <button
-                                    onClick={() => triggerFileInput(v.id)}
-                                    disabled={uploadingMotId === v.id}
-                                    className="p-1 hover:bg-emerald-100 text-emerald-600 rounded transition disabled:opacity-50"
-                                    title={v.mot_doc ? "Replace MOT Document" : "Upload MOT Document"}
+                                    onClick={() => confirmServiceDone(v.id)}
+                                    disabled={syncingId === v.id}
+                                    className="p-1 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded transition"
+                                    title="Mark Service Done"
                                   >
-                                    {uploadingMotId === v.id ? (
-                                      <Loader2 size={14} className="animate-spin text-emerald-600" />
+                                    {syncingId === v.id ? (
+                                      <Loader2 size={12} className="animate-spin text-orange-600" />
                                     ) : (
-                                      <Upload size={14} />
+                                      <Wrench size={12} />
+                                    )}
+                                  </button>
+
+                                  <button
+                                    onClick={() => startEdit(v)}
+                                    className="p-1 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
+                                    title="Edit vehicle"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+
+                                  {isAvail && (
+                                    <button
+                                      onClick={() => toggleLongHire(v.id, isLong)}
+                                      disabled={isToggling}
+                                      className="p-1 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
+                                      title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
+                                    >
+                                      {isToggling ? (
+                                        <Loader2 size={14} className="animate-spin text-purple-600" />
+                                      ) : isLong ? (
+                                        <ToggleRight size={16} className="text-emerald-600" />
+                                      ) : (
+                                        <ToggleLeft size={16} className="text-gray-400" />
+                                      )}
+                                    </button>
+                                  )}
+
+                                  {hasClaim && (
+                                    <Link
+                                      target="_blank"
+                                      href={claimLinkHref}
+                                      className="p-1 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
+                                      title="View hire holder"
+                                    >
+                                      <ExternalLink size={14} />
+                                    </Link>
+                                  )}
+
+                                  <button
+                                    onClick={() => confirmDelete(v.id)}
+                                    disabled={deleteLoading && deletingId === v.id}
+                                    className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
+                                    title="Delete vehicle"
+                                  >
+                                    {deleteLoading && deletingId === v.id ? (
+                                      <Loader2 size={12} className="animate-spin text-red-600" />
+                                    ) : (
+                                      <Trash2 size={12} />
                                     )}
                                   </button>
                                 </div>
-                              </div>
-                            </td>
-
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.current_miles ?? "—"}</td>
-                            <td className="px-3 py-2 text-gray-700 align-middle">{v.last_miles_in ?? "—"}</td>
-
-                            <td className="px-3 py-2 text-center align-middle">
-                              <span
-                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${isAvail
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-rose-100 text-rose-700"
-                                  }`}
-                              >
-                                {isAvail ? "Yes" : "No"}
-                              </span>
-                            </td>
-
-                            <td className="px-3 py-2 text-right align-middle">
-                              <div className="flex justify-end items-center gap-1">
-                                <button
-                                  onClick={() => confirmServiceDone(v.id)}
-                                  disabled={syncingId === v.id}
-                                  className="p-1 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded transition"
-                                  title="Mark Service Done"
-                                >
-                                  {syncingId === v.id ? (
-                                    <Loader2 size={12} className="animate-spin text-orange-600" />
-                                  ) : (
-                                    <Wrench size={12} />
-                                  )}
-                                </button>
-
-                                <button
-                                  onClick={() => startEdit(v)}
-                                  className="p-1 hover:bg-emerald-50 text-gray-500 hover:text-emerald-700 rounded transition"
-                                  title="Edit vehicle"
-                                >
-                                  <Pencil size={12} />
-                                </button>
-
-                                {isAvail && (
-                                  <button
-                                    onClick={() => toggleLongHire(v.id, isLong)}
-                                    disabled={isToggling}
-                                    className="p-1 hover:bg-purple-50 text-gray-500 hover:text-purple-700 rounded transition"
-                                    title={isLong ? "Remove from Long Hire" : "Add to Long Hire"}
-                                  >
-                                    {isToggling ? (
-                                      <Loader2 size={14} className="animate-spin text-purple-600" />
-                                    ) : isLong ? (
-                                      <ToggleRight size={16} className="text-emerald-600" />
-                                    ) : (
-                                      <ToggleLeft size={16} className="text-gray-400" />
-                                    )}
-                                  </button>
-                                )}
-
-                                {hasClaim && (
-                                  <Link
-                                    target="_blank"
-                                    href={claimLinkHref}
-                                    className="p-1 hover:bg-blue-50 text-gray-500 hover:text-blue-600 rounded transition"
-                                    title="View hire holder"
-                                  >
-                                    <ExternalLink size={14} />
-                                  </Link>
-                                )}
-
-                                <button
-                                  onClick={() => confirmDelete(v.id)}
-                                  disabled={deleteLoading && deletingId === v.id}
-                                  className="p-1 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded transition"
-                                  title="Delete vehicle"
-                                >
-                                  {deleteLoading && deletingId === v.id ? (
-                                    <Loader2 size={12} className="animate-spin text-red-600" />
-                                  ) : (
-                                    <Trash2 size={12} />
-                                  )}
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )
         ) : (
