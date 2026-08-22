@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import {
   Pencil,
   Check,
@@ -21,6 +21,7 @@ import {
   Wrench,
   FileText,
   Upload,
+  Gauge,
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
@@ -39,6 +40,7 @@ interface Vehicle {
   mot_doc?: string | null;
   road_tax?: string | null;
   current_miles?: number | null;
+  last_miles_in?: number | null;
   attributes?: string[];
 }
 
@@ -65,7 +67,8 @@ type SortField =
   | "last_service_miles"
   | "mot_date"
   | "road_tax"
-  | "current_miles";
+  | "current_miles"
+  | "last_miles_in";
 
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
@@ -224,14 +227,17 @@ export default function VehiclesPage() {
     mot_date: "",
     road_tax: "",
     current_miles: "",
+    last_miles_in: "",
     attributes: [] as string[]
   });
   const [saving, setSaving] = useState(false);
+  const editRowRef = useRef<HTMLTableRowElement | null>(null);
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [transferringMilesId, setTransferringMilesId] = useState<number | null>(null);
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
 
@@ -252,6 +258,18 @@ export default function VehiclesPage() {
   const [historySearch, setHistorySearch] = useState("");
   const [historySortField, setHistorySortField] = useState<HistorySortField>("hire_start");
   const [historySortDirection, setHistorySortDirection] = useState<SortDirection>("desc");
+
+  // Scroll to edit row when editing starts
+  useEffect(() => {
+    if (editingId !== null && editRowRef.current) {
+      setTimeout(() => {
+        editRowRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+    }
+  }, [editingId]);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -365,6 +383,7 @@ export default function VehiclesPage() {
       mot_date: md,
       road_tax: rt,
       current_miles: vehicle.current_miles ? String(vehicle.current_miles) : "",
+      last_miles_in: vehicle.last_miles_in !== undefined && vehicle.last_miles_in !== null ? String(vehicle.last_miles_in) : "",
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
   };
@@ -379,6 +398,7 @@ export default function VehiclesPage() {
       mot_date: "", 
       road_tax: "", 
       current_miles: "", 
+      last_miles_in: "", 
       attributes: [] 
     });
   };
@@ -394,6 +414,7 @@ export default function VehiclesPage() {
         mot_date: editData.mot_date ? new Date(editData.mot_date).toISOString() : null,
         road_tax: editData.road_tax ? new Date(editData.road_tax).toISOString() : null,
         current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
+        last_miles_in: editData.last_miles_in !== "" && !isNaN(parseInt(editData.last_miles_in, 10)) ? parseInt(editData.last_miles_in, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
 
@@ -407,6 +428,44 @@ export default function VehiclesPage() {
       alert(err.response?.data?.detail || "Failed to update vehicle.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTransferLastMiles = async (v: Vehicle) => {
+    if (v.last_miles_in === null || v.last_miles_in === undefined) {
+      alert("No Last Miles In recorded for this vehicle.");
+      return;
+    }
+    if (
+      window.confirm(
+        `Set Current Miles to ${v.last_miles_in} and reset Last Miles In?`
+      )
+    ) {
+      setTransferringMilesId(v.id);
+      try {
+        const payload = {
+          current_miles: v.last_miles_in,
+          last_miles_in: null,
+        };
+        await api.put(`/api/car/${v.id}`, payload, {
+          headers: { requiresAuth: true },
+        });
+        setVehicles((prev) =>
+          prev.map((item) =>
+            item.id === v.id
+              ? { ...item, current_miles: v.last_miles_in, last_miles_in: null }
+              : item
+          )
+        );
+      } catch (err: any) {
+        alert(
+          err.response?.data?.detail ||
+            err.response?.data?.message ||
+            "Failed to update miles."
+        );
+      } finally {
+        setTransferringMilesId(null);
+      }
     }
   };
 
@@ -618,6 +677,7 @@ export default function VehiclesPage() {
       valB = b.road_tax ? new Date(b.road_tax).getTime() : 0;
     }
     else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
+    else if (sortField === "last_miles_in") { valA = a.last_miles_in || 0; valB = b.last_miles_in || 0; }
     else if (sortField === "available") {
       valA = checkIsAvail(a) ? 1 : 0;
       valB = checkIsAvail(b) ? 1 : 0;
@@ -1120,6 +1180,15 @@ export default function VehiclesPage() {
                         </div>
                       </th>
                       <th
+                        onClick={() => handleSort("last_miles_in")}
+                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
+                      >
+                        <div className="flex items-center gap-1">
+                          Last Miles In
+                          <ArrowUpDown size={12} className="text-gray-400" />
+                        </div>
+                      </th>
+                      <th
                         onClick={() => handleSort("available")}
                         className="text-center px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                       >
@@ -1141,125 +1210,150 @@ export default function VehiclesPage() {
                       const hasClaim = !!v.current_holder_claim_id;
                       const claimLinkHref = isLong ? `/long-claims/${v.current_holder_claim_id}` : `/claim/${v.current_holder_claim_id}`;
                       const alertStatus = getVehicleAlertStatus(v);
+                      const isEditing = editingId === v.id;
 
                       return (
                         <tr
                           key={v.id}
+                          ref={isEditing ? editRowRef : null}
                           className={`${
-                            editingId === v.id ? "bg-emerald-50/50" : alertStatus.rowBgClass
-                          } transition text-xs`}
+                            isEditing 
+                              ? "bg-emerald-50/80 border-l-4 border-l-emerald-500 shadow-inner" 
+                              : alertStatus.rowBgClass
+                          } transition-all duration-200 text-xs`}
                         >
-                          {editingId === v.id ? (
+                          {isEditing ? (
+                            // --- IMPROVED EDITING UI ---
                             <>
-                              <td className="px-3 py-1.5 align-middle">
-                                <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
-                                  {v.reg_no || "—"}
-                                </span>
-                              </td>
-                              <td className="px-3 py-1.5 align-middle">
-                                <input
-                                  value={editData.name}
-                                  onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
-                                  className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                                />
-                              </td>
-                              <td className="px-3 py-1.5 align-middle">
-                                <input
-                                  value={editData.model}
-                                  onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value }))}
-                                  className="w-full px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                                />
-                              </td>
-                              <td className="px-3 py-1.5 align-middle">
-                                <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                  {AVAILABLE_ATTRIBUTES.map((attr) => (
-                                    <label key={attr} className="flex items-center space-x-1 text-[10px] text-gray-700 cursor-pointer whitespace-nowrap">
-                                      <input
-                                        type="checkbox"
-                                        checked={editData.attributes.includes(attr)}
-                                        onChange={() => setEditData((prev) => ({
-                                          ...prev,
-                                          attributes: handleAttributeToggle(prev.attributes, attr)
-                                        }))}
-                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-2.5 w-2.5"
-                                      />
-                                      <span>{ATTRIBUTE_MAPPING[attr].label}</span>
-                                    </label>
-                                  ))}
+                              <td className="px-2 py-2 align-middle">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-500 font-mono text-[11px] font-semibold tracking-wider rounded cursor-not-allowed">
+                                    {v.reg_no || "—"}
+                                  </span>
+                                  <span className="text-[9px] text-emerald-600 font-medium bg-emerald-100 px-1.5 py-0.5 rounded">editing</span>
                                 </div>
                               </td>
-                              <td className="px-3 py-1.5 align-middle">
+                              <td className="px-2 py-2 align-middle">
+                                <input
+                                  value={editData.name}
+                                  onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value.toUpperCase() }))}
+                                  className="w-full min-w-[80px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
+                                  placeholder="Make"
+                                  autoFocus
+                                />
+                              </td>
+                              <td className="px-2 py-2 align-middle">
+                                <input
+                                  value={editData.model}
+                                  onChange={(e) => setEditData((p) => ({ ...p, model: e.target.value.toUpperCase() }))}
+                                  className="w-full min-w-[70px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
+                                  placeholder="Model"
+                                />
+                              </td>
+                              <td className="px-2 py-2 align-middle min-w-[200px]">
+                                <div className="bg-white border-2 border-emerald-400 rounded-lg p-2 shadow-sm max-h-[120px] overflow-y-auto">
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {AVAILABLE_ATTRIBUTES.map((attr) => (
+                                      <label key={attr} className="flex items-center gap-1.5 text-[10px] text-gray-700 cursor-pointer hover:bg-emerald-50 px-1 py-0.5 rounded transition whitespace-nowrap">
+                                        <input
+                                          type="checkbox"
+                                          checked={editData.attributes.includes(attr)}
+                                          onChange={() => setEditData((prev) => ({
+                                            ...prev,
+                                            attributes: handleAttributeToggle(prev.attributes, attr)
+                                          }))}
+                                          className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 h-3 w-3 shrink-0"
+                                        />
+                                        <span className="truncate">{ATTRIBUTE_MAPPING[attr].label}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 align-middle">
                                 <input
                                   type="date"
                                   value={editData.service_time}
                                   onChange={(e) => setEditData((p) => ({ ...p, service_time: e.target.value }))}
-                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-[110px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
-                              <td className="px-3 py-1.5 align-middle">
+                              <td className="px-2 py-2 align-middle">
                                 <input
                                   type="number"
-                                  placeholder="Last Service Miles"
+                                  placeholder="Miles"
                                   value={editData.last_service_miles}
                                   onChange={(e) => setEditData((p) => ({ ...p, last_service_miles: e.target.value }))}
-                                  className="w-[100px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-[90px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
-                              <td className="px-3 py-1.5 align-middle">
+                              <td className="px-2 py-2 align-middle">
                                 <input
                                   type="date"
                                   value={editData.mot_date}
                                   onChange={(e) => setEditData((p) => ({ ...p, mot_date: e.target.value }))}
-                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-[110px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
-                              <td className="px-3 py-1.5 align-middle">
+                              <td className="px-2 py-2 align-middle">
                                 <input
                                   type="date"
                                   value={editData.road_tax}
                                   onChange={(e) => setEditData((p) => ({ ...p, road_tax: e.target.value }))}
-                                  className="w-[110px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-[110px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
-                              <td className="px-3 py-1.5 align-middle">
+                              <td className="px-2 py-2 align-middle">
                                 <input
                                   type="number"
                                   placeholder="Miles"
                                   value={editData.current_miles}
                                   onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
-                                  className="w-[80px] px-2 py-1 border border-emerald-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                  className="w-[80px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
-                              <td className="px-3 py-1.5 text-center align-middle">-</td>
-                              <td className="px-3 py-1.5 text-right align-middle">
-                                <div className="flex justify-end gap-1">
+                              <td className="px-2 py-2 align-middle">
+                                <input
+                                  type="number"
+                                  placeholder="Miles In"
+                                  value={editData.last_miles_in}
+                                  onChange={(e) => setEditData((p) => ({ ...p, last_miles_in: e.target.value }))}
+                                  className="w-[80px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
+                                />
+                              </td>
+                              <td className="px-2 py-2 text-center align-middle">-</td>
+                              <td className="px-2 py-2 text-right align-middle">
+                                <div className="flex justify-end gap-1.5">
                                   <button
                                     onClick={() => saveEdit(v.id)}
                                     disabled={saving}
-                                    className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded transition"
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition disabled:opacity-50 shadow-sm"
                                     title="Save Changes"
                                   >
                                     {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                    <span className="hidden sm:inline">Save</span>
                                   </button>
                                   <button
                                     onClick={cancelEdit}
-                                    className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded transition"
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-xs font-medium transition"
                                     title="Cancel"
                                   >
                                     <X size={12} />
+                                    <span className="hidden sm:inline">Cancel</span>
                                   </button>
                                 </div>
                               </td>
                             </>
                           ) : (
+                            // --- VIEW MODE ---
                             <>
                               <td className="px-3 py-2 align-middle">
                                 <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-900 font-mono text-[11px] font-semibold tracking-wider rounded">
                                   {v.reg_no || "—"}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name || "—"}</td>
-                              <td className="px-3 py-2 text-gray-700 align-middle">{v.model || "—"}</td>
+                              <td className="px-3 py-2 font-medium text-gray-900 align-middle">{v.name.toUpperCase() || "—"}</td>
+                              <td className="px-3 py-2 text-gray-700 align-middle">{v.model.toUpperCase() || "—"}</td>
                               <td className="px-3 py-2 text-gray-700 align-middle cursor-default">
                                 {v.attributes && v.attributes.length > 0 ? (
                                   <div className="relative group flex flex-wrap gap-1 items-center">
@@ -1459,6 +1553,10 @@ export default function VehiclesPage() {
                                 </span>
                               </td>
 
+                              <td className="px-3 py-2 text-gray-700 align-middle">
+                                {v.last_miles_in !== null && v.last_miles_in !== undefined ? v.last_miles_in : "—"}
+                              </td>
+
                               <td className="px-3 py-2 text-center align-middle">
                                 <span
                                   className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${isAvail
@@ -1482,6 +1580,23 @@ export default function VehiclesPage() {
                                       <Loader2 size={12} className="animate-spin text-orange-600" />
                                     ) : (
                                       <Wrench size={12} />
+                                    )}
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleTransferLastMiles(v)}
+                                    disabled={transferringMilesId === v.id || v.last_miles_in === null || v.last_miles_in === undefined}
+                                    className="p-1 hover:bg-cyan-50 text-gray-500 hover:text-cyan-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={
+                                      v.last_miles_in !== null && v.last_miles_in !== undefined
+                                        ? `Set Current Miles to ${v.last_miles_in} & Reset Last Miles In`
+                                        : "No Last Miles In recorded"
+                                    }
+                                  >
+                                    {transferringMilesId === v.id ? (
+                                      <Loader2 size={12} className="animate-spin text-cyan-600" />
+                                    ) : (
+                                      <Gauge size={12} />
                                     )}
                                   </button>
 
