@@ -878,11 +878,21 @@ async function generateStoragePDF(
   yPos = addSectionHeader("CLIENT DETAILS", yPos, false);
 
   const availableWidth = pageWidth - margin * 2;
-  const fieldWidth = availableWidth / 3;
+  const nameW = availableWidth * 0.33;
+  const addrW = availableWidth * 0.47;
+  const pcW   = availableWidth * 0.20;
 
-  addField("Name", up(data.name), margin, yPos, fieldWidth);
-  addField("Address", up(data.address1), margin + fieldWidth, yPos, fieldWidth);
-  addField("Postcode", up(data.postcode), margin + fieldWidth * 2, yPos, fieldWidth);
+  // dd/mm/yy short format for storage dates
+  const fmtShort = (d: any) => {
+    if (!d) return "—";
+    try {
+      return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    } catch { return "—"; }
+  };
+
+  addField("Name",     up(data.name),     margin,                yPos, nameW);
+  addField("Address",  up(data.address1), margin + nameW,         yPos, addrW);
+  addField("Postcode", up(data.postcode), margin + nameW + addrW, yPos, pcW);
 
   yPos += 14;
   // Vehicle Information
@@ -904,21 +914,21 @@ async function generateStoragePDF(
   yPos = addSectionHeader("RECOVERY & STORAGE DETAILS", yPos, false);
   addField(
     "Date of Recovery",
-    formatDate(data.date_of_recovery),
+    fmtShort(data.date_of_recovery),
     margin,
     yPos,
     colWidth,
   );
   addField(
     "Storage Start",
-    formatDate(data.storage_start_date),
+    fmtShort(data.storage_start_date),
     margin + colWidth,
     yPos,
     colWidth,
   );
   addField(
     "Storage End",
-    formatDate(data.storage_end_date),
+    fmtShort(data.storage_end_date),
     margin + colWidth * 2,
     yPos,
     colWidth,
@@ -1088,12 +1098,12 @@ async function generateStoragePDF(
   pdf.setFontSize(7);
   pdf.setTextColor(...colors.darkText);
   pdf.text(
-    `Date: ${formatDate(data.client_date) || "____________"}`,
+    `Date: ${fmtShort(data.client_date) || "____________"}`,
     margin,
     yPos + 4,
   );
   pdf.text(
-    `Date: ${formatDate(data.owner_date) || "____________"}`,
+    `Date: ${fmtShort(data.owner_date) || "____________"}`,
     margin + sigWidth + 10,
     yPos + 4,
   );
@@ -1767,7 +1777,7 @@ async function generateRentalPDF(
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y + 2.5);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(up(data.liability_date) || "—", margin + 15, y + 2.5);
+      pdf.text(formatDate(data.liability_date) || "—", margin + 15, y + 2.5);
       y += 6;
     } else {
       pdf.setFont("helvetica", "normal");
@@ -1775,7 +1785,7 @@ async function generateRentalPDF(
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(up(data.liability_date) || "—", margin + 15, y);
+      pdf.text(formatDate(data.liability_date) || "—", margin + 15, y);
       y += 3.5;
     }
 
@@ -2498,7 +2508,7 @@ async function generateClaimPDF(
     pageWidth - margin * 2,
   );
   yPos += 10;
-  addField("Declaration Date", up(data.declaration_date), margin, yPos, colWidth);
+  addField("Declaration Date", formatDate(data.declaration_date), margin, yPos, colWidth);
   yPos += 10;
 
   // Signature
