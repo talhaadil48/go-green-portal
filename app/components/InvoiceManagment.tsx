@@ -81,14 +81,14 @@ function sentStatusBadge(status: "SE" | "NS") {
       ? "bg-blue-100 text-blue-800"
       : "bg-slate-100 text-slate-600";
   return (
-    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles}`}>
+    <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${styles}`}>
       {status}
     </span>
   );
 }
 
 function statusBadge(status: string | null) {
-  if (!status) return <span className="text-xs text-slate-400">—</span>;
+  if (!status) return <span className="text-[10px] text-slate-400">—</span>;
   const normalised = status.toLowerCase();
   const styles: Record<string, string> = {
     paid: "bg-green-100 text-green-800",
@@ -97,7 +97,7 @@ function statusBadge(status: string | null) {
   };
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles[normalised] ?? "bg-slate-100 text-slate-700"
+      className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${styles[normalised] ?? "bg-slate-100 text-slate-700"
         }`}
     >
       {normalised}
@@ -136,6 +136,33 @@ function formatCurrency(value: number | null | undefined | string) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * Calculate percentage received: (payment_received + solicitor_fee) / (hire + storage) * 100
+ * Returns null if any required value is missing (null/undefined)
+ */
+function calculatePercentageReceived(inv: ClaimInvoice): number | null {
+  // Check if we have all required values
+  if (inv.rent_bill == null && inv.storage_bill == null) return null;
+  if (inv.payment_received == null && inv.solicitor_fee == null) return null;
+  
+  const hireStorageTotal = (inv.rent_bill || 0) + (inv.storage_bill || 0);
+  if (hireStorageTotal === 0) return null;
+  
+  const totalReceived = (inv.payment_received || 0);
+  if (totalReceived === 0) return 0;
+  
+  return (totalReceived / hireStorageTotal) * 100;
+}
+
+/**
+ * Format percentage for display
+ */
+function formatPercentage(inv: ClaimInvoice): string {
+  const percentage = calculatePercentageReceived(inv);
+  if (percentage === null) return "—";
+  return `${percentage.toFixed(1)}%`;
 }
 
 /**
@@ -531,6 +558,11 @@ export default function InvoiceManagementPage() {
       if (key === "hire_storage_total") {
         return (row.storage_bill || 0) + (row.rent_bill || 0);
       }
+      if (key === "percentage_received") {
+        if (!("payment_received" in row)) return -1;
+        const percentage = calculatePercentageReceived(row as unknown as ClaimInvoice);
+        return percentage !== null ? percentage : -1;
+      }
       if (key === "status" && "payment_received" in row) {
         // Use derived/effective status (payment_received + date_received -> "paid")
         return effectiveStatus(row as unknown as ClaimInvoice) || "";
@@ -555,8 +587,8 @@ export default function InvoiceManagementPage() {
       const valB = getValue(b);
 
       if (valA === valB) return 0;
-      if (valA == null || valA === "") return direction === "asc" ? -1 : 1;
-      if (valB == null || valB === "") return direction === "asc" ? 1 : -1;
+      if (valA == null || valA === "" || valA === -1) return direction === "asc" ? -1 : 1;
+      if (valB == null || valB === "" || valB === -1) return direction === "asc" ? 1 : -1;
 
       if (typeof valA === "string" && typeof valB === "string") {
         return direction === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -609,13 +641,37 @@ export default function InvoiceManagementPage() {
     let hireStorage = 0;
     let paymentReceived = 0;
     let solicitorFees = 0;
+    let totalReceived = 0;
+    let validCount = 0;
+    let totalPercentage = 0;
+    
     for (const inv of sortedClaimInvoices) {
-      hireStorage += (inv.rent_bill || 0) + (inv.storage_bill || 0);
+      const hs = (inv.rent_bill || 0) + (inv.storage_bill || 0);
+      hireStorage += hs;
       paymentReceived += inv.payment_received || 0;
       solicitorFees += inv.solicitor_fee || 0;
+      totalReceived += (inv.payment_received || 0) + (inv.solicitor_fee || 0);
+      
+      const percentage = calculatePercentageReceived(inv);
+      if (percentage !== null) {
+        validCount++;
+        totalPercentage += percentage;
+      }
     }
     const outstanding = paymentReceived - hireStorage;
-    return { hireStorage, paymentReceived, solicitorFees, outstanding };
+    const overallPercentage = hireStorage > 0 ? (totalReceived / hireStorage) * 100 : 0;
+    const avgPercentage = validCount > 0 ? totalPercentage / validCount : 0;
+    
+    return { 
+      hireStorage, 
+      paymentReceived, 
+      solicitorFees, 
+      outstanding, 
+      totalReceived, 
+      overallPercentage,
+      avgPercentage,
+      validCount 
+    };
   }, [sortedClaimInvoices]);
 
   // ─── Pagination ─────────────────────────────────────────────────────────────
@@ -669,11 +725,11 @@ export default function InvoiceManagementPage() {
     const isActive = sortConfig?.key === sortKey;
     return (
       <th
-        className={`sticky top-0 z-10 bg-green-100 px-3 py-2 text-${align} font-semibold text-green-800 border-r border-b border-gray-400 cursor-pointer hover:bg-green-200/70 transition-colors select-none group`}
+        className={`sticky top-0 z-10 bg-green-100 px-2 py-1.5 text-[10px] font-semibold text-green-800 border-r border-b border-gray-400 cursor-pointer hover:bg-green-200/70 transition-colors select-none group whitespace-nowrap`}
         onClick={() => handleSort(sortKey)}
       >
         <div
-          className={`flex items-center gap-1 ${align === "right"
+          className={`flex items-center gap-0.5 ${align === "right"
             ? "justify-end"
             : align === "center"
               ? "justify-center"
@@ -684,13 +740,13 @@ export default function InvoiceManagementPage() {
           <span className="text-green-600">
             {isActive ? (
               sortConfig.direction === "asc" ? (
-                <ChevronUp size={14} />
+                <ChevronUp size={12} />
               ) : (
-                <ChevronDown size={14} />
+                <ChevronDown size={12} />
               )
             ) : (
               <ArrowUpDown
-                size={14}
+                size={12}
                 className="opacity-0 group-hover:opacity-50 transition-opacity"
               />
             )}
@@ -702,7 +758,7 @@ export default function InvoiceManagementPage() {
 
   const PaginationBar = () =>
     totalPages > 1 ? (
-      <div className="flex items-center justify-between px-4 py-3 border-t border-green-100 bg-green-50/40 text-xs">
+      <div className="flex items-center justify-between px-4 py-2 border-t border-green-100 bg-green-50/40 text-[10px]">
         <span className="text-green-700/80">
           Showing <span className="font-semibold">{rangeStart}</span>–
           <span className="font-semibold">{rangeEnd}</span> of{" "}
@@ -712,10 +768,10 @@ export default function InvoiceManagementPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            className="p-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
             title="Previous page"
           >
-            <ChevronLeft size={14} />
+            <ChevronLeft size={12} />
           </button>
           <span className="text-green-700 font-medium px-1">
             Page {currentPage} / {totalPages}
@@ -723,10 +779,10 @@ export default function InvoiceManagementPage() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
-            className="p-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            className="p-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
             title="Next page"
           >
-            <ChevronRight size={14} />
+            <ChevronRight size={12} />
           </button>
         </div>
       </div>
@@ -734,25 +790,25 @@ export default function InvoiceManagementPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-full mx-auto px-2 sm:px-4 lg:px-6 py-4">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-green-800 tracking-tight">
+            <h1 className="text-xl font-extrabold text-green-800 tracking-tight">
               Invoice Management
             </h1>
-            <p className="mt-1 text-lg text-green-700/80">
+            <p className="mt-0.5 text-sm text-green-700/80">
               Transport / RTA & Long Term Hire invoices
             </p>
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
+          <div className="flex gap-2 mt-3 md:mt-0">
             <button
               onClick={() => { fetchClaimInvoices(); fetchLongHireInvoices(); }}
               disabled={isLoading}
-              className="px-5 py-2 bg-white border border-green-200 text-green-700 rounded-xl hover:bg-green-50 transition disabled:opacity-50 flex items-center gap-2 text-sm"
+              className="px-3 py-1.5 bg-white border border-green-200 text-green-700 rounded-xl hover:bg-green-50 transition disabled:opacity-50 flex items-center gap-1.5 text-xs"
             >
-              <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+              <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
               Refresh All
             </button>
           </div>
@@ -760,53 +816,66 @@ export default function InvoiceManagementPage() {
 
         {/* Summary boxes (claim invoices only) */}
         {isClaimTab && (
-          <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+          <div className="mb-4 grid grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
                 Hire + Storage
               </p>
-              <p className="text-lg font-bold text-green-800 mt-0.5">
+              <p className="text-sm font-bold text-green-800 mt-0.5">
                 {formatCurrency(summaryTotals.hireStorage)}
               </p>
             </div>
-            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
                 Payment Received
               </p>
-              <p className="text-lg font-bold text-green-800 mt-0.5">
+              <p className="text-sm font-bold text-green-800 mt-0.5">
                 {formatCurrency(summaryTotals.paymentReceived)}
               </p>
             </div>
-            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
                 Fees
               </p>
-              <p className="text-lg font-bold text-green-800 mt-0.5">
+              <p className="text-sm font-bold text-green-800 mt-0.5">
                 {formatCurrency(summaryTotals.solicitorFees)}
               </p>
             </div>
-            <div className="bg-white/80 border border-green-100 rounded-xl px-4 py-3 shadow-sm">
-              <p className="text-[11px] font-medium text-green-700/70 uppercase tracking-wide">
-                Outstanding Amount
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
+                Total Received
               </p>
-              <p
-                className={`text-lg font-bold mt-0.5 ${summaryTotals.outstanding < 0 ? "text-red-600" : "text-green-800"
-                  }`}
-              >
-                {formatCurrency(summaryTotals.outstanding)}
+              <p className="text-sm font-bold text-green-800 mt-0.5">
+                {formatCurrency(summaryTotals.totalReceived)}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
+                Overall %
+              </p>
+              <p className="text-sm font-bold text-green-800 mt-0.5">
+                {summaryTotals.hireStorage > 0 ? `${summaryTotals.overallPercentage.toFixed(1)}%` : "—"}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
+                Avg % (valid)
+              </p>
+              <p className="text-sm font-bold text-green-800 mt-0.5">
+                {summaryTotals.validCount > 0 ? `${summaryTotals.avgPercentage.toFixed(1)}%` : "—"}
               </p>
             </div>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="mb-6 border-b border-green-200">
-          <div className="flex space-x-8">
+        <div className="mb-4 border-b border-green-200">
+          <div className="flex space-x-6">
             {(["claim", "longhire"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSortConfig(null); }}
-                className={`pb-3 px-1 text-lg font-medium transition-colors ${activeTab === tab
+                className={`pb-2 px-1 text-sm font-medium transition-colors ${activeTab === tab
                   ? "text-green-700 border-b-4 border-green-600"
                   : "text-green-600/70 hover:text-green-700"
                   }`}
@@ -819,9 +888,9 @@ export default function InvoiceManagementPage() {
 
         {/* Create Form */}
         {isClaimTab && showCreateForm && (
-          <div className="mb-10 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-green-100/60 p-6">
-            <h2 className="text-xl font-bold text-green-800 mb-5">Create New Hire Invoice</h2>
-            <form onSubmit={handleCreateClaimInvoice} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="mb-6 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl border border-green-100/60 p-4">
+            <h2 className="text-lg font-bold text-green-800 mb-4">Create New Hire Invoice</h2>
+            <form onSubmit={handleCreateClaimInvoice} className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {[
                 { label: "Claim ID", key: "claim_id", placeholder: "TC123", type: "text" },
                 { label: "Claimant Name", key: "claimant_name", placeholder: "Muhammad Ahmed", type: "text" },
@@ -832,7 +901,7 @@ export default function InvoiceManagementPage() {
                 { label: "Payment Amount (optional)", key: "payment_amount", placeholder: "e.g. £500", type: "text" },
               ].map(({ label, key, placeholder, type }) => (
                 <div key={key}>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">{label}</label>
                   <input
                     type={type}
                     value={createFormData[key as keyof typeof createFormData]}
@@ -840,12 +909,12 @@ export default function InvoiceManagementPage() {
                       setCreateFormData((p) => ({ ...p, [key]: e.target.value }))
                     }
                     placeholder={placeholder}
-                    className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                    className="w-full px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-gray-700 mb-0.5">
                   Payment Date (optional)
                 </label>
                 <input
@@ -854,25 +923,25 @@ export default function InvoiceManagementPage() {
                   onChange={(e) =>
                     setCreateFormData((p) => ({ ...p, payment_date: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                  className="w-full px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
                 />
               </div>
-              <div className="md:col-span-2 flex justify-end gap-3 mt-2">
+              <div className="md:col-span-4 flex justify-end gap-2 mt-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="px-5 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition text-sm"
+                  className="px-4 py-1.5 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-6 rounded-full shadow flex items-center gap-2 disabled:opacity-60 text-sm"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-1.5 px-5 rounded-full shadow flex items-center gap-2 disabled:opacity-60 text-xs"
                 >
                   {creating ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={12} className="animate-spin" />
                       Creating...
                     </>
                   ) : (
@@ -881,7 +950,7 @@ export default function InvoiceManagementPage() {
                 </button>
               </div>
               {createError && (
-                <p className="md:col-span-2 text-red-600 text-center text-sm mt-2">
+                <p className="md:col-span-4 text-red-600 text-center text-xs mt-1">
                   {createError}
                 </p>
               )}
@@ -890,20 +959,20 @@ export default function InvoiceManagementPage() {
         )}
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Quick search..."
-            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+            className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
           />
           <input
             type="text"
             value={filterClaimId}
             onChange={(e) => setFilterClaimId(e.target.value)}
             placeholder="Filter Claim ID"
-            className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+            className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
           />
           {isClaimTab ? (
             <>
@@ -912,12 +981,12 @@ export default function InvoiceManagementPage() {
                 value={filterClaimant}
                 onChange={(e) => setFilterClaimant(e.target.value)}
                 placeholder="Filter Claimant"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
               />
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm text-gray-600"
+                className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs text-gray-600"
               >
                 <option value="">All Statuses</option>
                 <option value="paid">paid</option>
@@ -929,7 +998,7 @@ export default function InvoiceManagementPage() {
                 value={filterSentBy}
                 onChange={(e) => setFilterSentBy(e.target.value)}
                 placeholder="Filter Sent By"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
               />
             </>
           ) : (
@@ -939,35 +1008,35 @@ export default function InvoiceManagementPage() {
                 value={filterHirer}
                 onChange={(e) => setFilterHirer(e.target.value)}
                 placeholder="Filter Hirer Name"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
               />
               <input
                 type="text"
                 value={filterSentBy}
                 onChange={(e) => setFilterSentBy(e.target.value)}
                 placeholder="Filter Sent By"
-                className="px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-sm"
+                className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs"
               />
             </>
           )}
-          <div className="text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg px-3 py-2 flex items-center justify-center">
+          <div className="text-[10px] font-medium text-green-700 bg-white border border-green-200 rounded-lg px-2 py-1.5 flex items-center justify-center">
             {filteredCount} / {totalCount}
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          <div className="mb-4 p-2 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs">
             {error}
           </div>
         )}
 
         {/* Table */}
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-12 h-12 text-green-600 animate-spin" />
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-10 h-10 text-green-600 animate-spin" />
           </div>
         ) : (isClaimTab ? sortedClaimInvoices : sortedLongHireInvoices).length === 0 ? (
-          <div className="text-center py-12 bg-white/60 rounded-2xl border border-green-100 shadow text-sm text-green-700/80">
+          <div className="text-center py-10 bg-white/60 rounded-2xl border border-green-100 shadow text-xs text-green-700/80">
             {search ||
               filterClaimId ||
               filterSentBy ||
@@ -980,23 +1049,24 @@ export default function InvoiceManagementPage() {
           <div className="bg-white/85 backdrop-blur-sm border border-green-100 rounded-xl shadow overflow-hidden">
             {/* Scrollable body with a sticky header — header always stays visible while scrolling */}
             <div className="overflow-auto max-h-[65vh]">
-              <table className="min-w-full divide-y divide-gray-300 text-xs border-collapse">
+              <table className="min-w-full divide-y divide-gray-300 text-[10px] border-collapse table-auto">
                 <thead>
                   <tr>
                     {isClaimTab ? (
                       <>
                         <SortHeader label="Status" sortKey="status" align="center" />
-                        <SortHeader label="Sent Status" sortKey="sent_status" align="center" />
+                        <SortHeader label="Sent" sortKey="sent_status" align="center" />
                         <SortHeader label="Claim ID" sortKey="claim_id" />
                         <SortHeader label="Claimant" sortKey="claimant_name" />
-                        <SortHeader label="Claim Type" sortKey="claim_type" />
+                        <SortHeader label="Type" sortKey="claim_type" />
                         <SortHeader label="Date Sent" sortKey="invoice_datetime" />
                         <SortHeader label="Sent By" sortKey="user_name" />
-                        <SortHeader label="Hire + Storage" sortKey="hire_storage_total" align="right" />
+                        <SortHeader label="Hire+Storage" sortKey="hire_storage_total" align="right" />
                         <SortHeader label="Fees" sortKey="solicitor_fee" align="right" />
-                        <SortHeader label="Payment Received" sortKey="payment_received" align="right" />
-                        <SortHeader label="Date Received" sortKey="date_received" />
-                        <th className="sticky top-0 z-10 bg-green-100 px-3 py-2 text-center font-semibold text-green-800 border-b border-gray-400">
+                        <SortHeader label="Paid" sortKey="payment_received" align="right" />
+                        <SortHeader label="Date Rec" sortKey="date_received" />
+                        <SortHeader label="%" sortKey="percentage_received" align="center" />
+                        <th className="sticky top-0 z-10 bg-green-100 px-2 py-1.5 text-center font-semibold text-green-800 border-b border-gray-400 whitespace-nowrap text-[10px]">
                           Actions
                         </th>
                       </>
@@ -1008,7 +1078,7 @@ export default function InvoiceManagementPage() {
                         <SortHeader label="Sent By" sortKey="user_name" />
                         <SortHeader label="Amount" sortKey="amount" align="right" />
                         <SortHeader label="Payment Date" sortKey="payment_date" />
-                        <th className="sticky top-0 z-10 bg-green-100 px-3 py-2 text-center font-semibold text-green-800 border-b border-gray-400">
+                        <th className="sticky top-0 z-10 bg-green-100 px-2 py-1.5 text-center font-semibold text-green-800 border-b border-gray-400 whitespace-nowrap text-[10px]">
                           Actions
                         </th>
                       </>
@@ -1026,6 +1096,7 @@ export default function InvoiceManagementPage() {
                         (inv.rent_bill || 0) + (inv.storage_bill || 0);
                       const derivedStatus = effectiveStatus(inv);
                       const derivedSentStatus = sentStatus(inv);
+                      const percentage = calculatePercentageReceived(inv);
 
                       return (
                         <tr
@@ -1034,7 +1105,7 @@ export default function InvoiceManagementPage() {
                             }`}
                         >
                           {/* Status */}
-                          <td className="px-3 py-2 border-r border-gray-300 text-center">
+                          <td className="px-2 py-1.5 border-r border-gray-300 text-center whitespace-nowrap">
                             {isEditing ? (
                               <select
                                 value={editFormData.status}
@@ -1044,11 +1115,11 @@ export default function InvoiceManagementPage() {
                                     status: e.target.value as InvoiceStatus,
                                   }))
                                 }
-                                className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
+                                className="px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
                               >
                                 {STATUS_OPTIONS.map((opt) => (
                                   <option key={opt} value={opt}>
-                                    {opt === "" ? "— None —" : opt}
+                                    {opt === "" ? "—" : opt}
                                   </option>
                                 ))}
                               </select>
@@ -1058,16 +1129,16 @@ export default function InvoiceManagementPage() {
                           </td>
 
                           {/* Sent Status */}
-                          <td className="px-3 py-2 border-r border-gray-300 text-center">
+                          <td className="px-2 py-1.5 border-r border-gray-300 text-center whitespace-nowrap">
                             {sentStatusBadge(derivedSentStatus)}
                           </td>
 
                           {/* Claim ID */}
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap font-medium">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap font-medium">
                             {inv.claim_id ? (
                               <button
                                 onClick={() => goToClaim(inv.claim_id)}
-                                className="text-green-700 hover:text-green-900 underline underline-offset-2 decoration-green-300 hover:decoration-green-600 transition-colors"
+                                className="text-green-700 hover:text-green-900 underline underline-offset-2 decoration-green-300 hover:decoration-green-600 transition-colors text-[10px]"
                                 title={`Open claim ${inv.claim_id}`}
                               >
                                 {inv.claim_id}
@@ -1078,17 +1149,17 @@ export default function InvoiceManagementPage() {
                           </td>
 
                           {/* Claimant */}
-                          <td className="px-3 py-2 border-r border-gray-300 truncate max-w-[160px]">
+                          <td className="px-2 py-1.5 border-r border-gray-300 truncate max-w-[100px] text-[10px]">
                             {inv.claimant_name?.toUpperCase() || "—"}
                           </td>
 
                           {/* Claim Type */}
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             {inv.claim_type?.toUpperCase() || "—"}
                           </td>
 
                           {/* Date Sent */}
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             {isEditing ? (
                               <input
                                 type="date"
@@ -1099,7 +1170,7 @@ export default function InvoiceManagementPage() {
                                     invoice_datetime: e.target.value,
                                   }))
                                 }
-                                className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
+                                className="px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500 bg-white"
                               />
                             ) : (
                               formatDate(inv.invoice_datetime)
@@ -1107,7 +1178,7 @@ export default function InvoiceManagementPage() {
                           </td>
 
                           {/* Sent By */}
-                          <td className="px-3 py-2 border-r border-gray-300">
+                          <td className="px-2 py-1.5 border-r border-gray-300 text-[10px]">
                             {isEditing ? (
                               <input
                                 type="text"
@@ -1118,22 +1189,22 @@ export default function InvoiceManagementPage() {
                                     user_name: e.target.value,
                                   }))
                                 }
-                                className="w-full px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                className="w-full px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500"
                                 placeholder="Name"
                               />
                             ) : (
-                              <span className="truncate block max-w-[120px]">
+                              <span className="truncate block max-w-[80px]">
                                 {inv.user_name?.toUpperCase() || "—"}
                               </span>
                             )}
                           </td>
 
                           {/* Hire + Storage */}
-                          <td className="px-3 py-2 text-right border-r border-gray-300 font-medium">
+                          <td className="px-2 py-1.5 text-right border-r border-gray-300 font-medium whitespace-nowrap text-[10px]">
                             {isEditing ? (
-                              <div className="flex flex-col gap-1 items-end">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400 text-[10px]">Hire</span>
+                              <div className="flex flex-col gap-0.5 items-end">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-400 text-[8px]">Hire</span>
                                   <input
                                     type="number"
                                     value={editFormData.rent_bill}
@@ -1143,12 +1214,12 @@ export default function InvoiceManagementPage() {
                                         rent_bill: e.target.value,
                                       }))
                                     }
-                                    className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                    className="w-14 text-right px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500"
                                     placeholder="0"
                                   />
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400 text-[10px]">Storage</span>
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-400 text-[8px]">Storage</span>
                                   <input
                                     type="number"
                                     value={editFormData.storage_bill}
@@ -1158,7 +1229,7 @@ export default function InvoiceManagementPage() {
                                         storage_bill: e.target.value,
                                       }))
                                     }
-                                    className="w-20 text-right px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                    className="w-14 text-right px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500"
                                     placeholder="0"
                                   />
                                 </div>
@@ -1169,7 +1240,7 @@ export default function InvoiceManagementPage() {
                           </td>
 
                           {/* Solicitor Fee */}
-                          <td className="px-3 py-2 text-right border-r border-gray-300 font-medium">
+                          <td className="px-2 py-1.5 text-right border-r border-gray-300 font-medium whitespace-nowrap text-[10px]">
                             <span className={inv.solicitor_fee ? "" : "text-slate-400"}>
                               {inv.solicitor_fee != null
                                 ? formatCurrency(inv.solicitor_fee)
@@ -1177,8 +1248,8 @@ export default function InvoiceManagementPage() {
                             </span>
                           </td>
 
-                          {/* Payment Received — plain display, action moved to Actions column */}
-                          <td className="px-3 py-2 border-r border-gray-300 text-right">
+                          {/* Payment Received */}
+                          <td className="px-2 py-1.5 border-r border-gray-300 text-right whitespace-nowrap text-[10px]">
                             <span
                               className={`font-medium ${inv.payment_received ? "text-green-700" : "text-slate-400"
                                 }`}
@@ -1190,7 +1261,7 @@ export default function InvoiceManagementPage() {
                           </td>
 
                           {/* Date Received */}
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             <span
                               className={
                                 hasRealDate(inv.date_received)
@@ -1202,10 +1273,29 @@ export default function InvoiceManagementPage() {
                             </span>
                           </td>
 
+                          {/* Percentage Received */}
+                          <td className="px-2 py-1.5 border-r border-gray-300 text-center whitespace-nowrap text-[10px]">
+                            {percentage !== null ? (
+                              <span
+                                className={`font-semibold ${
+                                  percentage >= 100
+                                    ? "text-green-700"
+                                    : percentage > 0
+                                    ? "text-amber-600"
+                                    : "text-slate-400"
+                                }`}
+                              >
+                                {percentage.toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
                           {/* Actions */}
-                          <td className="px-3 py-2 text-center min-w-[110px]">
+                          <td className="px-2 py-1.5 text-center min-w-[70px] whitespace-nowrap">
                             {isEditing ? (
-                              <div className="flex items-center justify-center gap-2">
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   onClick={() => handleSaveEdit(inv.id)}
                                   disabled={saving}
@@ -1213,9 +1303,9 @@ export default function InvoiceManagementPage() {
                                   title="Save"
                                 >
                                   {saving ? (
-                                    <Loader2 size={14} className="animate-spin" />
+                                    <Loader2 size={12} className="animate-spin" />
                                   ) : (
-                                    <Check size={16} />
+                                    <Check size={14} />
                                   )}
                                 </button>
                                 <button
@@ -1224,17 +1314,17 @@ export default function InvoiceManagementPage() {
                                   className="text-red-600 hover:text-red-800 disabled:opacity-50"
                                   title="Cancel"
                                 >
-                                  <X size={16} />
+                                  <X size={14} />
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-center gap-3">
+                              <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => startEditing(inv)}
                                   className="text-green-600 hover:text-green-800"
                                   title="Edit invoice"
                                 >
-                                  <Edit2 size={16} />
+                                  <Edit2 size={14} />
                                 </button>
                                 {canMarkPaid && (
                                   <button
@@ -1242,7 +1332,7 @@ export default function InvoiceManagementPage() {
                                     className="text-emerald-600 hover:text-emerald-800"
                                     title="Mark as paid"
                                   >
-                                    <Banknote size={16} />
+                                    <Banknote size={14} />
                                   </button>
                                 )}
                               </div>
@@ -1258,11 +1348,11 @@ export default function InvoiceManagementPage() {
                           key={inv.id}
                           className="hover:bg-green-50/30 transition-colors"
                         >
-                          <td className="px-3 py-2 border-r border-gray-300">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             {inv.claim_id ? (
                               <button
                                 onClick={() => goToClaim(inv.claim_id)}
-                                className="text-green-700 hover:text-green-900 underline underline-offset-2 decoration-green-300 hover:decoration-green-600 transition-colors"
+                                className="text-green-700 hover:text-green-900 underline underline-offset-2 decoration-green-300 hover:decoration-green-600 transition-colors text-[10px]"
                                 title={`Open claim ${inv.claim_id}`}
                               >
                                 {inv.claim_id}
@@ -1271,21 +1361,21 @@ export default function InvoiceManagementPage() {
                               "—"
                             )}
                           </td>
-                          <td className="px-3 py-2 border-r border-gray-300 truncate max-w-[180px]">
+                          <td className="px-2 py-1.5 border-r border-gray-300 truncate max-w-[120px] text-[10px]">
                             {inv.hirer_name || "—"}
                           </td>
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             {formatDate(inv.date_sent)}
                           </td>
-                          <td className="px-3 py-2 border-r border-gray-300 truncate max-w-[140px]">
+                          <td className="px-2 py-1.5 border-r border-gray-300 truncate max-w-[100px] text-[10px]">
                             {inv.user_name || "—"}
                           </td>
-                          <td className="px-3 py-2 text-right border-r border-gray-300 font-medium">
+                          <td className="px-2 py-1.5 text-right border-r border-gray-300 font-medium whitespace-nowrap text-[10px]">
                             {formatCurrency(inv.amount)}
                           </td>
-                          <td className="px-3 py-2 border-r border-gray-300 whitespace-nowrap">
+                          <td className="px-2 py-1.5 border-r border-gray-300 whitespace-nowrap text-[10px]">
                             {isEditingLH ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5">
                                 <input
                                   type="date"
                                   value={editLongHireFormData.payment_date}
@@ -1295,7 +1385,7 @@ export default function InvoiceManagementPage() {
                                       payment_date: e.target.value,
                                     }))
                                   }
-                                  className="px-2 py-1 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
+                                  className="px-1 py-0.5 border border-green-300 rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-green-500"
                                 />
                                 {editLongHireFormData.payment_date && (
                                   <button
@@ -1308,12 +1398,12 @@ export default function InvoiceManagementPage() {
                                     className="text-slate-400 hover:text-red-500 transition-colors"
                                     title="Clear date"
                                   >
-                                    <X size={12} />
+                                    <X size={10} />
                                   </button>
                                 )}
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5">
                                 <span
                                   className={
                                     inv.payment_date
@@ -1330,15 +1420,15 @@ export default function InvoiceManagementPage() {
                                     className="text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
                                     title="Clear payment date"
                                   >
-                                    <Trash2 size={11} />
+                                    <Trash2 size={9} />
                                   </button>
                                 )}
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-2 py-1.5 text-center whitespace-nowrap">
                             {isEditingLH ? (
-                              <div className="flex items-center justify-center gap-2">
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   onClick={() => handleSaveLongHireEdit(inv)}
                                   disabled={savingLongHire}
@@ -1346,9 +1436,9 @@ export default function InvoiceManagementPage() {
                                   title="Save"
                                 >
                                   {savingLongHire ? (
-                                    <Loader2 size={14} className="animate-spin" />
+                                    <Loader2 size={12} className="animate-spin" />
                                   ) : (
-                                    <Check size={16} />
+                                    <Check size={14} />
                                   )}
                                 </button>
                                 <button
@@ -1357,7 +1447,7 @@ export default function InvoiceManagementPage() {
                                   className="text-red-600 hover:text-red-800 disabled:opacity-50"
                                   title="Cancel"
                                 >
-                                  <X size={16} />
+                                  <X size={14} />
                                 </button>
                               </div>
                             ) : (
@@ -1366,7 +1456,7 @@ export default function InvoiceManagementPage() {
                                 className="text-green-600 hover:text-green-800"
                                 title="Edit payment date"
                               >
-                                <Edit2 size={16} />
+                                <Edit2 size={14} />
                               </button>
                             )}
                           </td>
@@ -1380,12 +1470,12 @@ export default function InvoiceManagementPage() {
             <PaginationBar />
 
             {saveError && (
-              <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
+              <div className="p-2 bg-red-50 border-t border-red-200 text-red-700 text-[10px] text-center">
                 {saveError}
               </div>
             )}
             {saveLongHireError && (
-              <div className="p-4 bg-red-50 border-t border-red-200 text-red-700 text-sm text-center">
+              <div className="p-2 bg-red-50 border-t border-red-200 text-red-700 text-[10px] text-center">
                 {saveLongHireError}
               </div>
             )}
@@ -1400,30 +1490,30 @@ export default function InvoiceManagementPage() {
           onClick={() => !markPaidSaving && cancelMarkPaid()}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-green-800">Mark Invoice as Paid</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-green-800">Mark Invoice as Paid</h3>
               <button
                 onClick={cancelMarkPaid}
                 disabled={markPaidSaving}
                 className="text-slate-400 hover:text-red-500 disabled:opacity-40"
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <p className="text-xs text-green-700/70 mb-4">
+            <p className="text-[10px] text-green-700/70 mb-3">
               Claim ID:{" "}
               <span className="font-semibold text-green-800">
                 {markPaidInvoice.claim_id || "—"}
               </span>
             </p>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-gray-700 mb-0.5">
                   Payment Amount (£)
                 </label>
                 <input
@@ -1434,15 +1524,15 @@ export default function InvoiceManagementPage() {
                     setMarkPaidError(null);
                   }}
                   placeholder="0"
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm"
+                  className="w-full px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs"
                 />
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-0.5 text-[9px] text-slate-400">
                   Defaults to Hire + Storage total — editable.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] font-medium text-gray-700 mb-0.5">
                   Payment Date
                 </label>
                 <input
@@ -1452,30 +1542,30 @@ export default function InvoiceManagementPage() {
                     setMarkPaidDate(e.target.value);
                     setMarkPaidError(null);
                   }}
-                  className="w-full px-3 py-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-sm"
+                  className="w-full px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white text-xs"
                 />
               </div>
 
               {markPaidError && (
-                <p className="text-red-600 text-xs">{markPaidError}</p>
+                <p className="text-red-600 text-[10px]">{markPaidError}</p>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   onClick={cancelMarkPaid}
                   disabled={markPaidSaving}
-                  className="px-4 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition text-sm disabled:opacity-50"
+                  className="px-3 py-1.5 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition text-xs disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmMarkPaid}
                   disabled={!canSubmitMarkPaid || markPaidSaving}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-5 rounded-full shadow flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-1.5 px-4 rounded-full shadow flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                 >
                   {markPaidSaving ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={12} className="animate-spin" />
                       Submitting...
                     </>
                   ) : (
