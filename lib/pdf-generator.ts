@@ -1215,6 +1215,9 @@ async function generateRentalPDF(
     y += 4;
     y = drawDocumentHeader(y);
 
+    // Get the vehicle's date_out for signature dates
+    const vehicleDateOut = vehicle.date_out || data.hire_vehicle_date_out || null;
+
     // ─── Vehicle Title ────────────────────────────────────
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "bold");
@@ -1691,6 +1694,7 @@ async function generateRentalPDF(
     pdf.text(declLines, margin, y);
     y += declLines.length * 2.2 + 1.5;
 
+    // FIXED: Use vehicleDateOut for declaration date
     if (sigs.declaration_signature) {
       y = await addSignature(
         "Hirer – Declaration",
@@ -1704,14 +1708,14 @@ async function generateRentalPDF(
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y + 2.5);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(data.declaration_date), margin + 15, y + 2.5);
+      pdf.text(formatDate(vehicleDateOut), margin + 15, y + 2.5);
       y += 6;
     } else {
       pdf.setFontSize(6.5);
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(data.declaration_date), margin + 15, y);
+      pdf.text(formatDate(vehicleDateOut), margin + 15, y);
       y += 3.5;
     }
 
@@ -1761,8 +1765,7 @@ async function generateRentalPDF(
     pdf.line(margin, y, pageWidth - margin, y);
     y += 2;
 
-    //hello
-    // ── Liability signature, with Date directly beneath it ──
+    // FIXED: Use vehicleDateOut for liability date
     if (sigs.liability_signature) {
       y = await addSignature(
         "Hire Signature",
@@ -1777,7 +1780,7 @@ async function generateRentalPDF(
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y + 2.5);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(data.liability_date) || "—", margin + 15, y + 2.5);
+      pdf.text(formatDate(vehicleDateOut), margin + 15, y + 2.5);
       y += 6;
     } else {
       pdf.setFont("helvetica", "normal");
@@ -1785,7 +1788,7 @@ async function generateRentalPDF(
       pdf.setTextColor(80, 80, 80);
       pdf.text("Date", margin, y);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(formatDate(data.liability_date) || "—", margin + 15, y);
+      pdf.text(formatDate(vehicleDateOut), margin + 15, y);
       y += 3.5;
     }
 
@@ -2021,7 +2024,7 @@ async function generateRentalPDF(
   // invoiceInsertionPages tracks the 1-based page number where each
   // vehicle's invoice starts. t.pdf will be inserted just before each
   // of these pages in the post-processing step.
-  const invoiceInsertionPages: number[] = [];
+  const invoiceInsertionPages = [];
 
   // Render each vehicle's agreement
   for (let i = 0; i < allVehicles.length; i++) {
