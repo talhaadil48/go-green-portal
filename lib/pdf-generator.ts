@@ -15,6 +15,8 @@ export interface PDFFormData {
   data: Record<string, any>;
   signatures?: Record<string, string | null>;
   images?: Record<string, string | null>;
+  // Per-car cancellation data (optional, for multi-car PDF grouping)
+  cancellationData?: Record<string, Record<string, any>> | null;
 }
 
 // Sexy color palette
@@ -52,6 +54,221 @@ function formatDate(
     month: "long",
     year: "numeric",
   }).toUpperCase();
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Creates a single-page cancellation form PDF (as a pdf-lib PDFDocument)
+// for insertion into the main rental agreement PDF during post-processing.
+// This ensures the order: Hire Agreement → T&C → Cancellation → Invoice.
+// ──────────────────────────────────────────────────────────────────────
+async function createCancellationPagePDF(
+  cancellationInfo: Record<string, any>,
+  vehicleReg: string,
+): Promise<PDFDocument> {
+  const cpdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const cPageWidth = cpdf.internal.pageSize.getWidth();
+  const cPageHeight = cpdf.internal.pageSize.getHeight();
+  const cMargin = 15;
+  let cy = cMargin;
+
+  // Color palette (matches the main generator)
+  const cColors = {
+    primary: [4, 120, 87] as [number, number, number],
+    primaryDark: [6, 95, 70] as [number, number, number],
+    light: [209, 250, 229] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
+    gray: [107, 114, 128] as [number, number, number],
+    darkText: [17, 24, 39] as [number, number, number],
+  };
+
+  // Helper: uppercase safely
+  const up = (v: any) => {
+    if (v === null || v === undefined) return "—";
+    const s = String(v).trim();
+    return s ? s.toUpperCase() : "—";
+  };
+
+  // Helper: format date
+  const formatDate = (d: any) => {
+    if (!d) return "—";
+    try {
+      return new Date(d).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).toUpperCase();
+    } catch { return "—"; }
+  };
+
+  // ── Header (matches main generator's addGradientHeader) ──
+  const headerHeight = 35;
+  const gradientSteps = 30;
+  for (let i = 0; i < gradientSteps; i++) {
+    const ratio = i / (gradientSteps - 1);
+    const r = Math.round(255 + (255 - 255) * ratio);
+    const g = Math.round(255 + (255 - 255) * ratio);
+    const b = Math.round(255 + (255 - 255) * ratio);
+    cpdf.setFillColor(r, g, b);
+    cpdf.rect(0, i * (headerHeight / gradientSteps), cPageWidth, headerHeight / gradientSteps + 0.5, "F");
+  }
+  cpdf.setTextColor(30, 30, 30);
+  try {
+    cpdf.addImage("/logo.png", "JPEG", 4, 7, 80, 15);
+  } catch { /* logo may not load */ }
+  cpdf.setFontSize(8);
+  cpdf.setFont("helvetica", "normal");
+  const rightText = `Derby Turn, Building 1, Derby Road\nBURTON UPON TRENT Staffordshire DE141RX\nWebsite: www.gogreenhire.co.uk`;
+  const rightX = cPageWidth - 10;
+  rightText.split("\n").forEach((line, index) => {
+    cpdf.text(line, rightX, 12 + index * 4, { align: "right" });
+  });
+  cpdf.setFontSize(16);
+  cpdf.setFont("helvetica", "bold");
+  cpdf.text("CANCELLATION NOTICE", cPageWidth / 2, headerHeight, { align: "center" });
+  cy = headerHeight + 5;
+
+  // ── Section header (matches addSectionHeader) ──
+  const addCSectionHeader = (title: string, y: number) => {
+    cpdf.setFillColor(...cColors.light);
+    cpdf.roundedRect(cMargin, y, cPageWidth - cMargin * 2, 6, 1.5, 1.5, "F");
+    cpdf.setFillColor(...cColors.primary);
+    cpdf.rect(cMargin, y, 2, 6, "F");
+    cpdf.setTextColor(...cColors.primaryDark);
+    cpdf.setFontSize(7);
+    cpdf.setFont("helvetica", "bold");
+    cpdf.text(title, cMargin + 5, y + 4.5);
+    return y + 8;
+  };
+
+  // ── Field (matches addField) ──
+  const addCField = (label: string, value: string, x: number, y: number, width: number) => {
+    cpdf.setTextColor(...cColors.gray);
+    cpdf.setFontSize(6);
+    cpdf.setFont("helvetica", "normal");
+    cpdf.text(label, x, y + 0.5);
+    cpdf.setTextColor(...cColors.darkText);
+    cpdf.setFontSize(7);
+    cpdf.setFont("helvetica", "bold");
+    const displayVal = (value && value.trim()) ? value.toUpperCase() : "—";
+    cpdf.text(displayVal, x, y + 4);
+    cpdf.setDrawColor(...cColors.primary);
+    cpdf.setLineWidth(0.25);
+    cpdf.line(x, y + 5.2, x + width - 4, y + 5.2);
+    return y + 7;
+  };
+
+  // ── 1. TO: GO GREEN CAR HIRE LTD (address block) ──
+  cy = addCSectionHeader("TO: GO GREEN CAR HIRE LTD", cy);
+  cpdf.setFillColor(249, 250, 251);
+  cpdf.roundedRect(cMargin, cy, cPageWidth - cMargin * 2, 35, 2, 2, "F");
+  cpdf.setTextColor(...cColors.darkText);
+  cpdf.setFontSize(8);
+  cpdf.setFont("helvetica", "normal");
+  cpdf.text(
+    ["Derby Turn, Building 1", "Derby Road", "Burton-On-Trent", "United Kingdom", "DE14 1RX"],
+    cMargin + 5,
+    cy + 8,
+  );
+  cy += 42;
+
+  // ── 2. Instruction text ──
+  cpdf.setFont("helvetica", "normal");
+  cpdf.setFontSize(8);
+  cpdf.setTextColor(...cColors.darkText);
+  const instructionText =
+    "If you wish to cancel the contract, you must do so in writing and send the cancellation form below back to Go Green Car Hire Ltd by post or e-mail.";
+  const instructionLines = cpdf.splitTextToSize(instructionText, cPageWidth - cMargin * 2);
+  instructionLines.forEach((line: string) => {
+    cpdf.text(line, cMargin, cy);
+    cy += 4.5;
+  });
+  cy += 6;
+
+  // ── 3. Cancellation Statement ──
+  cy = addCSectionHeader("CANCELLATION STATEMENT", cy);
+  cpdf.setFillColor(...cColors.light);
+  cpdf.roundedRect(cMargin, cy, cPageWidth - cMargin * 2, 25, 2, 2, "F");
+  cpdf.setTextColor(...cColors.darkText);
+  cpdf.setFontSize(10);
+  cpdf.setFont("helvetica", "normal");
+  const name = cancellationInfo.name || "________";
+  const statement = `I, ${up(name)}, hereby give notice that I wish to cancel my contract in respect of the storage and the hire agreement entered on.`;
+  const statementLines = cpdf.splitTextToSize(statement, cPageWidth - cMargin * 2 - 10);
+  cpdf.text(statementLines, cMargin + 5, cy + 8);
+  cy += 32;
+
+  // ── 4. 14-day cancellation rights text ──
+  cpdf.setFont("helvetica", "normal");
+  cpdf.setFontSize(8);
+  cpdf.setTextColor(...cColors.darkText);
+  const rightsText =
+    "You have the right to cancel this agreement within 14 days starting from the date signed on this agreement. Written cancellation notice must be sent within 14 days either by post or email to the address stated above. I understand that any charges incurred will be liable to immediate payment by me.";
+  const rightsLines = cpdf.splitTextToSize(rightsText, cPageWidth - cMargin * 2);
+  rightsLines.forEach((line: string) => {
+    cpdf.text(line, cMargin, cy);
+    cy += 4.5;
+  });
+  cy += 6;
+
+  // ── 5. Personal Details ──
+  cy = addCSectionHeader("PERSONAL DETAILS", cy);
+  const colWidth = (cPageWidth - cMargin * 2) / 2;
+  addCField("Name", cancellationInfo.name || "", cMargin, cy, colWidth);
+  addCField("Email", cancellationInfo.email || "", cMargin + colWidth, cy, colWidth);
+  cy += 15;
+  addCField("Address", cancellationInfo.address || "", cMargin, cy, colWidth);
+  addCField("Postcode", cancellationInfo.postcode || "", cMargin + colWidth, cy, colWidth);
+  cy += 15;
+  addCField("Cancellation Date", formatDate(cancellationInfo.cancellation_date), cMargin, cy, colWidth);
+  cy += 25;
+
+  // ── 6. Signature ──
+  cy = addCSectionHeader("SIGNATURE", cy);
+  const cancellationSig = cancellationInfo.cancellation_signature || null;
+  // Draw signature box
+  cpdf.setDrawColor(...cColors.primary);
+  cpdf.setLineWidth(0.4);
+  cpdf.setFillColor(...cColors.white);
+  const sigBoxW = (cPageWidth - cMargin * 2) * 0.3;
+  cpdf.roundedRect(cMargin, cy + 2.5, sigBoxW, 18, 2, 2, "FD");
+  cpdf.setTextColor(...cColors.gray);
+  cpdf.setFontSize(6);
+  cpdf.text("Client Signature", cMargin, cy + 1);
+  if (cancellationSig) {
+    try {
+      const res = await fetch(`/api/image-to-base64?url=${encodeURIComponent(cancellationSig)}`);
+      const data = await res.json();
+      if (data.base64) {
+        cpdf.addImage(data.base64, "PNG", cMargin + 1.5, cy + 4, sigBoxW - 3, 15);
+      }
+    } catch { /* signature may not load */ }
+  }
+  cy += 23;
+
+  // Date under signature
+  cpdf.setFont("helvetica", "normal");
+  cpdf.setFontSize(7);
+  cpdf.setTextColor(...cColors.darkText);
+  cpdf.text(
+    `Date: ${formatDate(cancellationInfo.cancellation_date) || "____________"}`,
+    cMargin,
+    cy + 4,
+  );
+  cy += 8;
+
+  // ── Footer ──
+  const footerY = cPageHeight - 6;
+  cpdf.setDrawColor(...cColors.primary);
+  cpdf.setLineWidth(0.2);
+  cpdf.line(cMargin, footerY - 3, cPageWidth - cMargin, footerY - 3);
+  cpdf.setFont("helvetica", "normal");
+  cpdf.setFontSize(7);
+  cpdf.setTextColor(107, 114, 128);
+  cpdf.text("Go Green Car Hire Ltd  |  Company No: 15238847  |  VAT No: 480641883", cPageWidth / 2, footerY, { align: "center" });
+
+  // Convert jsPDF to pdf-lib PDFDocument
+  const cPdfBytes = cpdf.output("arraybuffer");
+  return PDFDocument.load(cPdfBytes);
 }
 
 export async function generatePDF(formData: PDFFormData): Promise<Blob> {
@@ -379,6 +596,7 @@ Website: www.gogreenhire.co.uk`;
   // Holds 1-based page numbers where t.pdf (T&C) should be inserted
   // for rental agreements (between each hire agreement and hire invoice).
   let rentalInvoiceInsertionPages: number[] = [];
+  let rentalCancellationData: { vehicleReg: string; cancellationInfo: Record<string, any> }[] = [];
 
   // Generate content based on form type
   switch (formData.formType) {
@@ -433,6 +651,7 @@ Website: www.gogreenhire.co.uk`;
       });
       // generateRentalPDF returns { pdf, invoiceInsertionPages }
       rentalInvoiceInsertionPages = rentalResult.invoiceInsertionPages ?? [];
+      rentalCancellationData = rentalResult.cancellationDataPerVehicle ?? [];
       break;
     }
     case "claim":
@@ -470,15 +689,39 @@ Website: www.gogreenhire.co.uk`;
 
         // Process insertion points in reverse order so earlier indices
         // remain valid after each insertion.
+        // Build a list of pages to insert: T&C + Cancellation per vehicle.
+        // We insert in reverse order so that earlier insertion indices remain valid.
         const sortedInsertions = [...rentalInvoiceInsertionPages].sort((a, b) => b - a);
 
         for (const invoicePage of sortedInsertions) {
           // invoicePage is 1-based; pdf-lib uses 0-based indices.
-          // Insert t.pdf pages just before the invoice page.
+          // Insert pages just before the invoice page.
           const insertAt = invoicePage - 1; // 0-based
 
+          // Find cancellation data for this vehicle (by matching insertion order)
+          const vehicleIdx = rentalInvoiceInsertionPages.indexOf(invoicePage);
+          const cancellationEntry = rentalCancellationData[vehicleIdx];
+
+          // Build pages to insert: first T&C, then Cancellation (always)
+          const pagesToInsert: any[] = [];
+
+          // T&C pages
           const copiedTermsPages = await mainPdfDoc.copyPages(termsPdfDoc, termsPageIndices);
-          copiedTermsPages.forEach((page, offset) => {
+          copiedTermsPages.forEach((page) => pagesToInsert.push(page));
+
+          // Cancellation form page (always included — empty template if no data)
+          if (cancellationEntry) {
+            const cancellationPdfDoc = await createCancellationPagePDF(
+              cancellationEntry.cancellationInfo,
+              cancellationEntry.vehicleReg,
+            );
+            const cancellationPageIndices = cancellationPdfDoc.getPageIndices();
+            const copiedCancellationPages = await mainPdfDoc.copyPages(cancellationPdfDoc, cancellationPageIndices);
+            copiedCancellationPages.forEach((page) => pagesToInsert.push(page));
+          }
+
+          // Insert all pages before the invoice
+          pagesToInsert.forEach((page, offset) => {
             mainPdfDoc.insertPage(insertAt + offset, page);
           });
         }
@@ -1460,27 +1703,6 @@ async function generateRentalPDF(
     );
     y += 4;
 
-    if (sigs.hirer_signature_terms) {
-      const sigY = y;
-      y = await addSignature(
-        "Hirer (Terms)",
-        sigs.hirer_signature_terms,
-        margin,
-        y,
-        half - 10,
-      );
-      if (sigs.company_signature) {
-        await addSignature(
-          "For and on behalf of Go Green Car Hire Ltd",
-          sigs.company_signature,
-          margin + half,
-          sigY,
-          half - 10,
-        );
-      }
-    }
-    y += 2;
-
     pdf.setDrawColor(100, 100, 100);
     pdf.setLineWidth(0.2);
     pdf.line(margin, y, pageWidth - margin, y);
@@ -1493,7 +1715,6 @@ async function generateRentalPDF(
       data.insurance_dates?.trim() ||
       (data.own_insurance_confirm?.trim() &&
         data.own_insurance_confirm.trim().toLowerCase() !== "no") ||
-      sigs.hirer_signature_insurance ||
       data.insurance_date?.trim() ||
       data.insurance_time?.trim()
     );
@@ -1991,10 +2212,12 @@ async function generateRentalPDF(
       fuel_out: data.hire_vehicle_fuel_out,
       fuel_in: data.hire_vehicle_fuel_in,
       rate_per_day: data.hire_vehicle_rate_per_day,
+      // Per-car signature: main vehicle uses the top-level signature as its car signature
+      car_signature: null, // main vehicle signatures come from top-level sigs object
     });
   }
 
-  // Add change vehicles
+  // Add change vehicles (with per-car signatures)
   const cvHistory = Array.isArray(data.change_vehicle_history)
     ? data.change_vehicle_history
     : [];
@@ -2010,6 +2233,8 @@ async function generateRentalPDF(
         fuel_out: v.fuel_out,
         fuel_in: v.fuel_in,
         rate_per_day: v.rate_per_day,
+        // Per-car signature: saved once, reused for all this car's documents
+        car_signature: v.car_signature || null,
       });
     }
   });
@@ -2026,6 +2251,10 @@ async function generateRentalPDF(
   // of these pages in the post-processing step.
   const invoiceInsertionPages = [];
 
+  // cancellationDataPerVehicle collects per-car cancellation data
+  // for insertion in post-processing (AFTER T&C, BEFORE Invoice).
+  const cancellationDataPerVehicle: { vehicleReg: string; cancellationInfo: Record<string, any> }[] = [];
+
   // Render each vehicle's agreement
   for (let i = 0; i < allVehicles.length; i++) {
     const vehicle = allVehicles[i];
@@ -2033,18 +2262,49 @@ async function generateRentalPDF(
     if (i > 0) {
       pdf.addPage();
     }
+
+    // Build per-car signatures: use car_signature if available, fall back to global sigs
+    const carSigs = {
+      hirer_signature_terms: vehicle.car_signature || sigs.hirer_signature_terms || null,
+      company_signature: sigs.company_signature || null,
+      hirer_signature_insurance: vehicle.car_signature || sigs.hirer_signature_insurance || null,
+      declaration_signature: vehicle.car_signature || sigs.declaration_signature || null,
+      liability_signature: vehicle.car_signature || sigs.liability_signature || null,
+    };
+
+    // Temporarily override the sigs object for this vehicle's agreement
+    const originalSigs = { ...sigs };
+    Object.assign(sigs, carSigs);
+
     await renderVehicleAgreement(vehicle, i, totalVehicles);
+
+    // Restore original sigs
+    Object.assign(sigs, originalSigs);
+
+    // Collect per-car cancellation data for post-processing insertion
+    // (inserted AFTER T&C but BEFORE Invoice in generatePDF post-processing)
+    // Always include cancellation form — use existing data or empty template
+    // Fall back to __claim_level (claim-level form) if vehicle-specific not found
+    const cancellationInfo =
+      formData.cancellationData?.[vehicle.vehicle_reg] ||
+      formData.cancellationData?.["__claim_level"] ||
+      {};
+    cancellationDataPerVehicle.push({
+      vehicleReg: vehicle.vehicle_reg,
+      cancellationInfo,
+    });
 
     // Record where the invoice will start (renderVehicleInvoice calls
     // pdf.addPage() as its very first action, so invoice starts at
     // current page count + 1).
+    // T&C (t.pdf) will be inserted before this page in post-processing.
     invoiceInsertionPages.push(pdf.internal.getNumberOfPages() + 1);
 
     // Render invoice for each vehicle
     renderVehicleInvoice(vehicle, i, totalVehicles);
   }
 
-  return { pdf, invoiceInsertionPages };
+  return { pdf, invoiceInsertionPages, cancellationDataPerVehicle };
 }
 
 async function generateClaimPDF(

@@ -213,6 +213,31 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
     }
   };
 
+  // ─── Fetch per-car cancellation data for multi-car PDF grouping ───
+  const fetchCancellationDataByCar = async (): Promise<Record<string, Record<string, any>> | null> => {
+    try {
+      const response = await api.get(`/api/cancellation-forms/${claimId}?vehicle_reg=all`, {
+        headers: { requiresAuth: true },
+      });
+      const forms = Array.isArray(response.data) ? response.data : [response.data];
+      const byCar: Record<string, Record<string, any>> = {};
+      for (const form of forms) {
+        if (form.vehicle_reg) {
+          byCar[form.vehicle_reg] = form;
+        }
+      }
+      // Also include claim-level form (vehicle_reg=null) keyed as fallback
+      const claimLevel = forms.find((f: any) => !f.vehicle_reg);
+      if (claimLevel) {
+        byCar["__claim_level"] = claimLevel;
+      }
+      return Object.keys(byCar).length > 0 ? byCar : null;
+    } catch (error) {
+      console.error("Failed to fetch cancellation data by car:", error);
+      return null;
+    }
+  };
+
   // Fetch invoices for this claim
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -478,6 +503,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           throw new Error("Failed to fetch rental agreement data");
         }
 
+        // Fetch per-car cancellation data for multi-car PDF grouping
+        const cancellationDataByCar = await fetchCancellationDataByCar();
+
         const pdfData: PDFFormData = {
           refNo,
           title: doc.name,
@@ -486,6 +514,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
           data: formDataObj,
           signatures: extractSignatures("rental-agreement", formDataObj),
           images: extractImages("rental-agreement", formDataObj),
+          cancellationData: cancellationDataByCar,
         };
         
         const blob = await generatePDF(pdfData);
@@ -685,6 +714,9 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             continue;
           }
 
+          // Fetch per-car cancellation data for multi-car PDF grouping
+          const cancellationDataByCar = await fetchCancellationDataByCar();
+
           const pdfData: PDFFormData = {
             refNo,
             title: doc.name,
@@ -693,6 +725,7 @@ export default function InvoiceManager({ claimId }: InvoiceManagerProps) {
             data: formDataObj,
             signatures: extractSignatures("rental-agreement", formDataObj),
             images: extractImages("rental-agreement", formDataObj),
+            cancellationData: cancellationDataByCar,
           };
           
           blob = await generatePDF(pdfData);

@@ -12,9 +12,10 @@ import Cookies from "js-cookie";
 
 interface ClaimProps {
     claimId: string;
+    vehicleReg?: string; // Optional: per-car cancellation
 }
 
-export default function CancellationNotice({ claimId }: ClaimProps) {
+export default function CancellationNotice({ claimId, vehicleReg }: ClaimProps) {
     const [currentClaimId, setCurrentClaimId] = useState<string>("");
     const unsavedChangesContext = useContext(UnsavedChangesContext);
 
@@ -35,6 +36,8 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     const [isSignatureFromApi, setIsSignatureFromApi] = useState(false);
     const [username, setUsername] = useState<string | null>(null);
     const [initialData, setInitialData] = useState<Record<string, string>>(initialFormData);
+    const [selectedVehicleReg, setSelectedVehicleReg] = useState<string | null>(vehicleReg || null);
+    const [vehicles, setVehicles] = useState<any[]>([]);
 
 
 
@@ -57,12 +60,15 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
         setCurrentClaimId(claimId);
     }, [claimId]);
 
-    const fetchCancellationData = async () => {
+    const fetchCancellationData = async (vehicleReg?: string) => {
         setIsFetching(true);
         setError(null);
 
         try {
-            const response = await api.get(`/api/cancellation-forms/${claimId}`, {
+            const url = vehicleReg
+                ? `/api/cancellation-forms/${claimId}?vehicle_reg=${encodeURIComponent(vehicleReg)}`
+                : `/api/cancellation-forms/${claimId}`;
+            const response = await api.get(url, {
                 headers: { requiresAuth: true },
             });
 
@@ -103,9 +109,9 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
     };
     useEffect(() => {
         if (claimId) {
-            fetchCancellationData();
+            fetchCancellationData(selectedVehicleReg || undefined);
         }
-    }, [claimId]);
+    }, [claimId, selectedVehicleReg]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -140,6 +146,7 @@ export default function CancellationNotice({ claimId }: ClaimProps) {
             cancellation_signature: signature,
             claim_id: currentClaimId,
             user_name: username,
+            vehicle_reg: selectedVehicleReg || null,
         };
 
         try {

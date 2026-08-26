@@ -72,6 +72,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ✅ Upload per-car signatures from change_vehicle_history to S3
+    if (Array.isArray(fullData.change_vehicle_history)) {
+      for (let i = 0; i < fullData.change_vehicle_history.length; i++) {
+        const vehicle = fullData.change_vehicle_history[i];
+        if (vehicle.car_signature) {
+          const uploadedUrl = await uploadFieldToS3(
+            vehicle.car_signature,
+            `car_sig_${vehicle.vehicle_reg || i}`
+          );
+          fullData.change_vehicle_history[i] = {
+            ...vehicle,
+            car_signature: uploadedUrl,
+          };
+        }
+      }
+    }
+
     // Handle date fields and numeric fields that can be empty
     const DATE_FIELDS = [
       "date_issued",

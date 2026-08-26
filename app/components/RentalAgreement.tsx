@@ -3,7 +3,7 @@
 import React, { useContext } from "react"
 import { useState, FormEvent, useRef, useEffect } from "react";
 import axios from "axios";
-import Signature from "./Signature";
+import Signature, { SignatureHandle } from "./Signature";
 import PDFShareButton from "./PDFShareButton";
 import Cookies from "js-cookie";
 import { UnsavedChangesContext } from "../claim/[id]/page";
@@ -45,6 +45,8 @@ interface ChangeVehicleRecord {
   miles_in: string;
   rate_per_day: string;
   fromApi?: boolean;
+  // Per-car signature: saved once, reused everywhere for this car
+  car_signature?: string | null;
 }
 
 export function RentalAgreement({ claimId }: ClaimProps) {
@@ -136,6 +138,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const [formData, setFormData] = useState<Record<string, string | number>>(initialFormData);
   const [signatures, setSignatures] = useState<Record<string, string | null>>({});
 
+  // Per-car in-progress signatures: stored separately to prevent canvas re-mount
+  const [pendingCarSigs, setPendingCarSigs] = useState<Record<number, string | null>>({});
+
   const [isHirerTermsFromApi, setIsHirerTermsFromApi] = useState(false);
   const [isCompanyFromApi, setIsCompanyFromApi] = useState(false);
   const [isHirerInsuranceFromApi, setIsHirerInsuranceFromApi] = useState(false);
@@ -169,6 +174,9 @@ export function RentalAgreement({ claimId }: ClaimProps) {
   const hirerInsuranceRef = useRef<any>(null);
   const declarationRef = useRef<any>(null);
   const liabilityRef = useRef<any>(null);
+
+  // Per-car signature refs: map vehicle index → SignatureHandle
+  const carSigRefs = useRef<Record<number, SignatureHandle | null>>({});
 
   // ─── Helper: calculate inclusive days between two date strings ───
   const calculateInclusiveDays = (dateOut: string, dateIn: string): number => {
@@ -535,6 +543,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
           setSelectedAgreementId(null);
           setFormData(initialFormData);
           setSignatures({});
+          setPendingCarSigs({});
           setIsHirerTermsFromApi(false);
           setIsCompanyFromApi(false);
           setIsHirerInsuranceFromApi(false);
@@ -566,6 +575,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
     // Reset form to initial state
     setFormData(initialFormData);
     setSignatures({});
+    setPendingCarSigs({});
     setIsHirerTermsFromApi(false);
     setIsCompanyFromApi(false);
     setIsHirerInsuranceFromApi(false);
@@ -694,6 +704,7 @@ export function RentalAgreement({ claimId }: ClaimProps) {
         miles_out: "",
         miles_in: "",
         rate_per_day: "",
+        car_signature: null,
       });
     } else {
       newHistory[idx] = {
@@ -760,6 +771,48 @@ export function RentalAgreement({ claimId }: ClaimProps) {
 
   const handleSignature = (field: string) => (dataUrl: string | null) => {
     setSignatures((prev) => ({ ...prev, [field]: dataUrl }));
+  };
+
+  // Save a car signature from the canvas ref into formData (called when user clicks Save)
+  const saveCarSignature = (vehicleIndex: number) => {
+    const handle = carSigRefs.current[vehicleIndex];
+    if (handle) {
+      const dataUrl = handle.getSignature();
+      if (dataUrl) {
+        const newHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
+        if (newHistory[vehicleIndex]) {
+          newHistory[vehicleIndex] = {
+            ...newHistory[vehicleIndex],
+            car_signature: dataUrl,
+          };
+          setFormData((prev) => ({
+            ...prev,
+            change_vehicle_history: newHistory,
+          }));
+          setPendingCarSigs((prev) => {
+            const next = { ...prev };
+            delete next[vehicleIndex];
+            return next;
+          });
+          if (unsavedChangesContext) {
+            unsavedChangesContext.setHasUnsavedChanges(true);
+          }
+        }
+      }
+    }
+  };
+
+  // Clear a car signature canvas
+  const clearCarSigCanvas = (vehicleIndex: number) => {
+    const handle = carSigRefs.current[vehicleIndex];
+    if (handle) {
+      handle.clear();
+    }
+    setPendingCarSigs((prev) => {
+      const next = { ...prev };
+      delete next[vehicleIndex];
+      return next;
+    });
   };
 
   const formatGBP = (value: string | number) => {
@@ -885,9 +938,21 @@ export function RentalAgreement({ claimId }: ClaimProps) {
       return;
     }
 
+    // Commit any pending car signatures to formData before submission
+    const finalHistory = [...(formData.change_vehicle_history as ChangeVehicleRecord[])];
+    Object.keys(pendingCarSigs).forEach((key) => {
+      const idx = Number(key);
+      if (pendingCarSigs[idx] !== undefined && finalHistory[idx]) {
+        finalHistory[idx] = { ...finalHistory[idx], car_signature: pendingCarSigs[idx] };
+      }
+    });
+    // Clear all pending after committing
+    setPendingCarSigs({});
+
     // Prepare data for submission
     const fullData = {
       ...formData,
+      change_vehicle_history: finalHistory,
       hirer_signature_terms: signatures.hirer_signature_terms || null,
       company_signature: signatures.company_signature || null,
       hirer_signature_insurance: signatures.hirer_signature_insurance || null,
@@ -1670,6 +1735,83 @@ export function RentalAgreement({ claimId }: ClaimProps) {
                             </span>
                           </div>
                         )}
+
+                        {/* Per-car signature: saved once, reused for all this car's documents */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Car Signature — {vehicle.vehicle_reg || `Vehicle ${index + 1}`}
+                          </label>
+                          <p className="text-xs text-gray-500 mb-3">
+                            Sign once for this car. This signature will be reused in all documents for this vehicle.
+                          </p>
+
+                          {/* Case 1: Saved signature from formData (committed) */}
+                          {vehicle.car_signature && !pendingCarSigs[index] && (
+                            <div className="border border-green-300 rounded-xl p-4 bg-green-50 max-w-md text-center space-y-2">
+                              <img
+                                src={vehicle.car_signature}
+                                alt={`Signature for ${vehicle.vehicle_reg}`}
+                                className="max-h-28 mx-auto object-contain"
+                              />
+                              <p className="text-sm text-green-700 font-medium">Signature saved ✓</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateChangeVehicleField(index, "car_signature", null as any);
+                                }}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                              >
+                                Update
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Case 2: In-progress signature (pending, not yet saved) */}
+                          {pendingCarSigs[index] !== undefined && (
+                            <div className="border border-blue-300 rounded-xl p-4 bg-blue-50 max-w-md text-center space-y-2">
+                              <img
+                                src={pendingCarSigs[index] || "/placeholder.svg"}
+                                alt={`Pending signature for ${vehicle.vehicle_reg}`}
+                                className="max-h-28 mx-auto object-contain"
+                              />
+                              <p className="text-sm text-blue-700 font-medium">Signature drawn — click Save to keep it</p>
+                              <div className="flex gap-2 justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => saveCarSignature(index)}
+                                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => clearCarSigCanvas(index)}
+                                  className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white font-medium rounded-lg text-sm transition"
+                                >
+                                  Discard
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Case 3: No signature yet — show canvas (autoSave=false, draw freely) */}
+                          {!vehicle.car_signature && pendingCarSigs[index] === undefined && (
+                            <div className="max-w-md">
+                              <Signature
+                                ref={(el) => { carSigRefs.current[index] = el; }}
+                                onSign={() => {}}
+                                autoSave={false}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => saveCarSignature(index)}
+                                className="mt-3 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg text-sm transition"
+                              >
+                                Save Signature
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
