@@ -13,8 +13,6 @@ import {
   ArrowUpDown,
   Trash2,
   Banknote,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import api from "@/lib/axios";
 
@@ -38,6 +36,18 @@ interface ClaimInvoice {
   date_received: string | null;
 }
 
+interface OfferEntry {
+  amount: number | null;
+  date: string | null;
+  status: string | null;
+}
+
+interface OfferRecord {
+  claim_id: string;
+  offers: OfferEntry[];
+  latest_offer: OfferEntry | null;
+}
+
 interface LongHireInvoice {
   id: number;
   claim_id: string | null;
@@ -49,21 +59,33 @@ interface LongHireInvoice {
 }
 
 type SortConfig = { key: string; direction: "asc" | "desc" } | null;
-type InvoiceStatus = "paid" | "disputed" | "rejected" | "";
+type InvoiceStatus = "paid" | "accepted" | "rejected" | "";
 
-const STATUS_OPTIONS: InvoiceStatus[] = ["", "paid", "disputed", "rejected"];
-const PAGE_SIZE = 100;
+const STATUS_OPTIONS: InvoiceStatus[] = ["", "paid", "accepted", "rejected"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Derives the effective status for a claim invoice row.
- * If payment_received and date_received are both set, status is always "paid"
- * regardless of what's stored in the DB.
+ * Get the latest offer from an offers array based on the most recent date.
  */
-function effectiveStatus(inv: ClaimInvoice): string | null {
-  if (inv.payment_received != null && inv.date_received != null) return "paid";
-  return inv.status ? inv.status.toLowerCase() : null;
+function getLatestOfferFromList(offers: OfferEntry[]): OfferEntry | null {
+  const withDate = offers.filter((o) => o.date != null);
+  if (withDate.length === 0) return null;
+  return withDate.reduce((latest, current) =>
+    (current.date ?? "") > (latest.date ?? "") ? current : latest
+  );
+}
+
+/**
+ * Derives the effective status for a claim invoice row from the offers data.
+ * Uses the latest offer's status (paid/accepted/rejected).
+ * If no offer exists for this claim, returns null.
+ */
+function effectiveStatus(inv: ClaimInvoice, offersMap: Map<string, OfferRecord>): string | null {
+  const offer = offersMap.get(inv.claim_id || "");
+  if (!offer) return null;
+  const latest = offer.latest_offer ?? getLatestOfferFromList(offer.offers ?? []);
+  return latest?.status?.toLowerCase() ?? null;
 }
 
 /**
@@ -92,7 +114,7 @@ function statusBadge(status: string | null) {
   const normalised = status.toLowerCase();
   const styles: Record<string, string> = {
     paid: "bg-green-100 text-green-800",
-    disputed: "bg-amber-100 text-amber-800",
+    accepted: "bg-blue-100 text-blue-800",
     rejected: "bg-red-100 text-red-800",
   };
   return (
@@ -100,7 +122,7 @@ function statusBadge(status: string | null) {
       className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${styles[normalised] ?? "bg-slate-100 text-slate-700"
         }`}
     >
-      {normalised}
+      {normalised.charAt(0).toUpperCase() + normalised.slice(1)}
     </span>
   );
 }
@@ -187,6 +209,9 @@ export default function InvoiceManagementPage() {
   const [loadingLongHire, setLoadingLongHire] = useState(true);
   const [errorLongHire, setErrorLongHire] = useState<string | null>(null);
 
+  // Offers data for deriving offer-based status
+  const [allOffers, setAllOffers] = useState<OfferRecord[]>([]);
+
   // Claim invoice editing
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -239,9 +264,14 @@ export default function InvoiceManagementPage() {
 
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-  // ── Pagination state (kept separate per tab so switching tabs doesn't lose place) ──
-  const [claimPage, setClaimPage] = useState(1);
-  const [longHirePage, setLongHirePage] = useState(1);
+  // ── Offers map for deriving status from latest offer ──
+  const offersMap = useMemo(() => {
+    const map = new Map<string, OfferRecord>();
+    for (const o of allOffers) {
+      map.set(o.claim_id, o);
+    }
+    return map;
+  }, [allOffers]);
 
   // ─── Fetch helpers ─────────────────────────────────────────────────────────
   const fetchClaimInvoices = async () => {
@@ -270,20 +300,20 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  const fetchOffers = async () => {
+    try {
+      const res = await api.get("/api/offers", { headers: { requiresAuth: true } });
+      setAllOffers(res.data.data || []);
+    } catch {
+      setAllOffers([]);
+    }
+  };
+
   useEffect(() => {
     fetchClaimInvoices();
     fetchLongHireInvoices();
+    fetchOffers();
   }, []);
-
-  // Reset to page 1 whenever the active filters/search change (but NOT on data
-  // updates from editing/marking-paid, so an edited row doesn't "disappear" from view).
-  useEffect(() => {
-    setClaimPage(1);
-  }, [search, filterClaimId, filterClaimant, filterSentBy, filterStatus]);
-
-  useEffect(() => {
-    setLongHirePage(1);
-  }, [search, filterClaimId, filterHirer, filterSentBy]);
 
   // ─── Mark-paid modal handlers ──────────────────────────────────────────────
   const startMarkPaid = (inv: ClaimInvoice) => {
@@ -566,8 +596,8 @@ export default function InvoiceManagementPage() {
         return percentage !== null ? percentage : -1;
       }
       if (key === "status" && "payment_received" in row) {
-        // Use derived/effective status (payment_received + date_received -> "paid")
-        return effectiveStatus(row as unknown as ClaimInvoice) || "";
+        // Use offer-based status (paid/accepted/rejected from latest offer)
+        return effectiveStatus(row as unknown as ClaimInvoice, offersMap) || "";
       }
       if (key === "sent_status" && "invoice_datetime" in row) {
         return sentStatus(row as unknown as ClaimInvoice);
@@ -615,7 +645,7 @@ export default function InvoiceManagementPage() {
         inv.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase())) &&
       (!filterSentBy ||
         inv.user_name?.toLowerCase().includes(filterSentBy.toLowerCase())) &&
-      (!filterStatus || effectiveStatus(inv)?.toLowerCase() === filterStatus.toLowerCase())
+      (!filterStatus || effectiveStatus(inv, offersMap)?.toLowerCase() === filterStatus.toLowerCase())
     );
   });
 
@@ -676,39 +706,11 @@ export default function InvoiceManagementPage() {
     };
   }, [sortedClaimInvoices]);
 
-  // ─── Pagination ─────────────────────────────────────────────────────────────
-  const claimTotalPages = Math.max(1, Math.ceil(sortedClaimInvoices.length / PAGE_SIZE));
-  const longHireTotalPages = Math.max(1, Math.ceil(sortedLongHireInvoices.length / PAGE_SIZE));
-
-  // Clamp page if filters shrink the result set below the current page.
-  useEffect(() => {
-    if (claimPage > claimTotalPages) setClaimPage(claimTotalPages);
-  }, [claimTotalPages, claimPage]);
-
-  useEffect(() => {
-    if (longHirePage > longHireTotalPages) setLongHirePage(longHireTotalPages);
-  }, [longHireTotalPages, longHirePage]);
-
-  const paginatedClaimInvoices = sortedClaimInvoices.slice(
-    (claimPage - 1) * PAGE_SIZE,
-    claimPage * PAGE_SIZE
-  );
-  const paginatedLongHireInvoices = sortedLongHireInvoices.slice(
-    (longHirePage - 1) * PAGE_SIZE,
-    longHirePage * PAGE_SIZE
-  );
-
   const isClaimTab = activeTab === "claim";
   const isLoading = isClaimTab ? loadingClaim : loadingLongHire;
   const error = isClaimTab ? errorClaim : errorLongHire;
   const filteredCount = isClaimTab ? sortedClaimInvoices.length : sortedLongHireInvoices.length;
   const totalCount = isClaimTab ? claimInvoices.length : longHireInvoices.length;
-  const currentPage = isClaimTab ? claimPage : longHirePage;
-  const totalPages = isClaimTab ? claimTotalPages : longHireTotalPages;
-  const setCurrentPage = isClaimTab ? setClaimPage : setLongHirePage;
-  const rowsOnPage = isClaimTab ? paginatedClaimInvoices.length : paginatedLongHireInvoices.length;
-  const rangeStart = filteredCount === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = (currentPage - 1) * PAGE_SIZE + rowsOnPage;
 
   const goToClaim = (claimId: string | null) => {
     if (!claimId) return;
@@ -758,38 +760,6 @@ export default function InvoiceManagementPage() {
     );
   };
 
-  const PaginationBar = () =>
-    totalPages > 1 ? (
-      <div className="flex items-center justify-between px-4 py-2 border-t border-green-100 bg-green-50/40 text-[10px]">
-        <span className="text-green-700/80">
-          Showing <span className="font-semibold">{rangeStart}</span>–
-          <span className="font-semibold">{rangeEnd}</span> of{" "}
-          <span className="font-semibold">{filteredCount}</span>
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-            className="p-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
-            title="Previous page"
-          >
-            <ChevronLeft size={12} />
-          </button>
-          <span className="text-green-700 font-medium px-1">
-            Page {currentPage} / {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            className="p-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:hover:bg-transparent"
-            title="Next page"
-          >
-            <ChevronRight size={12} />
-          </button>
-        </div>
-      </div>
-    ) : null;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50/40">
       <main className="max-w-full mx-auto px-2 sm:px-4 lg:px-6 py-4">
@@ -818,7 +788,23 @@ export default function InvoiceManagementPage() {
 
         {/* Summary boxes (claim invoices only) */}
         {isClaimTab && (
-          <div className="mb-4 grid grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="mb-4 grid grid-cols-3 lg:grid-cols-8 gap-2">
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
+                Invoice Sent
+              </p>
+              <p className="text-sm font-bold text-blue-800 mt-0.5">
+                {claimInvoices.filter((inv) => sentStatus(inv) === "SE").length}
+              </p>
+            </div>
+            <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
+              <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
+                Invoice Pending
+              </p>
+              <p className="text-sm font-bold text-amber-800 mt-0.5">
+                {claimInvoices.filter((inv) => sentStatus(inv) === "NS").length}
+              </p>
+            </div>
             <div className="bg-white/80 border border-green-100 rounded-xl px-3 py-2 shadow-sm">
               <p className="text-[9px] font-medium text-green-700/70 uppercase tracking-wide">
                 Hire + Storage
@@ -991,9 +977,10 @@ export default function InvoiceManagementPage() {
                 className="px-2 py-1.5 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/70 text-xs text-gray-600"
               >
                 <option value="">All Statuses</option>
-                <option value="paid">paid</option>
-                <option value="disputed">disputed</option>
-                <option value="rejected">rejected</option>
+                <option value="paid">Paid</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="">No Status / Null</option>
               </select>
               <input
                 type="text"
@@ -1089,14 +1076,14 @@ export default function InvoiceManagementPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {isClaimTab
-                    ? paginatedClaimInvoices.map((inv) => {
+                    ? sortedClaimInvoices.map((inv) => {
                       const isEditing = editingId === inv.id;
                       const isMarkingPaid = markPaidInvoice?.id === inv.id;
                       const canMarkPaid =
                         inv.payment_received == null && inv.date_received == null;
                       const hireStorageTotal =
                         (inv.rent_bill || 0) + (inv.storage_bill || 0);
-                      const derivedStatus = effectiveStatus(inv);
+                      const derivedStatus = effectiveStatus(inv, offersMap);
                       const derivedSentStatus = sentStatus(inv);
                       const percentage = calculatePercentageReceived(inv);
 
@@ -1343,7 +1330,7 @@ export default function InvoiceManagementPage() {
                         </tr>
                       );
                     })
-                    : paginatedLongHireInvoices.map((inv) => {
+                    : sortedLongHireInvoices.map((inv) => {
                       const isEditingLH = editingLongHireId === inv.id;
                       return (
                         <tr
@@ -1469,7 +1456,7 @@ export default function InvoiceManagementPage() {
               </table>
             </div>
 
-            <PaginationBar />
+
 
             {saveError && (
               <div className="p-2 bg-red-50 border-t border-red-200 text-red-700 text-[10px] text-center">
