@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -14,22 +14,25 @@ import {
   Search,
   CheckCircle2,
   PoundSterling,
+  History,
+  ChevronRight,
 } from "lucide-react";
 import api from "@/lib/axios";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface OfferEntry {
+  amount: number | null;
+  date: string | null;
+  status: string | null;
+}
+
 interface Offer {
   claim_id: string;
-  offer1: number | null;
-  offer1_date: string | null;
-  offer1_status: string | null;
-  offer2: number | null;
-  offer2_date: string | null;
-  offer2_status: string | null;
-  offer3: number | null;
-  offer3_date: string | null;
-  offer3_status: string | null;
+  offers: OfferEntry[];
+  latest_offer: OfferEntry | null;
+  status: string | null;
+  seen: boolean;
   claim_type: string | null;
   claimant_name: string | null;
   hire_storage: number | null;
@@ -41,17 +44,14 @@ interface ClaimSearchResult {
   claim_type: string;
 }
 
-type OfferNum = 1 | 2 | 3;
 type SortKey =
   | "status"
   | "claim_id"
   | "claimant_name"
   | "claim_type"
   | "hire_storage"
-  | "offer1"
-  | "offer1_date"
-  | "offer3"
-  | "offer3_date";
+  | "latest_amount"
+  | "latest_date";
 type SortConfig = { key: SortKey; direction: "asc" | "desc" } | null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,30 +76,28 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 /**
- * Walk offer3 → offer1 and return the amount + status of the most
- * recent offer that has an amount. This is the single source of truth for
- * "current" offer state — used for the status badge, status filter,
- * status sorting, and the summary cards.
+ * Get the latest offer from the offers JSON array based on the most recent date.
+ * This replaces the old offer3 → offer2 → offer1 fallback logic.
  */
-function getCurrentOffer(offer: {
-  offer1: number | null; offer1_status: string | null;
-  offer3: number | null; offer3_status: string | null;
-}): { amount: number | null; status: string | null } {
-  const pairs = [
-    { amount: offer.offer3, status: offer.offer3_status },
-    { amount: offer.offer1, status: offer.offer1_status },
-  ];
-  for (const p of pairs) {
-    if (p.amount != null) return p;
-  }
-  return { amount: null, status: null };
+function getLatestOffer(offers: OfferEntry[]): OfferEntry | null {
+  const withDate = offers.filter((o) => o.date != null);
+  if (withDate.length === 0) return null;
+  return withDate.reduce((latest, current) =>
+    (current.date ?? "") > (latest.date ?? "") ? current : latest
+  );
 }
 
-function deriveGlobalStatus(offer: {
-  offer1: number | null; offer1_status: string | null;
-  offer3: number | null; offer3_status: string | null;
-}): string {
-  return getCurrentOffer(offer).status ?? "";
+/**
+ * Get the latest offer from an Offer record (uses pre-computed latest_offer
+ * from the API if available, otherwise computes from the array).
+ */
+function resolveLatestOffer(offer: Offer): OfferEntry | null {
+  return offer.latest_offer ?? getLatestOffer(offer.offers ?? []);
+}
+
+function deriveGlobalStatus(offer: Offer): string {
+  const latest = resolveLatestOffer(offer);
+  return latest?.status ?? "";
 }
 
 // Status ranking used purely for sorting (so it's deterministic & meaningful,
@@ -185,22 +183,127 @@ function OfferStatusDot({ status }: { status: string | null }) {
   );
 }
 
+// ─── Offer History Modal ─────────────────────────────────────────────────────
+
+function OfferHistoryModal({
+  isOpen,
+  onClose,
+  offer,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  offer: Offer | null;
+}) {
+  if (!isOpen || !offer) return null;
+
+  // Sort offers newest first
+  const sorted = [...(offer.offers ?? [])].sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
+  const latestDate = offer.latest_offer?.date;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Offer History</h3>
+            <p className="text-sm text-gray-500">
+              {offer.claim_id} — {offer.claimant_name?.toUpperCase() || "—"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Offers list */}
+        <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
+          {sorted.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No offers yet</p>
+          ) : (
+            <div className="space-y-3">
+              {sorted.map((entry, idx) => {
+                const isLatest =
+                  latestDate && entry.date === latestDate && entry.amount != null;
+                const amtColor =
+                  entry.status === "paid"
+                    ? "text-emerald-700 font-semibold"
+                    : entry.status === "accepted"
+                    ? "text-blue-700 font-semibold"
+                    : "text-gray-700";
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition ${
+                      isLatest
+                        ? "bg-green-50 border-green-300"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    {/* Offer number */}
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">
+                      {sorted.length - idx}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={entry.amount != null ? amtColor : "text-slate-400"}>
+                          {formatCurrency(entry.amount)}
+                        </span>
+                        <OfferStatusDot status={entry.amount != null ? entry.status : null} />
+                        {isLatest && (
+                          <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-200 text-green-800">
+                            Latest
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {formatDate(entry.date)}
+                        {entry.status && entry.amount != null && (
+                          <span className="ml-2 text-gray-400">• {entry.status}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OffersManagementPage() {
-  // Data
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Create panel
   const [showCreatePanel, setShowCreatePanel] = useState(false);
-  const [allClaims, setAllClaims] = useState<ClaimSearchResult[]>([]); // fetched once on mount
+  const [allClaims, setAllClaims] = useState<ClaimSearchResult[]>([]);
   const [claimSearch, setClaimSearch] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [selectedClaim, setSelectedClaim] = useState<ClaimSearchResult | null>(null);
-  const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
 
@@ -208,10 +311,10 @@ export default function OffersManagementPage() {
   const [search, setSearch] = useState("");
   const [filterClaimId, setFilterClaimId] = useState("");
   const [filterClaimant, setFilterClaimant] = useState("");
-  const [filterStatus, setFilterStatus] = useState(""); // "", "blank", "paid", "accepted", "rejected"
+  const [filterStatus, setFilterStatus] = useState("");
 
-  // Editing — one offer cell at a time
-  const [editKey, setEditKey] = useState<{ claimId: string; num: OfferNum } | null>(null);
+  // Editing — one offer entry at a time
+  const [editKey, setEditKey] = useState<{ claimId: string; offerIndex: number } | null>(null);
   const [editForm, setEditForm] = useState({ amount: "", date: "", offerStatus: "rejected" });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -219,11 +322,18 @@ export default function OffersManagementPage() {
   // Sort
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-  // Scroll preservation + "just updated" row highlight ─────────────────────
+  // Scroll preservation + "just updated" row highlight
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [recentlyUpdatedClaimId, setRecentlyUpdatedClaimId] = useState<string | null>(null);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // Offer history modal
+  const [historyOffer, setHistoryOffer] = useState<Offer | null>(null);
+
+  // Tracks whether the current inline form is for creating a new offer (vs editing existing)
+  // null = editing existing offer; string = claim_id of the new offer being created
+  const [creatingNewOfferForClaimId, setCreatingNewOfferForClaimId] = useState<string | null>(null);
+
+  // ── Fetch
 
   const fetchOffers = useCallback(async () => {
     setLoading(true);
@@ -266,31 +376,44 @@ export default function OffersManagementPage() {
 
   const handleCreateOffer = async () => {
     if (!selectedClaim) return;
-    setCreating(true); setCreateError(null); setCreateSuccess(null);
+    setCreateError(null); setCreateSuccess(null);
+
+    const claimId = selectedClaim.claim_id;
+
     try {
-      await api.post("/api/offers/create", { claim_id: selectedClaim.claim_id }, { headers: { requiresAuth: true } });
-      setCreateSuccess(`Blank offer created for ${selectedClaim.claim_id}`);
+      // Create a blank offer record on the backend (empty offers JSONB column)
+      await api.post("/api/offers/create", { claim_id: claimId }, { headers: { requiresAuth: true } });
+
+      // Close the create panel
       setSelectedClaim(null); setClaimSearch(""); setDropdownOpen(false);
+      setShowCreatePanel(false);
       await fetchOffers();
-      // Show the person exactly which row is new
-      setRecentlyUpdatedClaimId(selectedClaim.claim_id);
-      setTimeout(() => setRecentlyUpdatedClaimId((cur) => (cur === selectedClaim.claim_id ? null : cur)), 2500);
+
+      // Auto-open the edit form so user can fill in the offer details
+      const refreshedRes = await api.get("/api/offers", { headers: { requiresAuth: true } });
+      const refreshedOffers = refreshedRes.data.data || [];
+      const newOffer = refreshedOffers.find((o: Offer) => o.claim_id === claimId);
+      if (newOffer && newOffer.offers?.length > 0) {
+        const lastIdx = newOffer.offers.length - 1;
+        startEditing(newOffer, lastIdx);
+      }
+
+      setRecentlyUpdatedClaimId(claimId);
+      setTimeout(() => setRecentlyUpdatedClaimId((cur) => (cur === claimId ? null : cur)), 2500);
     } catch (err: any) {
       setCreateError(err.response?.data?.message || "Failed to create offer.");
-    } finally { setCreating(false); }
+    }
   };
 
   // ── Edit helpers ───────────────────────────────────────────────────────────
 
-  const startEditing = (offer: Offer, num: OfferNum) => {
-    const amount = offer[`offer${num}` as keyof Offer] as number | null;
-    const date   = offer[`offer${num}_date` as keyof Offer] as string | null;
-    const status = offer[`offer${num}_status` as keyof Offer] as string | null;
-    setEditKey({ claimId: offer.claim_id, num });
+  const startEditing = (offer: Offer, offerIndex: number) => {
+    const entry = offer.offers?.[offerIndex];
+    setEditKey({ claimId: offer.claim_id, offerIndex });
     setEditForm({
-      amount: amount?.toString() ?? "",
-      date: date ? date.slice(0, 10) : "",
-      offerStatus: status ?? "rejected",
+      amount: entry?.amount?.toString() ?? "",
+      date: entry?.date ? entry.date.slice(0, 10) : "",
+      offerStatus: entry?.status ?? "rejected",
     });
     setSaveError(null);
   };
@@ -299,6 +422,7 @@ export default function OffersManagementPage() {
     setEditKey(null);
     setEditForm({ amount: "", date: "", offerStatus: "rejected" });
     setSaveError(null);
+    setCreatingNewOfferForClaimId(null);
   };
 
   const handleSaveEdit = async (offer: Offer) => {
@@ -315,21 +439,38 @@ export default function OffersManagementPage() {
 
     const scrollTop = scrollContainerRef.current?.scrollTop ?? null;
     const claimId = offer.claim_id;
+    const isNewOffer = creatingNewOfferForClaimId === claimId;
 
     try {
-      const n            = editKey.num;
       const amountVal    = hasAmount ? Number(editForm.amount) : null;
       const dateVal      = hasDate   ? editForm.date.trim()    : null;
       const offerStatVal = hasAmount ? editForm.offerStatus     : null;
 
-      const payload: Record<string, unknown> = {
-        [`offer${n}`]:        amountVal,
-        [`offer${n}_date`]:   dateVal,
-        [`offer${n}_status`]: offerStatVal,
-      };
+      if (isNewOffer) {
+        // ── Creating a brand-new offer: require at least amount & date ──
+        if (!hasAmount || !hasDate) {
+          setSaveError("You must provide an amount and a date to create this offer.");
+          setSaving(false);
+          return;
+        }
 
-      const res = await api.put(`/api/offers/${offer.claim_id}`, payload, { headers: { requiresAuth: true } });
-      if (!res.data.success) throw new Error(res.data.message || "Update failed");
+        await api.post(
+          "/api/offers",
+          { claim_id: claimId, offer: { amount: amountVal, date: dateVal, status: offerStatVal }, seen: true },
+          { headers: { requiresAuth: true } }
+        );
+      } else {
+        // ── Editing an existing offer ──
+        const payload: Record<string, unknown> = hasAmount === false && hasDate === false
+          ? { offer_index: editKey.offerIndex, offer: null }
+          : {
+              offer_index: editKey.offerIndex,
+              offer: { amount: amountVal, date: dateVal, status: offerStatVal },
+            };
+
+        const res = await api.put(`/api/offers/${offer.claim_id}`, payload, { headers: { requiresAuth: true } });
+        if (!res.data.success) throw new Error(res.data.message || "Update failed");
+      }
 
       await fetchOffers();
       cancelEdit();
@@ -343,8 +484,21 @@ export default function OffersManagementPage() {
       setRecentlyUpdatedClaimId(claimId);
       setTimeout(() => setRecentlyUpdatedClaimId((cur) => (cur === claimId ? null : cur)), 2500);
     } catch (err: any) {
-      setSaveError(err.response?.data?.message || "Failed to update offer.");
+      setSaveError(err.response?.data?.message || "Failed to save offer.");
     } finally { setSaving(false); }
+  };
+
+  // ── Add new offer (client-side form only, no API call yet) ──────────────────
+
+  const handleAppendNewOffer = (offer: Offer) => {
+    const claimId = offer.claim_id;
+    const newOfferIndex = offer.offers?.length ?? 0;
+
+    // Open the inline form with empty fields — NO API call at this point
+    setCreatingNewOfferForClaimId(claimId);
+    setEditKey({ claimId, offerIndex: newOfferIndex });
+    setEditForm({ amount: "", date: "", offerStatus: "rejected" });
+    setSaveError(null);
   };
 
   // ── Sort ───────────────────────────────────────────────────────────────────
@@ -374,22 +528,24 @@ export default function OffersManagementPage() {
         return (va - vb) * dir;
       }
 
-      if (key === "offer1_date" || key === "offer3_date") {
-        const va = a[key] ? new Date(a[key] as string).getTime() : null;
-        const vb = b[key] ? new Date(b[key] as string).getTime() : null;
+      if (key === "latest_amount") {
+        const va = resolveLatestOffer(a)?.amount ?? null;
+        const vb = resolveLatestOffer(b)?.amount ?? null;
         if (va === vb) return 0;
         if (va == null) return 1;
         if (vb == null) return -1;
         return (va - vb) * dir;
       }
 
-      if (key === "offer1" || key === "offer3") {
-        const va = a[key];
-        const vb = b[key];
-        if (va === vb) return 0;
-        if (va == null) return 1;
-        if (vb == null) return -1;
-        return (va - vb) * dir;
+      if (key === "latest_date") {
+        const va = resolveLatestOffer(a)?.date;
+        const vb = resolveLatestOffer(b)?.date;
+        const ta = va ? new Date(va).getTime() : null;
+        const tb = vb ? new Date(vb).getTime() : null;
+        if (ta === tb) return 0;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return (ta - tb) * dir;
       }
 
       const va = (a[key] ?? "") as string;
@@ -429,10 +585,10 @@ export default function OffersManagementPage() {
     let count = 0;
     let total = 0;
     for (const o of offers) {
-      const current = getCurrentOffer(o);
-      if (current.status?.toLowerCase() === "accepted" && current.amount != null) {
+      const latest = resolveLatestOffer(o);
+      if (latest?.status?.toLowerCase() === "accepted" && latest.amount != null) {
         count += 1;
-        total += current.amount;
+        total += latest.amount;
       }
     }
     return { acceptedCount: count, acceptedTotal: total };
@@ -457,46 +613,6 @@ export default function OffersManagementPage() {
           </span>
         </div>
       </th>
-    );
-  };
-
-  // ── Read-only offer pair ───────────────────────────────────────────────────
-
-  const ReadOfferPair = ({ offer, num }: { offer: Offer; num: OfferNum }) => {
-    const amount = offer[`offer${num}` as keyof Offer] as number | null;
-    const date   = offer[`offer${num}_date` as keyof Offer] as string | null;
-    const status = offer[`offer${num}_status` as keyof Offer] as string | null;
-
-    const amtColor =
-      status === "paid" ? "text-emerald-700 font-semibold" :
-      status === "accepted" ? "text-blue-700 font-semibold" :
-      "text-gray-700";
-
-    return (
-      <>
-        {/* Amount cell */}
-        <td className="px-3 py-1.5 border-r border-gray-300 text-right group/cell">
-          <div className="flex items-center justify-end gap-1.5">
-            <OfferStatusDot status={amount != null ? status : null} />
-            <span className={amount != null ? amtColor : "text-slate-400"}>
-              {formatCurrency(amount)}
-            </span>
-            <button
-              onClick={() => startEditing(offer, num)}
-              className="opacity-0 group-hover/cell:opacity-100 transition-opacity text-green-500 hover:text-green-800"
-              title={`Edit Offer ${num}`}
-            >
-              <Edit2 size={12} />
-            </button>
-          </div>
-        </td>
-        {/* Date cell */}
-        <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
-          <span className={date ? "text-gray-700" : "text-slate-400"}>
-            {formatDate(date)}
-          </span>
-        </td>
-      </>
     );
   };
 
@@ -677,12 +793,10 @@ export default function OffersManagementPage() {
                   </div>
                   <button
                     onClick={handleCreateOffer}
-                    disabled={creating}
+                    disabled={!selectedClaim}
                     className="shrink-0 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-2 px-5 rounded-full shadow flex items-center gap-2 text-sm disabled:opacity-60 transition"
                   >
-                    {creating
-                      ? <><Loader2 size={14} className="animate-spin" />Creating…</>
-                      : <><Plus size={14} />Create Blank Offer</>}
+                    <Plus size={14} /> Add Offer
                   </button>
                 </div>
               )}
@@ -756,20 +870,26 @@ export default function OffersManagementPage() {
                     <SortHeader label="Claimant"  sortKey="claimant_name" />
                     <SortHeader label="Type"      sortKey="claim_type"    align="center" />
                     <SortHeader label="Hire/Storage" sortKey="hire_storage" align="right" />
-                    <SortHeader label="Offer 1"   sortKey="offer1"        align="right" />
-                    <SortHeader label="O1 Date"   sortKey="offer1_date" />
-                    <SortHeader label="Final Offer"   sortKey="offer3"        align="right" />
-                    <SortHeader label="Final Offer Date"   sortKey="offer3_date" />
+                    <SortHeader label="Latest Offer" sortKey="latest_amount" align="right" />
+                    <SortHeader label="Offer Date"   sortKey="latest_date" />
+                    <th className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
+                      History
+                    </th>
+                    <th className="px-3 py-2 text-center font-semibold text-green-800 whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filtered.map((offer) => {
+                    const latest = resolveLatestOffer(offer);
                     const isEditingThisRow = editKey?.claimId === offer.claim_id;
                     const isRecentlyUpdated = recentlyUpdatedClaimId === offer.claim_id;
+                    const offerCount = offer.offers?.length ?? 0;
+
                     return (
-                      <>
+                      <Fragment key={offer.claim_id}>
                         <tr
-                          key={offer.claim_id}
                           className={`transition-colors duration-700 ${
                             isRecentlyUpdated ? "bg-yellow-100" : "hover:bg-green-50/30"
                           }`}
@@ -794,9 +914,68 @@ export default function OffersManagementPage() {
                           <td className="px-3 py-1.5 text-right border-r border-gray-300 font-medium text-purple-700">
                             {formatCurrency(offer.hire_storage)}
                           </td>
-                          {/* Offer pairs — read-only; edit opens the sub-row */}
-                          <ReadOfferPair offer={offer} num={1} />
-                          <ReadOfferPair offer={offer} num={3} />
+                          {/* Latest Offer Amount */}
+                          <td className="px-3 py-1.5 border-r border-gray-300 text-right group/cell">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <OfferStatusDot status={latest?.amount != null ? latest.status : null} />
+                              <span className={latest?.amount != null
+                                ? latest.status === "paid" ? "text-emerald-700 font-semibold"
+                                : latest.status === "accepted" ? "text-blue-700 font-semibold"
+                                : "text-gray-700"
+                                : "text-slate-400"
+                              }>
+                                {formatCurrency(latest?.amount ?? null)}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Latest Offer Date */}
+                          <td className="px-3 py-1.5 border-r border-gray-300 whitespace-nowrap">
+                            <span className={latest?.date ? "text-gray-700" : "text-slate-400"}>
+                              {formatDate(latest?.date ?? null)}
+                            </span>
+                          </td>
+                          {/* History button */}
+                          <td className="px-3 py-1.5 text-center border-r border-gray-300">
+                            {offerCount > 0 ? (
+                              <button
+                                onClick={() => setHistoryOffer(offer)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition text-xs font-medium"
+                                title={`View ${offerCount} offer${offerCount !== 1 ? "s" : ""}`}
+                              >
+                                <History size={14} />
+                                <span>{offerCount}</span>
+                                <ChevronRight size={12} />
+                              </button>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          {/* Edit + Add buttons */}
+                          <td className="px-3 py-1.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {offerCount > 0 && (
+                                <button
+                                  onClick={() => {
+                                    const latestIdx = offer.offers.findIndex(
+                                      (e) => e.date === latest?.date && e.amount === latest?.amount
+                                    );
+                                    if (latestIdx >= 0) startEditing(offer, latestIdx);
+                                  }}
+                                  className="text-green-500 hover:text-green-800 p-1 rounded hover:bg-green-50 transition"
+                                  title="Edit latest offer"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleAppendNewOffer(offer)}
+                                className="text-blue-500 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition"
+                                title="Add new offer entry"
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
 
                         {/* Inline edit row - REDESIGNED */}
@@ -807,7 +986,7 @@ export default function OffersManagementPage() {
                                 {/* Offer number badge */}
                                 <div className="shrink-0">
                                   <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold text-sm">
-                                    {editKey.num}
+                                    #{editKey.offerIndex + 1}
                                   </span>
                                 </div>
 
@@ -890,14 +1069,14 @@ export default function OffersManagementPage() {
                                     className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 transition-all shadow-sm hover:shadow"
                                   >
                                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                    Save
+                                    {creatingNewOfferForClaimId === offer.claim_id ? "Submit" : "Save"}
                                   </button>
                                 </div>
                               </div>
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -916,9 +1095,16 @@ export default function OffersManagementPage() {
               {label}
             </span>
           ))}
-          <span className="text-gray-400">· Status shows only when an offer is accepted or paid · Hover any offer amount to edit</span>
+          <span className="text-gray-400">· Status shows only when an offer is accepted or paid · Click History to view all offers</span>
         </div>
       </main>
+
+      {/* Offer History Modal */}
+      <OfferHistoryModal
+        isOpen={historyOffer !== null}
+        onClose={() => setHistoryOffer(null)}
+        offer={historyOffer}
+      />
     </div>
   );
 }

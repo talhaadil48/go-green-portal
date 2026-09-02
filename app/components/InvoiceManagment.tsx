@@ -326,9 +326,11 @@ export default function InvoiceManagementPage() {
         "/api/offers",
         {
           claim_id: inv.claim_id,
-          offer1: amount,
-          offer1_date: markPaidDate,
-          offer1_status: "paid",
+          offer: {
+            amount: amount,
+            date: markPaidDate,
+            status: "paid",
+          },
         },
         { headers: { requiresAuth: true } }
       );
