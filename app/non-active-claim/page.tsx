@@ -1425,7 +1425,7 @@ export default function ClaimsPage() {
                                     <div className="relative z-10">
                                         <div className="flex items-center gap-2 mb-4">
                                             <CheckCircle2 size={18} className="text-rose-100" />
-                                            <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Closed</p>
+                                            <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Settled</p>
                                         </div>
                                         <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
                                     </div>
