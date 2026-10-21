@@ -51,7 +51,8 @@ type SortKey =
   | "claim_type"
   | "hire_storage"
   | "latest_amount"
-  | "latest_date";
+  | "latest_date"
+  | "offer_percentage";
 type SortConfig = { key: SortKey; direction: "asc" | "desc" } | null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ function GlobalStatusBadge({ status }: { status: string | null }) {
     );
   }
   const map: Record<string, string> = {
-    paid:     "bg-emerald-100 text-emerald-800",
+    paid: "bg-emerald-100 text-emerald-800",
     accepted: "bg-blue-100 text-blue-800",
     rejected: "bg-red-100 text-red-700",
   };
@@ -243,17 +244,16 @@ function OfferHistoryModal({
                   entry.status === "paid"
                     ? "text-emerald-700 font-semibold"
                     : entry.status === "accepted"
-                    ? "text-blue-700 font-semibold"
-                    : "text-gray-700";
+                      ? "text-blue-700 font-semibold"
+                      : "text-gray-700";
 
                 return (
                   <div
                     key={idx}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition ${
-                      isLatest
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition ${isLatest
                         ? "bg-green-50 border-green-300"
                         : "bg-gray-50 border-gray-200"
-                    }`}
+                      }`}
                   >
                     {/* Offer number */}
                     <div className="shrink-0 w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">
@@ -428,7 +428,7 @@ export default function OffersManagementPage() {
   const handleSaveEdit = async (offer: Offer) => {
     if (!editKey) return;
     const hasAmount = editForm.amount.trim() !== "";
-    const hasDate   = editForm.date.trim() !== "";
+    const hasDate = editForm.date.trim() !== "";
 
     if (hasAmount !== hasDate) {
       setSaveError("Provide both the amount and the date together, or leave both empty.");
@@ -442,9 +442,9 @@ export default function OffersManagementPage() {
     const isNewOffer = creatingNewOfferForClaimId === claimId;
 
     try {
-      const amountVal    = hasAmount ? Number(editForm.amount) : null;
-      const dateVal      = hasDate   ? editForm.date.trim()    : null;
-      const offerStatVal = hasAmount ? editForm.offerStatus     : null;
+      const amountVal = hasAmount ? Number(editForm.amount) : null;
+      const dateVal = hasDate ? editForm.date.trim() : null;
+      const offerStatVal = hasAmount ? editForm.offerStatus : null;
 
       if (isNewOffer) {
         // ── Creating a brand-new offer: require at least amount & date ──
@@ -464,9 +464,9 @@ export default function OffersManagementPage() {
         const payload: Record<string, unknown> = hasAmount === false && hasDate === false
           ? { offer_index: editKey.offerIndex, offer: null }
           : {
-              offer_index: editKey.offerIndex,
-              offer: { amount: amountVal, date: dateVal, status: offerStatVal },
-            };
+            offer_index: editKey.offerIndex,
+            offer: { amount: amountVal, date: dateVal, status: offerStatVal },
+          };
 
         const res = await api.put(`/api/offers/${offer.claim_id}`, payload, { headers: { requiresAuth: true } });
         if (!res.data.success) throw new Error(res.data.message || "Update failed");
@@ -548,12 +548,32 @@ export default function OffersManagementPage() {
         return (ta - tb) * dir;
       }
 
+      if (key === "offer_percentage") {
+        const va = calculateOfferPercentage(a);
+        const vb = calculateOfferPercentage(b);
+        return (va - vb) * dir;
+      }
+
       const va = (a[key] ?? "") as string;
       const vb = (b[key] ?? "") as string;
       if (!va && vb) return 1;
       if (va && !vb) return -1;
       return va.localeCompare(vb) * dir;
     });
+  };
+
+  // ── Calculate offer percentage ────────────────────────────────────────────
+
+  const calculateOfferPercentage = (offer: Offer): number => {
+    const latest = resolveLatestOffer(offer);
+    const offerAmount = latest?.amount ?? null;
+    const hireStorage = offer.hire_storage ?? null;
+
+    if (offerAmount === null || hireStorage === null || hireStorage === 0) {
+      return 0;
+    }
+
+    return (offerAmount / hireStorage) * 100;
   };
 
   // ── Filter ─────────────────────────────────────────────────────────────────
@@ -572,7 +592,7 @@ export default function OffersManagementPage() {
           o.claim_id.toLowerCase().includes(q) ||
           o.claimant_name?.toLowerCase().includes(q) ||
           o.claim_type?.toLowerCase().includes(q)) &&
-        (!filterClaimId  || o.claim_id.toLowerCase().includes(filterClaimId.toLowerCase())) &&
+        (!filterClaimId || o.claim_id.toLowerCase().includes(filterClaimId.toLowerCase())) &&
         (!filterClaimant || o.claimant_name?.toLowerCase().includes(filterClaimant.toLowerCase())) &&
         matchesStatus
       );
@@ -749,9 +769,8 @@ export default function OffersManagementPage() {
                             setHighlightedIndex(-1);
                           }}
                           onMouseEnter={() => setHighlightedIndex(idx)}
-                          className={`w-full text-left px-4 py-2.5 transition flex items-center gap-3 ${
-                            highlightedIndex === idx ? "bg-green-50" : "hover:bg-gray-50"
-                          }`}
+                          className={`w-full text-left px-4 py-2.5 transition flex items-center gap-3 ${highlightedIndex === idx ? "bg-green-50" : "hover:bg-gray-50"
+                            }`}
                         >
                           {/* Claim ID pill */}
                           <span className="shrink-0 px-2 py-0.5 bg-green-100 text-green-800 text-xs font-bold rounded-md font-mono">
@@ -802,7 +821,7 @@ export default function OffersManagementPage() {
               )}
             </div>
 
-            {createError   && <p className="mt-4 text-red-600 text-sm">{createError}</p>}
+            {createError && <p className="mt-4 text-red-600 text-sm">{createError}</p>}
             {createSuccess && <p className="mt-4 text-green-700 text-sm font-medium">✓ {createSuccess}</p>}
           </div>
         )}
@@ -865,13 +884,14 @@ export default function OffersManagementPage() {
               <table className="min-w-full divide-y divide-gray-300 text-xs">
                 <thead className="bg-green-50 sticky top-0 z-20 shadow-sm">
                   <tr>
-                    <SortHeader label="Status"    sortKey="status"        align="center" />
-                    <SortHeader label="Claim ID"  sortKey="claim_id" />
-                    <SortHeader label="Claimant"  sortKey="claimant_name" />
-                    <SortHeader label="Type"      sortKey="claim_type"    align="center" />
+                    <SortHeader label="Status" sortKey="status" align="center" />
+                    <SortHeader label="Claim ID" sortKey="claim_id" />
+                    <SortHeader label="Claimant" sortKey="claimant_name" />
+                    <SortHeader label="Type" sortKey="claim_type" align="center" />
                     <SortHeader label="Hire/Storage" sortKey="hire_storage" align="right" />
                     <SortHeader label="Latest Offer" sortKey="latest_amount" align="right" />
-                    <SortHeader label="Offer Date"   sortKey="latest_date" />
+                    <SortHeader label="Offer Date" sortKey="latest_date" />
+                    <SortHeader label="% of Hire" sortKey="offer_percentage" align="right" />
                     <th className="px-3 py-2 text-center font-semibold text-green-800 border-r border-gray-400 whitespace-nowrap">
                       History
                     </th>
@@ -886,13 +906,13 @@ export default function OffersManagementPage() {
                     const isEditingThisRow = editKey?.claimId === offer.claim_id;
                     const isRecentlyUpdated = recentlyUpdatedClaimId === offer.claim_id;
                     const offerCount = offer.offers?.length ?? 0;
+                    const percentage = calculateOfferPercentage(offer);
 
                     return (
                       <Fragment key={offer.claim_id}>
                         <tr
-                          className={`transition-colors duration-700 ${
-                            isRecentlyUpdated ? "bg-yellow-100" : "hover:bg-green-50/30"
-                          }`}
+                          className={`transition-colors duration-700 ${isRecentlyUpdated ? "bg-yellow-100" : "hover:bg-green-50/30"
+                            }`}
                         >
                           {/* Global status */}
                           <td className="px-3 py-1.5 text-center border-r border-gray-300">
@@ -920,8 +940,8 @@ export default function OffersManagementPage() {
                               <OfferStatusDot status={latest?.amount != null ? latest.status : null} />
                               <span className={latest?.amount != null
                                 ? latest.status === "paid" ? "text-emerald-700 font-semibold"
-                                : latest.status === "accepted" ? "text-blue-700 font-semibold"
-                                : "text-gray-700"
+                                  : latest.status === "accepted" ? "text-blue-700 font-semibold"
+                                    : "text-gray-700"
                                 : "text-slate-400"
                               }>
                                 {formatCurrency(latest?.amount ?? null)}
@@ -933,6 +953,16 @@ export default function OffersManagementPage() {
                             <span className={latest?.date ? "text-gray-700" : "text-slate-400"}>
                               {formatDate(latest?.date ?? null)}
                             </span>
+                          </td>
+                          {/* Offer Percentage */}
+                          <td className="px-3 py-1.5 border-r border-gray-300 text-right font-medium">
+                            {percentage > 0 ? (
+                              <span className="text-purple-700 font-medium">
+                                {percentage > 0 ? `${percentage.toFixed(1)}%` : "—"}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
                           </td>
                           {/* History button */}
                           <td className="px-3 py-1.5 text-center border-r border-gray-300">
@@ -981,7 +1011,7 @@ export default function OffersManagementPage() {
                         {/* Inline edit row - REDESIGNED */}
                         {isEditingThisRow && editKey && (
                           <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b-2 border-green-200">
-                            <td colSpan={9} className="px-6 py-4">
+                            <td colSpan={10} className="px-6 py-4">
                               <div className="flex items-center gap-6">
                                 {/* Offer number badge */}
                                 <div className="shrink-0">
@@ -1034,15 +1064,14 @@ export default function OffersManagementPage() {
                                           key={s}
                                           onMouseDown={(e) => e.preventDefault()}
                                           onClick={() => setEditForm((p) => ({ ...p, offerStatus: s }))}
-                                          className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${
-                                            isActive
+                                          className={`flex-1 px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 ${isActive
                                               ? s === "paid"
                                                 ? "bg-emerald-500 text-white shadow-sm"
                                                 : s === "accepted"
-                                                ? "bg-blue-500 text-white shadow-sm"
-                                                : "bg-red-500 text-white shadow-sm"
+                                                  ? "bg-blue-500 text-white shadow-sm"
+                                                  : "bg-red-500 text-white shadow-sm"
                                               : "text-gray-600 hover:text-gray-900 hover:bg-white"
-                                          }`}
+                                            }`}
                                         >
                                           {s.charAt(0).toUpperCase() + s.slice(1)}
                                         </button>
@@ -1088,7 +1117,7 @@ export default function OffersManagementPage() {
         <div className="mt-6 flex flex-wrap gap-4 text-xs text-gray-500">
           {[
             { color: "bg-emerald-400", label: "Paid" },
-            { color: "bg-blue-400",    label: "Accepted" },
+            { color: "bg-blue-400", label: "Accepted" },
           ].map(({ color, label }) => (
             <span key={label} className="flex items-center gap-1.5">
               <span className={`w-2.5 h-2.5 rounded-full ${color} inline-block`} />
