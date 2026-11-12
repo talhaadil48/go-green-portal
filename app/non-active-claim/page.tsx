@@ -151,6 +151,11 @@ const getStageNumber = (claim: Claim): number => {
     return STATUS_COLORS[stage]?.number || 0;
 };
 
+const isVehicleDamagePaid = (claim: Claim): boolean => {
+    if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
+    return getStageNumber(claim) >= 3 || isValidDate(claim.pay_date);
+};
+
 // Get stage badge info
 const getStageBadge = (claim: Claim) => {
     const stage = getStageFromDates(claim);
@@ -315,12 +320,13 @@ export default function ClaimsPage() {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
                 !claim.is_disputed &&
+                !isVehicleDamagePaid(claim) &&
                 ["claim created", "hire start", "client paid"].includes(getStageFromDates(claim))
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
-                (claim.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(claim)))
+                (claim.is_disputed || isVehicleDamagePaid(claim) || ["hire end", "invoice sent"].includes(getStageFromDates(claim)))
             );
         } else if (statusFilter === "Closed") {
             filtered = filtered.filter((claim) => isClaimClosed(claim));
@@ -787,11 +793,12 @@ export default function ClaimsPage() {
         const activeClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
             !c.is_disputed &&
+            !isVehicleDamagePaid(c) &&
             ["claim created", "hire start", "client paid"].includes(getStageFromDates(c))
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
-            (c.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(c)))
+            (c.is_disputed || isVehicleDamagePaid(c) || ["hire end", "invoice sent"].includes(getStageFromDates(c)))
         ).length;
         const closedClaims = allClaims.filter(c => isClaimClosed(c)).length;
         const typeBreakdown = CLAIM_TYPES.map(type => ({
@@ -1022,7 +1029,7 @@ export default function ClaimsPage() {
                                                     if (isClosed) {
                                                         statusText = "Closed";
                                                         bgColor = "bg-red-100 text-red-800";
-                                                    } else if (claim.is_disputed || ["hire end", "invoice sent"].includes(getStageFromDates(claim))) {
+                                                    } else if (claim.is_disputed || isVehicleDamagePaid(claim) || ["hire end", "invoice sent"].includes(getStageFromDates(claim))) {
                                                         statusText = "Non Active";
                                                         bgColor = "bg-amber-100 text-amber-800";
                                                     }

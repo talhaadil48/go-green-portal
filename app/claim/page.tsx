@@ -224,6 +224,11 @@ export default function ClaimsDashboard() {
         return STATUS_COLORS[stage]?.number || 0;
     };
 
+    const isVehicleDamagePaid = (claim: Claim): boolean => {
+        if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
+        return getStageNumber(claim) >= 3 || isValidDate(claim.pay_date);
+    };
+
     useEffect(() => {
         const getCurrentUsername = (): string | null => {
             try {
@@ -276,7 +281,7 @@ export default function ClaimsDashboard() {
     }, []);
 
     useEffect(() => {
-        let filtered = allClaims.filter(claim => !isClaimClosed(claim));
+        let filtered = allClaims.filter(claim => !isClaimClosed(claim) && !isVehicleDamagePaid(claim));
 
         if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase().trim();
@@ -728,7 +733,7 @@ export default function ClaimsDashboard() {
 
     const summary = useMemo(() => {
         const activeClaims = allClaims.filter(c =>
-            !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent"
+            !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent" && !isVehicleDamagePaid(c)
         );
         const activeHire = activeClaims.filter(c =>
             getStageFromDates(c) === "hire start" && !c.is_disputed
@@ -1888,7 +1893,7 @@ export default function ClaimsDashboard() {
                         <div className="mb-6 mt-6 text-sm font-medium text-green-700 px-4 py-3 bg-white border border-green-200 rounded-lg inline-block">
                             Showing <span className="font-bold text-green-800">{claims.length}</span> of{" "}
                             <span className="font-bold text-green-800">
-                                {allClaims.filter(c => !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent").length}
+                                {allClaims.filter(c => !isClaimClosed(c) && getStageFromDates(c) !== "invoice sent" && !isVehicleDamagePaid(c)).length}
                             </span> active hires
                         </div>
 
