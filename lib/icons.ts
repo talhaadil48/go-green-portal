@@ -422,6 +422,23 @@ const stopSign: IconType = {
   `,
 };
 
+const giveWaySign: IconType = {
+  id: 'give-way-sign',
+  label: 'Give Way Sign',
+  category: 'traffic',
+  color: '#dc2626',
+  width: 87.5,
+  height: 87.5,
+  render: (x, y, rotation, scale) => `
+    <g transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})">
+      <polygon points="-40,-32 40,-32 0,38"
+               fill="#ffffff" stroke="#dc2626" stroke-width="7" stroke-linejoin="round"/>
+      <text x="0" y="-13" font-size="14" font-weight="bold" fill="#1f2937" text-anchor="middle" dominant-baseline="middle">GIVE</text>
+      <text x="0" y="3" font-size="12" font-weight="bold" fill="#1f2937" text-anchor="middle" dominant-baseline="middle">WAY</text>
+    </g>
+  `,
+};
+
 const speedLimitSign: IconType = {
   id: 'speed-limit',
   label: 'Speed Limit',
@@ -560,7 +577,7 @@ export const ICON_LIBRARY: IconType[] = [
   roadStraight, roadCurved, roadIntersection, roadCrossroad, roadRoundabout, roadStraight2Lanes,
   vehicleCarRed, vehicleCarBlue, vehicleCarBlack, vehicleCarSilver, vehicleCarGray, vehicleCarBrown,
   vehicleTruck, vehicleMotorcycle,vehicleVan,
-  trafficLight, stopSign, speedLimitSign,
+  trafficLight, stopSign, giveWaySign, speedLimitSign,
   collisionMarker, skidMark, damageMarker,
   movementArrowRight, movementArrowCurved,
 ];
