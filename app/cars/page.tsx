@@ -21,7 +21,6 @@ import {
   Wrench,
   FileText,
   Upload,
-  Gauge,
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
@@ -40,7 +39,6 @@ interface Vehicle {
   mot_doc?: string | null;
   road_tax?: string | null;
   current_miles?: number | null;
-  last_miles_in?: number | null;
   attributes?: string[];
 }
 
@@ -67,8 +65,7 @@ type SortField =
   | "last_service_miles"
   | "mot_date"
   | "road_tax"
-  | "current_miles"
-  | "last_miles_in";
+  | "current_miles";
 
 type HistorySortField = "car_reg" | "claim_id" | "hire_start" | "hire_end" | "miles_out" | "miles_in";
 type SortDirection = "asc" | "desc";
@@ -227,7 +224,6 @@ export default function VehiclesPage() {
     mot_date: "",
     road_tax: "",
     current_miles: "",
-    last_miles_in: "",
     attributes: [] as string[]
   });
   const [saving, setSaving] = useState(false);
@@ -237,7 +233,6 @@ export default function VehiclesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [syncingId, setSyncingId] = useState<number | null>(null);
-  const [transferringMilesId, setTransferringMilesId] = useState<number | null>(null);
 
   const [togglingLongHireId, setTogglingLongHireId] = useState<number | null>(null);
 
@@ -383,7 +378,6 @@ export default function VehiclesPage() {
       mot_date: md,
       road_tax: rt,
       current_miles: vehicle.current_miles ? String(vehicle.current_miles) : "",
-      last_miles_in: vehicle.last_miles_in !== undefined && vehicle.last_miles_in !== null ? String(vehicle.last_miles_in) : "",
       attributes: (vehicle.attributes || []).map(a => a.toUpperCase()),
     });
   };
@@ -398,7 +392,6 @@ export default function VehiclesPage() {
       mot_date: "", 
       road_tax: "", 
       current_miles: "", 
-      last_miles_in: "", 
       attributes: [] 
     });
   };
@@ -414,7 +407,6 @@ export default function VehiclesPage() {
         mot_date: editData.mot_date ? new Date(editData.mot_date).toISOString() : null,
         road_tax: editData.road_tax ? new Date(editData.road_tax).toISOString() : null,
         current_miles: editData.current_miles ? parseInt(editData.current_miles, 10) : null,
-        last_miles_in: editData.last_miles_in !== "" && !isNaN(parseInt(editData.last_miles_in, 10)) ? parseInt(editData.last_miles_in, 10) : null,
         attributes: editData.attributes.map(a => a.toUpperCase()),
       };
 
@@ -428,44 +420,6 @@ export default function VehiclesPage() {
       alert(err.response?.data?.detail || "Failed to update vehicle.");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleTransferLastMiles = async (v: Vehicle) => {
-    if (v.last_miles_in === null || v.last_miles_in === undefined) {
-      alert("No Last Miles In recorded for this vehicle.");
-      return;
-    }
-    if (
-      window.confirm(
-        `Set Current Miles to ${v.last_miles_in} and reset Last Miles In?`
-      )
-    ) {
-      setTransferringMilesId(v.id);
-      try {
-        const payload = {
-          current_miles: v.last_miles_in,
-          last_miles_in: null,
-        };
-        await api.put(`/api/car/${v.id}`, payload, {
-          headers: { requiresAuth: true },
-        });
-        setVehicles((prev) =>
-          prev.map((item) =>
-            item.id === v.id
-              ? { ...item, current_miles: v.last_miles_in, last_miles_in: null }
-              : item
-          )
-        );
-      } catch (err: any) {
-        alert(
-          err.response?.data?.detail ||
-            err.response?.data?.message ||
-            "Failed to update miles."
-        );
-      } finally {
-        setTransferringMilesId(null);
-      }
     }
   };
 
@@ -677,7 +631,6 @@ export default function VehiclesPage() {
       valB = b.road_tax ? new Date(b.road_tax).getTime() : 0;
     }
     else if (sortField === "current_miles") { valA = a.current_miles || 0; valB = b.current_miles || 0; }
-    else if (sortField === "last_miles_in") { valA = a.last_miles_in || 0; valB = b.last_miles_in || 0; }
     else if (sortField === "available") {
       valA = checkIsAvail(a) ? 1 : 0;
       valB = checkIsAvail(b) ? 1 : 0;
@@ -1180,15 +1133,6 @@ export default function VehiclesPage() {
                         </div>
                       </th>
                       <th
-                        onClick={() => handleSort("last_miles_in")}
-                        className="text-left px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
-                      >
-                        <div className="flex items-center gap-1">
-                          Last Miles In
-                          <ArrowUpDown size={12} className="text-gray-400" />
-                        </div>
-                      </th>
-                      <th
                         onClick={() => handleSort("available")}
                         className="text-center px-3 py-2 font-semibold text-gray-600 uppercase tracking-wide text-[10px] cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap"
                       >
@@ -1309,15 +1253,6 @@ export default function VehiclesPage() {
                                   placeholder="Miles"
                                   value={editData.current_miles}
                                   onChange={(e) => setEditData((p) => ({ ...p, current_miles: e.target.value }))}
-                                  className="w-[80px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
-                                />
-                              </td>
-                              <td className="px-2 py-2 align-middle">
-                                <input
-                                  type="number"
-                                  placeholder="Miles In"
-                                  value={editData.last_miles_in}
-                                  onChange={(e) => setEditData((p) => ({ ...p, last_miles_in: e.target.value }))}
                                   className="w-[80px] px-2 py-1.5 border-2 border-emerald-400 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-500 bg-white shadow-sm transition"
                                 />
                               </td>
@@ -1553,10 +1488,6 @@ export default function VehiclesPage() {
                                 </span>
                               </td>
 
-                              <td className="px-3 py-2 text-gray-700 align-middle">
-                                {v.last_miles_in !== null && v.last_miles_in !== undefined ? v.last_miles_in : "—"}
-                              </td>
-
                               <td className="px-3 py-2 text-center align-middle">
                                 <span
                                   className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium ${isAvail
@@ -1580,23 +1511,6 @@ export default function VehiclesPage() {
                                       <Loader2 size={12} className="animate-spin text-orange-600" />
                                     ) : (
                                       <Wrench size={12} />
-                                    )}
-                                  </button>
-
-                                  <button
-                                    onClick={() => handleTransferLastMiles(v)}
-                                    disabled={transferringMilesId === v.id || v.last_miles_in === null || v.last_miles_in === undefined}
-                                    className="p-1 hover:bg-cyan-50 text-gray-500 hover:text-cyan-700 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={
-                                      v.last_miles_in !== null && v.last_miles_in !== undefined
-                                        ? `Set Current Miles to ${v.last_miles_in} & Reset Last Miles In`
-                                        : "No Last Miles In recorded"
-                                    }
-                                  >
-                                    {transferringMilesId === v.id ? (
-                                      <Loader2 size={12} className="animate-spin text-cyan-600" />
-                                    ) : (
-                                      <Gauge size={12} />
                                     )}
                                   </button>
 

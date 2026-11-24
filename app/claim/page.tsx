@@ -173,7 +173,24 @@ export default function ClaimsDashboard() {
     const dateInputRef = useRef<HTMLInputElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
 
-    const isClaimClosed = (claim: Claim) => !!(claim.closed_date && claim.closed_by) || claim.status?.toLowerCase() === "close claim";
+    const isValidDate = (dateStr: string | null | undefined): boolean => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
+        if (d.getFullYear() <= 1971) return false; // catches epoch/placeholder dates
+        return true;
+    };
+
+    const isVehicleDamagePaid = (claim: Claim): boolean => {
+        if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
+        return isValidDate(claim.pay_date) || isValidDate(claim.invoice_datetime) || isValidDate(claim.hire_end_date);
+    };
+
+    const isClaimClosed = (claim: Claim) =>
+        !!(claim.closed_date && claim.closed_by) ||
+        claim.status?.toLowerCase() === "close claim" ||
+        Boolean(claim.is_disputed) ||
+        isVehicleDamagePaid(claim);
 
     const getHireCount = (start: string | null, end: string | null) => {
         if (!start) return null;
@@ -186,14 +203,6 @@ export default function ClaimsDashboard() {
         const diffTime = endDate.getTime() - startDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         return diffDays;
-    };
-
-    const isValidDate = (dateStr: string | null | undefined): boolean => {
-        if (!dateStr) return false;
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return false;
-        if (d.getFullYear() <= 1971) return false;
-        return true;
     };
 
     const getStageFromDates = (claim: Claim): string => {
@@ -222,11 +231,6 @@ export default function ClaimsDashboard() {
     const getStageNumber = (claim: Claim): number => {
         const stage = getStageFromDates(claim);
         return STATUS_COLORS[stage]?.number || 0;
-    };
-
-    const isVehicleDamagePaid = (claim: Claim): boolean => {
-        if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
-        return getStageNumber(claim) >= 3 || isValidDate(claim.pay_date);
     };
 
     useEffect(() => {

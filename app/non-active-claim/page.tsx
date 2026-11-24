@@ -106,18 +106,30 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; gradient: string; b
     },
 };
 
-// Helper function to check if a claim is fully closed
-const isClaimClosed = (claim: Claim) => {
-    return claim.status?.toLowerCase() === "close claim" || !!(claim.closed_date && claim.closed_by);
-};
-
-// Determine stage based on dates - only for non-closed claims
+// Determine valid dates
 const isValidDate = (dateStr: string | null | undefined): boolean => {
     if (!dateStr) return false;
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false;
     if (d.getFullYear() <= 1971) return false; // catches epoch/placeholder dates
     return true;
+};
+
+// Vehicle damage claims reach completion at Stage 3 (Client Paid)
+const isVehicleDamageStage3 = (claim: Claim): boolean => {
+    if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
+    return isValidDate(claim.pay_date) || isValidDate(claim.invoice_datetime) || isValidDate(claim.hire_end_date);
+};
+
+// Helper function to check if a claim is fully closed
+// Automatically closes if disputed (is_disputed) or if vehicle damage claim has reached Stage 3 (Client Paid)
+const isClaimClosed = (claim: Claim) => {
+    return (
+        claim.status?.toLowerCase() === "close claim" ||
+        !!(claim.closed_date && claim.closed_by) ||
+        Boolean(claim.is_disputed) ||
+        isVehicleDamageStage3(claim)
+    );
 };
 
 const getStageFromDates = (claim: Claim): string => {
@@ -152,8 +164,7 @@ const getStageNumber = (claim: Claim): number => {
 };
 
 const isVehicleDamagePaid = (claim: Claim): boolean => {
-    if (claim.claim_type?.toLowerCase() !== "vehicle damage") return false;
-    return getStageNumber(claim) >= 3 || isValidDate(claim.pay_date);
+    return isVehicleDamageStage3(claim);
 };
 
 // Get stage badge info
@@ -193,7 +204,8 @@ export default function ClaimsPage() {
     const [selectedType, setSelectedType] = useState("");
     const [selectedCouncil, setSelectedCouncil] = useState("");
     const [selectedStage, setSelectedStage] = useState("");
-    const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Non Active" | "Closed">("all");
+    const [statusFilter, setStatusFilter] = useState<"all" | "Active" | "Non Active" | "Closed" | "Disputed">("all");
+    const [disputeFilter, setDisputeFilter] = useState<"all" | "disputed" | "non-disputed">("all");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
 
@@ -264,7 +276,7 @@ export default function ClaimsPage() {
             const targetScroll = elementTop - window.innerHeight * 0.4;
             window.scrollTo({ top: targetScroll, behavior: "smooth" });
         }
-    }, [selectedType, statusFilter, selectedCouncil, selectedStage, searchTerm, startDate, endDate]);
+    }, [selectedType, statusFilter, disputeFilter, selectedCouncil, selectedStage, searchTerm, startDate, endDate]);
 
     const fetchClaims = async () => {
         setLoading(true);
@@ -316,17 +328,22 @@ export default function ClaimsPage() {
             });
         }
 
+        // Filter by dispute / fault
+        if (disputeFilter === "disputed" || statusFilter === "Disputed") {
+            filtered = filtered.filter((claim) => claim.is_disputed);
+        } else if (disputeFilter === "non-disputed") {
+            filtered = filtered.filter((claim) => !claim.is_disputed);
+        }
+
         if (statusFilter === "Active") {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
-                !claim.is_disputed &&
-                !isVehicleDamagePaid(claim) &&
                 ["claim created", "hire start", "client paid"].includes(getStageFromDates(claim))
             );
         } else if (statusFilter === "Non Active") {
             filtered = filtered.filter((claim) =>
                 !isClaimClosed(claim) &&
-                (claim.is_disputed || isVehicleDamagePaid(claim) || ["hire end", "invoice sent"].includes(getStageFromDates(claim)))
+                ["hire end", "invoice sent"].includes(getStageFromDates(claim))
             );
         } else if (statusFilter === "Closed") {
             filtered = filtered.filter((claim) => isClaimClosed(claim));
@@ -781,6 +798,7 @@ export default function ClaimsPage() {
         setSelectedCouncil("");
         setSelectedStage("");
         setStatusFilter("all");
+        setDisputeFilter("all");
         setStartDate("");
         setEndDate("");
         setSortColumn(null);
@@ -792,15 +810,14 @@ export default function ClaimsPage() {
         const total = allClaims.length;
         const activeClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
-            !c.is_disputed &&
-            !isVehicleDamagePaid(c) &&
             ["claim created", "hire start", "client paid"].includes(getStageFromDates(c))
         ).length;
         const nonActiveClaims = allClaims.filter(c =>
             !isClaimClosed(c) &&
-            (c.is_disputed || isVehicleDamagePaid(c) || ["hire end", "invoice sent"].includes(getStageFromDates(c)))
+            ["hire end", "invoice sent"].includes(getStageFromDates(c))
         ).length;
         const closedClaims = allClaims.filter(c => isClaimClosed(c)).length;
+        const disputedClaims = allClaims.filter(c => c.is_disputed).length;
         const typeBreakdown = CLAIM_TYPES.map(type => ({
             type,
             count: allClaims.filter(c => c.claim_type?.toLowerCase() === type).length,
@@ -814,7 +831,7 @@ export default function ClaimsPage() {
             !isClaimClosed(c) && getStageFromDates(c) === "invoice sent"
         ).length;
 
-        return { total, activeClaims, nonActiveClaims, closedClaims, typeBreakdown, invoicePending, invoiceSent };
+        return { total, activeClaims, nonActiveClaims, closedClaims, disputedClaims, typeBreakdown, invoicePending, invoiceSent };
     }, [allClaims]);
 
     // ── Reusable date cell renderer ───────────────────────────────────────────
@@ -1345,7 +1362,7 @@ export default function ClaimsPage() {
                             </div>
 
                             {/* Row 1: Claim Status Summary (Clickable Filters) */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                                 {/* Total */}
                                 <button
                                     onClick={() => setStatusFilter("all")}
@@ -1435,6 +1452,37 @@ export default function ClaimsPage() {
                                             <p className="text-xs font-semibold text-rose-100 uppercase tracking-widest">Settled</p>
                                         </div>
                                         <p className="text-5xl font-black tracking-tighter">{summary.closedClaims}</p>
+                                    </div>
+                                </button>
+
+                                {/* Fault / Disputed */}
+                                <button
+                                    onClick={() => {
+                                        if (statusFilter === "Disputed") {
+                                            setStatusFilter("all");
+                                            setDisputeFilter("all");
+                                        } else {
+                                            setStatusFilter("Disputed");
+                                            setDisputeFilter("disputed");
+                                        }
+                                    }}
+                                    className={`group relative overflow-hidden rounded-3xl p-6 shadow-xl text-white transition-all duration-300 cursor-pointer border-2
+                                ${statusFilter === "Disputed"
+                                            ? "border-red-400 scale-105 shadow-2xl shadow-red-500/60 ring-4 ring-red-400/40 bg-gradient-to-br from-red-600 to-rose-700"
+                                            : "border-transparent bg-gradient-to-br from-rose-600 to-red-600 hover:scale-102 hover:shadow-xl"
+                                        }`}
+                                >
+                                    <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/15 rounded-full" />
+                                    <div className="absolute -bottom-8 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                                    {statusFilter === "Disputed" && (
+                                        <div className="absolute inset-0 bg-red-400/25 blur-3xl rounded-3xl" />
+                                    )}
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <AlertCircle size={18} className="text-red-100" />
+                                            <p className="text-xs font-semibold text-red-100 uppercase tracking-widest">Fault / Disputed</p>
+                                        </div>
+                                        <p className="text-5xl font-black tracking-tighter">{summary.disputedClaims}</p>
                                     </div>
                                 </button>
                             </div>
@@ -2039,13 +2087,42 @@ export default function ClaimsPage() {
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                                         <select
                                             value={statusFilter}
-                                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                                            onChange={(e) => {
+                                                const val = e.target.value as any;
+                                                setStatusFilter(val);
+                                                if (val === "Disputed") {
+                                                    setDisputeFilter("disputed");
+                                                } else if (disputeFilter === "disputed") {
+                                                    setDisputeFilter("all");
+                                                }
+                                            }}
                                             className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
                                         >
                                             <option value="all">All Status</option>
                                             <option value="Active">Active</option>
                                             <option value="Non Active">Non Active</option>
                                             <option value="Closed">Closed</option>
+                                            <option value="Disputed">Fault / Disputed</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Dispute / Fault</label>
+                                        <select
+                                            value={disputeFilter}
+                                            onChange={(e) => {
+                                                const val = e.target.value as any;
+                                                setDisputeFilter(val);
+                                                if (val === "disputed") {
+                                                    setStatusFilter("Disputed");
+                                                } else if (statusFilter === "Disputed") {
+                                                    setStatusFilter("all");
+                                                }
+                                            }}
+                                            className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 bg-white/80"
+                                        >
+                                            <option value="all">All Claims</option>
+                                            <option value="disputed">Fault / Disputed Only</option>
+                                            <option value="non-disputed">Standard (Not Disputed)</option>
                                         </select>
                                     </div>
                                     <div className="flex flex-col sm:flex-row sm:items-end gap-2">
