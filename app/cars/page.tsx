@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/axios";
+import FleetAlertsBell from "../components/FleetAlertsBell";
 
 interface Vehicle {
   id: number;
@@ -238,6 +239,7 @@ export default function VehiclesPage() {
 
   const [uploadingMotId, setUploadingMotId] = useState<number | null>(null);
   const [deletingMotDocId, setDeletingMotDocId] = useState<number | null>(null);
+  const [alertsTrigger, setAlertsTrigger] = useState<number>(0);
 
   // Search & Sorting for Vehicles
   const [search, setSearch] = useState("");
@@ -285,6 +287,7 @@ export default function VehiclesPage() {
       setError("Failed to load vehicles. Please try again.");
     } finally {
       setLoading(false);
+      setAlertsTrigger((p) => p + 1);
     }
   };
 
@@ -441,6 +444,7 @@ export default function VehiclesPage() {
         } else {
           await fetchAllData();
         }
+        setAlertsTrigger((p) => p + 1);
       } else {
         alert(res.data?.message || res.data?.error || "Failed to sync service miles.");
       }
@@ -681,7 +685,17 @@ export default function VehiclesPage() {
                 Manage hire and long hire fleet
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-2.5">
+              <FleetAlertsBell
+                onSelectCar={(regNo) => {
+                  setSearch(regNo);
+                  setActiveTab("all");
+                }}
+                onServiceDone={async (carId) => {
+                  await syncServiceMiles(carId);
+                }}
+                refreshTrigger={alertsTrigger}
+              />
               <button
                 onClick={activeTab === "history" ? fetchFleetHistory : fetchAllData}
                 disabled={loading || historyLoading}
